@@ -1,0 +1,88 @@
+net/dv8tion/jda/api/events/channel/text/update/package-info.java
+ net.dv8tion.jda.api.events.channel.text.update.package-info
+net/dv8tion/jda/api/sharding/package-info.java
+ net.dv8tion.jda.api.sharding.package-info
+net/dv8tion/jda/api/entities/package-info.java
+ net.dv8tion.jda.api.entities.package-info
+net/dv8tion/jda/api/requests/package-info.java
+ net.dv8tion.jda.api.requests.package-info
+net/dv8tion/jda/api/events/emote/update/package-info.java
+ net.dv8tion.jda.api.events.emote.update.package-info
+net/dv8tion/jda/api/events/self/package-info.java
+ net.dv8tion.jda.api.events.self.package-info
+net/dv8tion/jda/api/events/role/update/package-info.java
+ net.dv8tion.jda.api.events.role.update.package-info
+net/dv8tion/jda/api/events/message/guild/react/package-info.java
+ net.dv8tion.jda.api.events.message.guild.react.package-info
+net/dv8tion/jda/api/managers/package-info.java
+ net.dv8tion.jda.api.managers.package-info
+net/dv8tion/jda/api/requests/restaction/package-info.java
+ net.dv8tion.jda.api.requests.restaction.package-info
+net/dv8tion/jda/api/package-info.java
+ net.dv8tion.jda.api.package-info
+net/dv8tion/jda/api/events/channel/priv/package-info.java
+ net.dv8tion.jda.api.events.channel.priv.package-info
+net/dv8tion/jda/api/exceptions/package-info.java
+ net.dv8tion.jda.api.exceptions.package-info
+net/dv8tion/jda/api/hooks/package-info.java
+ net.dv8tion.jda.api.hooks.package-info
+net/dv8tion/jda/api/requests/restaction/order/package-info.java
+ net.dv8tion.jda.api.requests.restaction.order.package-info
+net/dv8tion/jda/api/events/message/package-info.java
+ net.dv8tion.jda.api.events.message.package-info
+net/dv8tion/jda/annotations/package-info.java
+ net.dv8tion.jda.annotations.package-info
+net/dv8tion/jda/api/events/channel/text/package-info.java
+ net.dv8tion.jda.api.events.channel.text.package-info
+net/dv8tion/jda/api/utils/package-info.java
+ net.dv8tion.jda.api.utils.package-info
+net/dv8tion/jda/api/events/guild/package-info.java
+ net.dv8tion.jda.api.events.guild.package-info
+net/dv8tion/jda/api/events/guild/update/package-info.java
+ net.dv8tion.jda.api.events.guild.update.package-info
+net/dv8tion/jda/api/events/message/priv/package-info.java
+ net.dv8tion.jda.api.events.message.priv.package-info
+net/dv8tion/jda/internal/utils/tuple/package-info.java
+ net.dv8tion.jda.internal.utils.tuple.package-info
+net/dv8tion/jda/api/utils/concurrent/package-info.java
+ net.dv8tion.jda.api.utils.concurrent.package-info
+net/dv8tion/jda/package-info.java
+ net.dv8tion.jda.package-info
+net/dv8tion/jda/api/audit/package-info.java
+ net.dv8tion.jda.api.audit.package-info
+net/dv8tion/jda/api/utils/data/package-info.java
+ net.dv8tion.jda.api.utils.data.package-info
+net/dv8tion/jda/api/events/channel/voice/package-info.java
+ net.dv8tion.jda.api.events.channel.voice.package-info
+net/dv8tion/jda/api/events/message/priv/react/package-info.java
+ net.dv8tion.jda.api.events.message.priv.react.package-info
+net/dv8tion/jda/api/events/user/package-info.java
+ net.dv8tion.jda.api.events.user.package-info
+net/dv8tion/jda/api/events/channel/package-info.java
+ net.dv8tion.jda.api.events.channel.package-info
+net/dv8tion/jda/api/utils/cache/package-info.java
+ net.dv8tion.jda.api.utils.cache.package-info
+net/dv8tion/jda/api/events/channel/category/package-info.java
+ net.dv8tion.jda.api.events.channel.category.package-info
+net/dv8tion/jda/api/events/message/guild/package-info.java
+ net.dv8tion.jda.api.events.message.guild.package-info
+net/dv8tion/jda/api/events/package-info.java
+ net.dv8tion.jda.api.events.package-info
+net/dv8tion/jda/api/events/emote/package-info.java
+ net.dv8tion.jda.api.events.emote.package-info
+net/dv8tion/jda/api/requests/restaction/pagination/package-info.java
+ net.dv8tion.jda.api.requests.restaction.pagination.package-info
+net/dv8tion/jda/api/events/message/react/package-info.java
+ net.dv8tion.jda.api.events.message.react.package-info
+net/dv8tion/jda/api/events/channel/voice/update/package-info.java
+ net.dv8tion.jda.api.events.channel.voice.update.package-info
+net/dv8tion/jda/api/events/guild/voice/package-info.java
+ net.dv8tion.jda.api.events.guild.voice.package-info
+net/dv8tion/jda/api/events/guild/member/package-info.java
+ net.dv8tion.jda.api.events.guild.member.package-info
+net/dv8tion/jda/internal/requests/ratelimit/package-info.java
+ net.dv8tion.jda.internal.requests.ratelimit.package-info
+net/dv8tion/jda/api/events/role/package-info.java
+ net.dv8tion.jda.api.events.role.package-info
+net/dv8tion/jda/api/events/channel/category/update/package-info.java
+ net.dv8tion.jda.api.events.channel.category.update.package-info
