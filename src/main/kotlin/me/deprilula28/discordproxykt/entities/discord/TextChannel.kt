@@ -17,6 +17,7 @@ interface GuildChannel {
     val position: Int
     val name: String
     val permissions: List<PermissionOverwrite>
+    val categorySnowflake: Snowflake?
 }
 
 class TextChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), MessageChannel, GuildChannel {
@@ -28,6 +29,7 @@ class TextChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Messa
     override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
     override val position: Int by map.delegateJson(JsonElement::asInt)
     override val name: String by map.delegateJson(JsonElement::asString)
+    override val categorySnowflake: Snowflake? by map.delegateJsonNullable(JsonElement::asSnowflake, "parent_id")
     
     override val permissions: List<PermissionOverwrite> by map.delegateJson({
         (this as JsonArray).map {

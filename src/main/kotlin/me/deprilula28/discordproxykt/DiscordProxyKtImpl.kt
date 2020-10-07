@@ -56,8 +56,8 @@ class DiscordProxyKtImpl internal constructor(
                 .connectTimeout(Duration.ofSeconds(30L))
                 .build()
             
-            fun build(): DiscordProxyKt = DiscordProxyKtImpl(group, subgroup, broker, coroutineScope, httpClient,
-                                                         token)
+            fun build(): DiscordProxyKt
+                    = DiscordProxyKtImpl(group, subgroup, broker, coroutineScope, httpClient, token)
         }
     }
 }

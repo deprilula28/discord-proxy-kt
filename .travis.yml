@@ -1,0 +1,29 @@
+language: java
+install: true
+
+os: linux
+dist: trusty
+jdk: openjdk11
+
+matrix:
+  allow_failures:
+    - jdk: openjdk-ea
+before_cache:
+  - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
+  - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
+cache:
+  directories:
+    - $HOME/.gradle/caches/
+    - $HOME/.gradle/wrapper/
+    - build/
+    - .gradle/
+
+before_install:
+  - chmod +x gradlew
+script: ./gradlew build
+deploy:
+  provider: releases
+  api_key: $GITHUB_OAUTH_TOKEN
+  skip_cleanup: true
+  on:
+    tags: true
