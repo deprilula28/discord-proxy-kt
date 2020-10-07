@@ -1,8 +1,9 @@
 package me.deprilula28.discordproxykt.entities.discord
 
-import me.deprilula28.discordproxykt.JdaProxySpectacles
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 
 // https://discord.com/developers/docs/resources/channel#channel-object-channel-structure
@@ -18,21 +19,21 @@ interface GuildChannel {
     val permissions: List<PermissionOverwrite>
 }
 
-class TextChannel(map: JsonObject, bot: JdaProxySpectacles): Entity(map, bot), MessageChannel, GuildChannel {
-    val topic: String by lazy { map["topic"]!!.asString() }
-    val nsfw: Boolean by lazy { map["nsfw"]!!.asBoolean() }
-    val lastPinTimestamp: Timestamp? by lazy { map["last_pin_timestamp"]?.asTimestamp() }
-    override val rateLimitPerUser: Int? by lazy { map["rate_limit_per_user"]?.asInt() }
-    override val lastMessageId: Snowflake by lazy { map["last_message_id"]!!.asSnowflake() }
-    override val guildSnowflake: Snowflake by lazy { map["guild_id"]!!.asSnowflake() }
-    override val position: Int by lazy { map["position"]!!.asInt() }
-    override val name: String by lazy { map["name"]!!.asString() }
+class TextChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), MessageChannel, GuildChannel {
+    val topic: String by map.delegateJson(JsonElement::asString)
+    val nsfw: Boolean by map.delegateJson(JsonElement::asBoolean)
+    val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
+    override val rateLimitPerUser: Int? by map.delegateJsonNullable(JsonElement::asInt, "rate_limit_per_user")
+    override val lastMessageId: Snowflake by map.delegateJson(JsonElement::asSnowflake, "last_message_id")
+    override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
+    override val position: Int by map.delegateJson(JsonElement::asInt)
+    override val name: String by map.delegateJson(JsonElement::asString)
     
-    override val permissions: List<PermissionOverwrite> by lazy {
-        (map["permission_overwrites"]!! as JsonArray).map {
+    override val permissions: List<PermissionOverwrite> by map.delegateJson({
+        (this as JsonArray).map {
             PermissionOverwrite(it as JsonObject, bot)
         }
-    }
+    }, "permission_overwrites")
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("rateLimitPerUser"))
     val slowmode: Int? by ::rateLimitPerUser

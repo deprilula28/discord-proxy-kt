@@ -1,16 +1,14 @@
-package events.message
+package me.deprilula28.discordproxykt.events.message
 
-import me.deprilula28.discordproxykt.entities.discord.Member
-import entities.discord.message.Message
-import me.deprilula28.discordproxykt.entities.discord.User
+import kotlinx.serialization.json.JsonObject
+import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.entities.Snowflake
+import me.deprilula28.discordproxykt.entities.discord.message.Message
 
-class MessageUpdateEvent(val message: Message): GenericMessageEvent(message.id, message.channelId, message.guildId, message.bot) {
-    val author: User
-        get() = message.author
+class MessageUpdateEvent(map: JsonObject, override val bot: DiscordProxyKt): GenericMessageEvent {
+    val message: Message = Message(map, bot)
     
-    val member: Member?
-        get() = message.member
-    
-    val isWebhookMessage: Boolean
-        get() = message.webhookId != null
+    override val id: Snowflake by lazy { message.snowflake }
+    override val channel: Snowflake by lazy { message.channelSnowflake }
+    override val guild: Snowflake? by lazy { message.guildSnowflake }
 }

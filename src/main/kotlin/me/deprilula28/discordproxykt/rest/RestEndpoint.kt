@@ -3,6 +3,7 @@ package me.deprilula28.discordproxykt.rest
 enum class RestEndpoint(private val path: String, val method: String) {
     // Audit Log
     GET_GUILD_AUDIT_LOGS("/guilds/%s/audit-logs", "GET"),
+    
     // Channel
     GET_CHANNEL("/channels/%s", "GET"),
     MODIFY_CHANNEL("/channels/%s", "PATCH"),

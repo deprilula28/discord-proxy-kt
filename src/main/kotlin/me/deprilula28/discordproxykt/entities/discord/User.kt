@@ -1,31 +1,30 @@
 package me.deprilula28.discordproxykt.entities.discord
 
-import me.deprilula28.discordproxykt.JdaProxySpectacles
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 import java.util.*
 
 // https://discord.com/developers/docs/resources/user#user-object
-class User(map: JsonObject, bot: JdaProxySpectacles): Entity(map, bot) {
-    val username: String by lazy { map["username"]!!.asString() }
-    val discriminator: String by lazy { map["discriminator"]!!.asString() }
-    val avatarHash: String? by lazy { map["avatar"]?.asString() }
-    val isBot: Boolean by lazy { map["bot"]!!.asBoolean() }
-    val system: Boolean by lazy { map["system"]!!.asBoolean() }
-    val publicFlags: EnumSet<Flags> by lazy { map["flags"]!!.asLong().bitSetToEnumSet(Flags.values()) }
+class User(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot) {
+    val username: String by map.delegateJson(JsonElement::asString)
+    val discriminator: String by map.delegateJson(JsonElement::asString)
+    val avatarHash: String? by map.delegateJsonNullable(JsonElement::asString, "avatar")
+    val isBot: Boolean by map.delegateJson(JsonElement::asBoolean, "bot")
+    val system: Boolean by map.delegateJson(JsonElement::asBoolean)
+    val publicFlags: EnumSet<Flags> by lazy { map["public_flags"]!!.asLong().bitSetToEnumSet(Flags.values()) }
     
     // Logged on users through OAuth2 only
-    val flags: EnumSet<Flags>? by lazy { map["flags"]?.asLong()?.bitSetToEnumSet(Flags.values()) }
-    val locale: String? by lazy { map["locale"]?.asString() }
-    val verified: Boolean? by lazy { map["verified"]?.asBoolean() }
-    val email: String? by lazy { map["email"]?.asString() }
-    val multipleFactor: Boolean? by lazy { map["mfa"]?.asBoolean() }
-    val premiumType: PremiumType? by lazy { map["premium_type"]?.asInt()?.run { PremiumType.values()[this] } }
+    val flags: EnumSet<Flags>? by map.delegateJsonNullable({ asLong().bitSetToEnumSet(Flags.values()) })
+    val locale: String? by map.delegateJsonNullable(JsonElement::asString)
+    val verified: Boolean? by map.delegateJsonNullable(JsonElement::asBoolean)
+    val email: String? by map.delegateJsonNullable(JsonElement::asString)
+    val multipleFactor: Boolean? by map.delegateJsonNullable(JsonElement::asBoolean)
+    val premiumType: PremiumType? by map.delegateJsonNullable({ PremiumType.values()[asInt()] }, "premium_type")
     
     enum class PremiumType {
-        NONE,
-        CLASSIC,
-        NITRO
+        NONE, CLASSIC, NITRO
     }
     
     enum class Flags {

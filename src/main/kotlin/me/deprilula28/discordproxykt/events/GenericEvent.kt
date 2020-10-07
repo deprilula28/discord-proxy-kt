@@ -1,8 +1,11 @@
-package events
+package me.deprilula28.discordproxykt.events
 
-import me.deprilula28.discordproxykt.JdaProxySpectacles
+import me.deprilula28.discordproxykt.DiscordProxyKt
 
-open class GenericEvent(val bot: JdaProxySpectacles) {
-    val jda: JdaProxySpectacles
+interface GenericEvent {
+    val bot: DiscordProxyKt
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("bot"))
+    val jda: DiscordProxyKt
         get() = bot
 }
