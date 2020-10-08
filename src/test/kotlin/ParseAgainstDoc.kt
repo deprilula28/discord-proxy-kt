@@ -1,11 +1,13 @@
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
 import me.deprilula28.discordproxykt.entities.discord.TextChannel
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.entities.discord.message.UnicodeEmoji
 import org.junit.jupiter.api.TestInstance
+import org.mockito.Mockito
 import kotlin.test.Test
 
 import kotlin.test.assertEquals
@@ -47,7 +49,7 @@ import kotlin.test.assertEquals
             }
         """.trimIndent()
         
-        val message = Message(Json.decodeFromString(JsonObject.serializer(), text), MockDiscordProxyKt())
+        val message = Message(Json.decodeFromString(JsonObject.serializer(), text), Mockito.mock(DiscordProxyKt::class.java))
         
         assertEquals(message.snowflake, Snowflake("334385199974967042"))
         assertEquals(message.channelSnowflake, Snowflake("290926798999357250"))
@@ -101,7 +103,7 @@ import kotlin.test.assertEquals
             }
         """.trimIndent()
         
-        val channel = TextChannel(Json.decodeFromString(JsonObject.serializer(), text), MockDiscordProxyKt())
+        val channel = TextChannel(Json.decodeFromString(JsonObject.serializer(), text), Mockito.mock(DiscordProxyKt::class.java))
     
         assertEquals(channel.snowflake, Snowflake("41771983423143937"))
         assertEquals(channel.guildSnowflake, Snowflake("41771983423143937"))
