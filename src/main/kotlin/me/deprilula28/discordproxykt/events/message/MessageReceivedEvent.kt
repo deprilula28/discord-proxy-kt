@@ -1,6 +1,7 @@
 package me.deprilula28.discordproxykt.events.message
 
 import kotlinx.serialization.json.JsonObject
+import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 

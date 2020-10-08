@@ -3,6 +3,7 @@ package me.deprilula28.discordproxykt.entities.discord.message
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.asBoolean
 import me.deprilula28.discordproxykt.entities.asInt
 import me.deprilula28.discordproxykt.entities.delegateJson

@@ -2,6 +2,7 @@ package me.deprilula28.discordproxykt.entities.discord.message
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 
 // https://discord.com/developers/docs/resources/channel#attachment-object

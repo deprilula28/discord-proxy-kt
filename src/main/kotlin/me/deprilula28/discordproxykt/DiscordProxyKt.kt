@@ -24,7 +24,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.getOrSet
 
-class DiscordProxyKt internal constructor(
+open class DiscordProxyKt internal constructor(
     private val group: String,
     private val subgroup: String,
     broker: URI,
