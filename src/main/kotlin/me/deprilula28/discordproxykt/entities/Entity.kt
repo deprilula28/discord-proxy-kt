@@ -5,16 +5,26 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.rest.IRestAction
+import me.deprilula28.discordproxykt.rest.RestAction
+import me.deprilula28.discordproxykt.rest.RestEndpoint
 import java.awt.Color
 import java.time.ZonedDateTime
 import java.util.*
 import kotlin.properties.ReadOnlyProperty
 
-open class Entity(private val map: JsonObject, val bot: DiscordProxyKt) {
+/// Interfaces deriving this only need the ID to run the included functions.
+interface IPartialEntity {
+    val snowflake: Snowflake
+    val bot: DiscordProxyKt
+}
+
+/// Classes deriving this will be Discord entities, with an ID and delegated fields.
+open class Entity(private val map: JsonObject, override val bot: DiscordProxyKt): IPartialEntity {
     @Deprecated("JDA Compatibility Field", ReplaceWith("bot"))
     val jda: DiscordProxyKt by ::bot
     
-    val snowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "id")
+    override val snowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "id")
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("snowflake.id"))
     val id: String by snowflake::id

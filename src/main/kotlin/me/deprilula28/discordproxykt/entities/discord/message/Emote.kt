@@ -1,6 +1,5 @@
 package me.deprilula28.discordproxykt.entities.discord.message
 
-import me.deprilula28.discordproxykt.DiscordProxyKt
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.entities.*

@@ -4,10 +4,11 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
+import me.deprilula28.discordproxykt.entities.discord.message.Message
 import java.util.*
 
 // https://discord.com/developers/docs/resources/user#user-object
-class User(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot) {
+class User(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Message.Mentionable {
     val username: String by map.delegateJson(JsonElement::asString)
     val discriminator: String by map.delegateJson(JsonElement::asString)
     val avatarHash: String? by map.delegateJsonNullable(JsonElement::asString, "avatar")
@@ -23,6 +24,9 @@ class User(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot) {
     val multipleFactor: Boolean? by map.delegateJsonNullable(JsonElement::asBoolean)
     val premiumType: PremiumType? by map.delegateJsonNullable({ PremiumType.values()[asInt()] }, "premium_type")
     
+    override val asMention: String
+        get() = "<@${snowflake.id}>"
+     
     enum class PremiumType {
         NONE, CLASSIC, NITRO
     }

@@ -31,7 +31,11 @@ enum class RestEndpoint(private val path: String, val method: String) {
     ADD_PINNED_CHANNEL_MESSAGE("/channels/%s/pins/%s", "PUT"),
     DELETE_PINNED_CHANNEL_MESSAGE("/channels/%s/pins/%s", "DELETE"),
     GROUP_DM_ADD_RECIPIENT("/channels/%s/recipients/%s", "PUT"),
-    GROUP_DM_REMOVE_RECIPIENT("/channels/%s/recipients/%s", "DELETE");
+    GROUP_DM_REMOVE_RECIPIENT("/channels/%s/recipients/%s", "DELETE"),
+    
+    // Guild
+    GET_GUILD_ROLES("/guilds/%s/roles", "GET")
+    ;
     
     fun path(vararg parts: String) = String.format(path, *parts)
 }
