@@ -6,11 +6,19 @@ import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 
-// https://discord.com/developers/docs/resources/channel#channel-object-channel-structure
+/**
+ * Channel documentation:
+ * https://discord.com/developers/docs/resources/channel
+ */
 interface MessageChannel {
+    val lastPinTimestamp: Timestamp?
     val lastMessageId: Snowflake
 }
 
+/**
+ * Channel documentation:
+ * https://discord.com/developers/docs/resources/channel
+ */
 interface GuildChannel {
     val guildSnowflake: Snowflake
     val position: Int
@@ -19,6 +27,12 @@ interface GuildChannel {
     val categorySnowflake: Snowflake?
 }
 
+/**
+ * a voice channel within a server
+ * <br>
+ * Channel documentation:
+ * https://discord.com/developers/docs/resources/channel
+ */
 class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel {
     val bitrate: Int by map.delegateJson(JsonElement::asInt)
     val userLimit: Int by map.delegateJson(JsonElement::asInt, "user_limit")
@@ -34,6 +48,12 @@ class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Guil
     }, "permission_overwrites")
 }
 
+/**
+ * an organizational category that contains up to 50 channels
+ * <br>
+ * Channel documentation:
+ * https://discord.com/developers/docs/resources/channel
+ */
 class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel {
     override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
     override val position: Int by map.delegateJson(JsonElement::asInt)
@@ -47,6 +67,13 @@ class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildCha
     }, "permission_overwrites")
 }
 
+/**
+ * a direct message between users
+ * <br>
+ * Channel documentation:
+ * https://discord.com/developers/docs/resources/channel
+ */
 class PrivateChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), MessageChannel {
+    override val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
     override val lastMessageId: Snowflake by map.delegateJson(JsonElement::asSnowflake, "last_message_id")
 }

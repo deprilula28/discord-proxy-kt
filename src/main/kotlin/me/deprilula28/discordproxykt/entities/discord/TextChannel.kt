@@ -14,6 +14,12 @@ import me.deprilula28.discordproxykt.rest.ReadyRestAction
 import me.deprilula28.discordproxykt.rest.RestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
 
+/**
+ * This type is used for operations when an ID of a {@link me.deprilula28.discordproxykt.entities.discord.TextChannel TextChannel} is known.
+ * <br>
+ * If it is {@link me.deprilula28.discordproxykt.entities.discord.PartialTextChannel$Upgradeable Upgradeable},
+ * you can get data of a text channel by calling `await()` or `request()`.
+ */
 interface PartialTextChannel: IPartialEntity, Message.Mentionable {
     /// Retrieve a message by the given ID.
     /// <br>
@@ -47,20 +53,28 @@ interface PartialTextChannel: IPartialEntity, Message.Mentionable {
         get() = "<#${snowflake.id}>"
 }
 
+/**
+ * a text channel within a server
+ * Channel documentation:
+ * https://discord.com/developers/docs/resources/channel
+ */
 class TextChannel(map: JsonObject, bot: DiscordProxyKt):
     Entity(map, bot),
     MessageChannel,
     GuildChannel,
     PartialTextChannel
 {
+    override val name: String by map.delegateJson(JsonElement::asString)
     val topic: String by map.delegateJson(JsonElement::asString)
     val nsfw: Boolean by map.delegateJson(JsonElement::asBoolean)
-    val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
+    
     val rateLimitPerUser: Int? by map.delegateJsonNullable(JsonElement::asInt, "rate_limit_per_user")
+    
+    override val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
     override val lastMessageId: Snowflake by map.delegateJson(JsonElement::asSnowflake, "last_message_id")
+    
     override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
     override val position: Int by map.delegateJson(JsonElement::asInt)
-    override val name: String by map.delegateJson(JsonElement::asString)
     override val categorySnowflake: Snowflake? by map.delegateJsonNullable(JsonElement::asSnowflake, "parent_id")
     
     override val permissions: List<PermissionOverwrite> by map.delegateJson({
