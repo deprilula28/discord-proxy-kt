@@ -9,6 +9,7 @@ import me.deprilula28.discordproxykt.entities.discord.message.GuildEmoji
 import me.deprilula28.discordproxykt.rest.IRestAction
 import java.util.*
 
+// TODO Other methods
 interface PartialGuild: IPartialEntity {
     interface Upgradeable: PartialUser, IRestAction<Guild>
 }

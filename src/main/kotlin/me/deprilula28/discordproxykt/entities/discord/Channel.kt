@@ -11,7 +11,14 @@ import me.deprilula28.discordproxykt.entities.*
  * https://discord.com/developers/docs/resources/channel
  */
 interface MessageChannel {
+    /**
+     * when the last pinned message was pinned. This may be null in events such as GUILD_CREATE when a message is not pinned.
+     */
     val lastPinTimestamp: Timestamp?
+    
+    /**
+     * the id of the last message sent in this channel (may not point to an existing or valid message)
+     */
     val lastMessageId: Snowflake
 }
 
@@ -20,10 +27,25 @@ interface MessageChannel {
  * https://discord.com/developers/docs/resources/channel
  */
 interface GuildChannel {
+    /**
+     * the id of the guild
+     */
     val guildSnowflake: Snowflake
+    /**
+     * sorting position of the channel
+     */
     val position: Int
+    /**
+     * the name of the channel (2-100 characters)
+     */
     val name: String
+    /**
+     * explicit permission overwrites for members and roles
+     */
     val permissions: List<PermissionOverwrite>
+    /**
+     * id of the parent category for a channel (each parent category can contain up to 50 channels)
+     */
     val categorySnowflake: Snowflake?
 }
 
@@ -34,8 +56,15 @@ interface GuildChannel {
  * https://discord.com/developers/docs/resources/channel
  */
 class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel {
+    /**
+     * the bitrate (in bits) of the voice channel
+     */
     val bitrate: Int by map.delegateJson(JsonElement::asInt)
+    /**
+     * the user limit of the voice channel
+     */
     val userLimit: Int by map.delegateJson(JsonElement::asInt, "user_limit")
+    
     override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
     override val position: Int by map.delegateJson(JsonElement::asInt)
     override val name: String by map.delegateJson(JsonElement::asString)

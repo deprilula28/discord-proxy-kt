@@ -64,12 +64,20 @@ class TextChannel(map: JsonObject, bot: DiscordProxyKt):
     GuildChannel,
     PartialTextChannel
 {
-    override val name: String by map.delegateJson(JsonElement::asString)
+    /**
+     * the channel topic (0-1024 characters)
+     */
     val topic: String by map.delegateJson(JsonElement::asString)
+    /**
+     * whether the channel is nsfw
+     */
     val nsfw: Boolean by map.delegateJson(JsonElement::asBoolean)
-    
+    /**
+     * amount of seconds a user has to wait before sending another message (0-21600); bots, as well as users with the permission manage_messages or manage_channel, are unaffected
+     */
     val rateLimitPerUser: Int? by map.delegateJsonNullable(JsonElement::asInt, "rate_limit_per_user")
     
+    override val name: String by map.delegateJson(JsonElement::asString)
     override val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
     override val lastMessageId: Snowflake by map.delegateJson(JsonElement::asSnowflake, "last_message_id")
     
