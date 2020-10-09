@@ -6,9 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.*
-import me.deprilula28.discordproxykt.rest.IRestAction
-import me.deprilula28.discordproxykt.rest.RestAction
-import me.deprilula28.discordproxykt.rest.RestEndpoint
+import me.deprilula28.discordproxykt.rest.*
 import java.time.OffsetDateTime
 import java.util.*
 

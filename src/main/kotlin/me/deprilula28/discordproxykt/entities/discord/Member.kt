@@ -1,15 +1,23 @@
 package me.deprilula28.discordproxykt.entities.discord
 
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
-import me.deprilula28.discordproxykt.rest.IRestAction
+import me.deprilula28.discordproxykt.rest.*
 
 // TODO Fill this
 interface PartialMember {
+    val guild: PartialGuild
     val user: PartialUser
+    val bot: DiscordProxyKt
+    
+    fun add(role: PartialRole): IRestAction<Unit>
+            = RestAction(bot, { Unit }, RestEndpoint.ADD_GUILD_MEMBER_ROLE, guild.snowflake.id, user.snowflake.id, role.snowflake.id)
+    
+    fun remove(role: PartialRole): IRestAction<Unit>
+            = RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER_ROLE, guild.snowflake.id, user.snowflake.id, role.snowflake.id)
+    
     interface Upgradeable: PartialMember, IRestAction<Member>
 }
 
@@ -18,7 +26,7 @@ interface PartialMember {
  * <br>
  * https://discord.com/developers/docs/resources/guild#guild-member-object
  */
-class Member(private val map: JsonObject, private val bot: DiscordProxyKt, readyUser: User? = null): PartialMember {
+class Member(override val guild: PartialGuild, private val map: JsonObject, override val bot: DiscordProxyKt, readyUser: User? = null): PartialMember, EntityManager<Member> {
     /**
      * the user this guild member represents
      */
@@ -26,11 +34,14 @@ class Member(private val map: JsonObject, private val bot: DiscordProxyKt, ready
     /**
      * this users guild nickname
      */
-    val nick: String? by map.delegateJsonNullable(JsonElement::asString)
+    var nick: String? by map.delegateJsonMutableNullable(JsonElement::asString, Json::encodeToJsonElement)
     /**
      * array of role object ids
      */
-    val roles: List<Snowflake> by map.delegateJson({ (this as JsonArray).map { it.asSnowflake() } })
+    val roles: List<Snowflake> by map.delegateJsonMutable(
+        { (this as JsonArray).map { it.asSnowflake() } },
+        { Json.encodeToJsonElement(it.map { sn -> sn.id }) }
+    )
     /**
      * when the user joined the guild
      */
@@ -42,9 +53,32 @@ class Member(private val map: JsonObject, private val bot: DiscordProxyKt, ready
     /**
      * whether the user is deafened in voice channels
      */
-    val deaf: Boolean by map.delegateJson(JsonElement::asBoolean)
+    var deaf: Boolean by map.delegateJsonMutable(JsonElement::asBoolean, Json::encodeToJsonElement)
     /**
      * whether the user is muted in voice channels
      */
-    val mute: Boolean by map.delegateJson(JsonElement::asBoolean)
+    var mute: Boolean by map.delegateJsonMutable(JsonElement::asBoolean, Json::encodeToJsonElement)
+    
+    override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
+    
+    /**
+     * To finish the procedure, the rest action needs to be called.
+     */
+    fun move(channel: PartialVoiceChannel?): Member {
+        changes["channel_id"] = Json.encodeToJsonElement(channel?.snowflake?.id)
+        return this
+    }
+    
+    /**
+     * Requests that this guild gets edited based on the altered fields.<br>
+     * This object will not be updated to reflect the changes, rather a new Webhook object is returned from the RestAction.
+     */
+    override fun edit(): IRestAction<Member> {
+        if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this webhook, yet `edit()` was called.")
+        return RestAction(bot, { Member(guild, this as JsonObject, bot) }, RestEndpoint.MODIFY_GUILD_MEMBER, guild.snowflake.id, user.snowflake.id) {
+            val res = Json.encodeToString(changes)
+            changes.clear()
+            res
+        }
+    }
 }

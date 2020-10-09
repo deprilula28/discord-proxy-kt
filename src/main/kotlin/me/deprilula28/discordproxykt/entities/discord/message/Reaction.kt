@@ -4,9 +4,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
-import me.deprilula28.discordproxykt.entities.asBoolean
-import me.deprilula28.discordproxykt.entities.asInt
-import me.deprilula28.discordproxykt.entities.delegateJson
+import me.deprilula28.discordproxykt.rest.asBoolean
+import me.deprilula28.discordproxykt.rest.asInt
+import me.deprilula28.discordproxykt.rest.delegateJson
 
 /**
  * https://discord.com/developers/docs/resources/channel#reaction-object

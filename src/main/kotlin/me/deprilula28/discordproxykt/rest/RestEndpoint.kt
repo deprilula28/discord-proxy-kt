@@ -5,6 +5,7 @@ enum class RestEndpoint(private val path: String, val method: Method) {
     GET_CHANNEL("/channels/%s", Method.GET),
     MODIFY_CHANNEL("/channels/%s", Method.PATCH),
     DELETE_CHANNEL("/channels/%s", Method.DELETE),
+    GET_CHANNEL_WEBHOOKS("/channels/%s/webhooks", Method.GET),
     GET_CHANNEL_MESSAGES("/channel/%s/messages", Method.GET),
     GET_CHANNEL_MESSAGE("/channels/%s/messages/%s", Method.GET),
     CREATE_MESSAGE("/channels/%s/messages", Method.POST),
@@ -46,6 +47,7 @@ enum class RestEndpoint(private val path: String, val method: Method) {
     GET_GUILD_CHANNELS("/guilds/%s/channels", Method.GET),
     CREATE_GUILD_CHANNEL("/guilds/%s/channels", Method.POST),
     MODIFY_GUILD_CHANNEL_POSITIONS("/guilds/%s/channels", Method.PATCH),
+    GET_GUILD_WEBHOOKS("/guilds/%s/webhooks", Method.GET),
     GET_GUILD_MEMBER("/guilds/%s/members/%s", Method.GET),
     LIST_GUILD_MEMBERS("/guilds/%s/members", Method.GET),
     ADD_GUILD_MEMBER("/guilds/%s/members/%s", Method.PUT),
@@ -56,7 +58,7 @@ enum class RestEndpoint(private val path: String, val method: Method) {
     GET_GUILDS_BAN("/guilds/%s/bans/%s", Method.GET),
     CREATE_GUILD_BAN("/guilds/%s/bans/%s", Method.PUT),
     REMOVE_GUILD_BAN("/guilds/%s/bans/%s", Method.DELETE),
-    GET_GUILD_PRUNE_COUNT("/guilds/%s/prune", Method.GET),
+    GET_GUILD_PRUNE_COUNT("/guilds/%s/prune?days=%s", Method.GET),
     BEGIN_GUILD_PRUNE_COUNT("/guilds/%s/prune", Method.POST),
     GET_GUILD_VOICE_REGIONS("/guilds/%s/regions", Method.GET),
     GET_GUILD_INVITES("/guilds/%s/invites", Method.GET),
@@ -76,6 +78,16 @@ enum class RestEndpoint(private val path: String, val method: Method) {
     GET_USER_DMS("/users/@me/channels", Method.GET),
     CREATE_DM("/users/@me/channels", Method.POST),
     GET_USER_CONNECTIONS("/users/@me/connections", Method.GET),
+    
+    // Webhook
+    CREATE_WEBHOOK("/channels/%s/webhooks", Method.POST),
+    GET_WEBHOOK("/webhooks/%s", Method.GET),
+    GET_WEBHOOK_TOKEN("/webhooks/%s/%s", Method.GET),
+    DELETE_WEBHOOK("/webhooks/%s", Method.DELETE),
+    DELETE_WEBHOOK_TOKEN("/webhooks/%s/%s", Method.DELETE),
+    MODIFY_WEBHOOK("/webhooks/%s", Method.PATCH),
+    MODIFY_WEBHOOK_TOKEN("/webhooks/%s/%s", Method.PATCH),
+    EXECUTE_WEBHOOK("/webhooks/%s/%s", Method.POST),
     
     // Role
     ADD_GUILD_MEMBER_ROLE("/guilds/%s/members/%s/roles/%s", Method.PUT),

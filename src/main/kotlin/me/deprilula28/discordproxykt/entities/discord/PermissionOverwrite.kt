@@ -3,6 +3,10 @@ package me.deprilula28.discordproxykt.entities.discord
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
+import me.deprilula28.discordproxykt.rest.asInt
+import me.deprilula28.discordproxykt.rest.asLong
+import me.deprilula28.discordproxykt.rest.bitSetToEnumSet
+import me.deprilula28.discordproxykt.rest.delegateJson
 import java.util.*
 
 /**

@@ -9,9 +9,7 @@ import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
-import me.deprilula28.discordproxykt.rest.IRestAction
-import me.deprilula28.discordproxykt.rest.RestAction
-import me.deprilula28.discordproxykt.rest.RestEndpoint
+import me.deprilula28.discordproxykt.rest.*
 
 /**
  * This type is used for operations when an ID of a {@link me.deprilula28.discordproxykt.entities.discord.TextChannel TextChannel} is known.
@@ -90,6 +88,9 @@ class TextChannel(map: JsonObject, bot: DiscordProxyKt):
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("rateLimitPerUser"))
     val slowmode: Int? by ::rateLimitPerUser
+    
+    override val type: ChannelType
+        get() = ChannelType.TEXT
     
     // TODO
     // https://ci.dv8tion.net/job/JDA/javadoc/net/dv8tion/jda/api/entities/TextChannel.html#createCopy()

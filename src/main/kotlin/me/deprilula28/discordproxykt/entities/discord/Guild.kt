@@ -3,16 +3,17 @@ package me.deprilula28.discordproxykt.entities.discord
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
-import me.deprilula28.discordproxykt.entities.*
+import me.deprilula28.discordproxykt.entities.Entity
+import me.deprilula28.discordproxykt.entities.IPartialEntity
+import me.deprilula28.discordproxykt.entities.Snowflake
+import me.deprilula28.discordproxykt.entities.Timestamp
 import me.deprilula28.discordproxykt.entities.discord.message.GuildEmoji
-import me.deprilula28.discordproxykt.rest.IRestAction
-import me.deprilula28.discordproxykt.rest.InvalidRequestException
-import me.deprilula28.discordproxykt.rest.RestAction
-import me.deprilula28.discordproxykt.rest.RestEndpoint
+import me.deprilula28.discordproxykt.rest.*
 import java.awt.image.RenderedImage
 import java.io.ByteArrayOutputStream
 import java.util.*
 import java.util.concurrent.CompletableFuture
+import java.util.function.Consumer
 import javax.imageio.ImageIO
 
 /**
@@ -51,7 +52,46 @@ data class Ban(private val map: JsonObject, private val bot: DiscordProxyKt) {
     val reason: String by map.delegateJson(JsonElement::asString)
 }
 
+/**
+ * https://discord.com/developers/docs/resources/invite#invite-object
+ */
+open class Invite(private val map: JsonObject, private val bot: DiscordProxyKt) {
+    val code: String by map.delegateJson(JsonElement::asString)
+    val guild: Guild? by map.delegateJsonNullable({ Guild(this as JsonObject, bot) })
+    val channel: TextChannel by map.delegateJson({ TextChannel(this as JsonObject, bot) })
+    val inviter: User? by map.delegateJsonNullable({ User(this as JsonObject, bot) })
+    val targetUser: User? by map.delegateJsonNullable({ User(this as JsonObject, bot) }, "target_user")
+    val approxPresenceCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_presence_count")
+    val approxMemberCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_member_count")
+}
+
+class ExtendedInvite(map: JsonObject, bot: DiscordProxyKt): Invite(map, bot) {
+    val uses: Int by map.delegateJson(JsonElement::asInt, "uses")
+    val maxUses: Int by map.delegateJson(JsonElement::asInt, "max_uses")
+    val maxAge: Int by map.delegateJson(JsonElement::asInt, "max_age")
+    val temporary: Boolean by map.delegateJson(JsonElement::asBoolean)
+    val createdAt: Timestamp by map.delegateJson(JsonElement::asTimestamp, "created_at")
+}
+
+/**
+ * Partial objects only need an ID.<br>
+ * Working off this type means no permission checking will be done before requesting.<br>
+ * You can get a full object by using {@link me.deprilula28.discordproxykt.rest.RestAction#request() request()} in this
+ * type, if it isn't one already.
+ */
 interface PartialGuild: IPartialEntity {
+    val fetchAuditLogs: PaginatedAction<AuditLogEntry>
+        get() = PaginatedAction(
+            bot, { AuditLogEntry(this as JsonObject, bot) },
+            RestEndpoint.GET_GUILD_AUDIT_LOGS, snowflake.id,
+        )
+    
+    val fetchInvites: IRestAction<List<ExtendedInvite>>
+        get() = RestAction(
+            bot, { (this as JsonArray).map { ExtendedInvite(it as JsonObject, bot) } },
+            RestEndpoint.GET_GUILD_INVITES, snowflake.id,
+        )
+    
     val fetchRegions: IRestAction<List<VoiceRegion>>
         get() = RestAction(
             bot, { (this as JsonArray).map { VoiceRegion(it as JsonObject, bot) } },
@@ -64,9 +104,25 @@ interface PartialGuild: IPartialEntity {
             RestEndpoint.GET_GUILD_CHANNELS, snowflake.id,
         )
     
-    fun getMember(user: Snowflake): PartialMember.Upgradeable
+    val fetchWebhooks: IRestAction<List<Webhook>>
+        get() = RestAction(
+            bot, { (this as JsonArray).map { Webhook(it as JsonObject, bot) } },
+            RestEndpoint.GET_GUILD_AUDIT_LOGS, snowflake.id,
+        )
+    
+    /**
+     * Requires the GUILD_MEMBERS privileged intent
+     */
+    val fetchMembers: PaginatedAction<Member>
+        get() = PaginatedAction(
+            bot, { Member(this@PartialGuild, this as JsonObject, bot) },
+            RestEndpoint.LIST_GUILD_MEMBERS, snowflake.id,
+        )
+    
+    fun fetchMember(user: Snowflake): PartialMember.Upgradeable
         = object: PartialMember.Upgradeable,
-            RestAction<Member>(bot, { Member(this as JsonObject, bot) }, RestEndpoint.GET_GUILD_MEMBER, snowflake.id, user.id) {
+            RestAction<Member>(bot, { Member(this@PartialGuild, this as JsonObject, bot) }, RestEndpoint.GET_GUILD_MEMBER, snowflake.id, user.id) {
+                override val guild: PartialGuild = this@PartialGuild
                 override val user: PartialUser by lazy { bot.users[user] }
             }
     
@@ -99,12 +155,38 @@ interface PartialGuild: IPartialEntity {
     
     fun addMember(accessToken: String, user: PartialUser): IRestAction<Member>
         = RestAction(
-            bot, { Member(this as JsonObject, it) },
+            bot, { Member(this@PartialGuild, this as JsonObject, it) },
             RestEndpoint.ADD_GUILD_MEMBER, snowflake.id, user.snowflake.id,
         )
     
     fun retrievePrunableMemberCount(days: Int)
-            = RestAction(bot, { asInt() }, RestEndpoint.GET_GUILD_PRUNE_COUNT, snowflake.id)
+            = RestAction(bot, { (this as JsonObject)["pruned"]!!.asInt() }, RestEndpoint.GET_GUILD_PRUNE_COUNT, snowflake.id, days.toString())
+    
+    fun prune(days: Int, vararg role: PartialRole)
+            = RestAction(bot, { Unit }, RestEndpoint.BEGIN_GUILD_PRUNE_COUNT, snowflake.id) {
+                Json.encodeToString(mapOf(
+                    "days" to JsonPrimitive(days),
+                    "compute_prune_count" to JsonPrimitive(false),
+                    "include_roles" to Json.encodeToString(role.map { it.snowflake.id }),
+                ))
+            }
+    
+    fun kick(member: PartialMember)
+            = RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER, snowflake.id, member.user.snowflake.id)
+    
+    fun ban(member: PartialMember, days: Int = 7): RestAction<Unit> {
+        if (days !in 0 .. 7) throw InvalidRequestException("Message deletion days on ban must be from 0 to 7")
+        return RestAction(bot, { Unit }, RestEndpoint.CREATE_GUILD_BAN, snowflake.id, member.user.snowflake.id) {
+            Json.encodeToString(mapOf("delete_message_days" to JsonPrimitive(days)))
+        }
+    }
+    
+    fun unban(member: PartialMember)
+            = RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_BAN, snowflake.id, member.user.snowflake.id)
+    
+    fun leave() = RestAction(bot, { Unit }, RestEndpoint.LEAVE_GUILD, snowflake.id)
+    
+    fun delete() = RestAction(bot, { Unit }, RestEndpoint.DELETE_GUILD, snowflake.id)
     
     interface Upgradeable: PartialGuild, IRestAction<Guild>
     
@@ -112,6 +194,47 @@ interface PartialGuild: IPartialEntity {
     val loaded: Boolean
         get() = false
     
+    @Deprecated("JDA Compatibility Function", ReplaceWith("delete()"))
+    fun delete(mfa: String) = delete()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("prune(days, *role)"))
+    fun prune(days: Int, bool: Boolean, vararg role: PartialRole) = prune(days, *role)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("kick(fetchMember(Snowflake(member)))"))
+    fun kick(member: String) = kick(fetchMember(Snowflake(member)))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("kick()"))
+    fun kick(member: PartialMember, reason: String?) = kick(member)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("kick(fetchMember(Snowflake(member)))"))
+    fun kick(member: String, reason: String?) = kick(fetchMember(Snowflake(member)))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("ban(fetchMember(Snowflake(member)))"))
+    fun ban(member: String, days: Int = 7) = ban(fetchMember(Snowflake(member)), days)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("ban()"))
+    fun ban(member: PartialMember, days: Int = 7, reason: String?) = ban(member, days)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("ban(fetchMember(Snowflake(member)))"))
+    fun ban(member: String, days: Int = 7, reason: String?) = ban(fetchMember(Snowflake(member)), days)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("unban(fetchMember(Snowflake(member)))"))
+    fun unban(member: String) = unban(fetchMember(Snowflake(member)))
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.add(role)"))
+    fun addRoleToMember(member: PartialMember, role: PartialRole) = member.add(role)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.add(role)"))
+    fun addRoleToMember(member: String, role: PartialRole) = fetchMember(Snowflake(member)).add(role)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.add(role)"))
+    fun addRoleToMember(member: Long, role: PartialRole) = fetchMember(Snowflake(member.toString())).add(role)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.remove(role)"))
+    fun removeRoleFromMember(member: PartialMember, role: PartialRole) = member.remove(role)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.remove(role)"))
+    fun removeRoleFromMember(member: String, role: PartialRole) = fetchMember(Snowflake(member)).remove(role)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.remove(role)"))
+    fun removeRoleFromMember(member: Long, role: PartialRole) = fetchMember(Snowflake(member.toString())).remove(role)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.add(role)"))
+    fun modifyMemberRoles(member: PartialMember.Upgradeable, roles: Collection<Role>) = member.map {
+        val new = roles - it.roles
+        val remove = it.roles - roles
+    }
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchAuditLogs"))
+    fun retrieveAuditLogs() = fetchAuditLogs
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchInvites"))
+    fun retrieveInvites() = fetchInvites
     @Deprecated("JDA Compatibility Function", ReplaceWith("fetchEmojis"))
     fun retrieveEmotes() = fetchEmojis
     @Deprecated("JDA Compatibility Function", ReplaceWith("fetchEmoji(Snowflake(id))"))
@@ -120,6 +243,43 @@ interface PartialGuild: IPartialEntity {
     fun retrieveEmoteById(id: Long) = fetchEmoji(Snowflake(id.toString()))
     @Deprecated("JDA Compatibility Function", ReplaceWith("emote"))
     fun retrieveEmote(emote: GuildEmoji) = fetchEmoji(emote.snowflake)
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers"))
+    fun retrieveMembers() = fetchMembers
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMember(Snowflake(id))"))
+    fun retrieveMemberById(id: String) = fetchMember(Snowflake(id))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMember(Snowflake(id))"))
+    fun retrieveMemberById(id: String, cache: Boolean) = fetchMember(Snowflake(id))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMember(Snowflake(id.toString()))"))
+    fun retrieveMemberById(id: Long) = fetchMember(Snowflake(id.toString()))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMember(Snowflake(id.toString()))"))
+    fun retrieveMemberById(id: Long, cache: Boolean) = fetchMember(Snowflake(id.toString()))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMember(user.snowflake)"))
+    fun retrieveMember(user: PartialUser) = fetchMember(user.snowflake)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMember(user.snowflake)"))
+    fun retrieveMember(user: PartialUser, cache: Boolean) = fetchMember(user.snowflake)
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.move(channel).edit()"))
+    fun moveVoiceMember(member: Member, channel: PartialVoiceChannel?) = member.move(channel).edit()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.move(null).edit()"))
+    fun kickVoiceMember(member: Member) = member.move(null).edit()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.apply { nick = nickname }.edit()"))
+    fun modifyNickname(member: Member, nickname: String?) = member.apply { nick = nickname }.edit()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.apply { deaf = value }.edit()"))
+    fun deafen(member: Member, value: Boolean) = member.apply { deaf = value }.edit()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.apply { mute = value }.edit()"))
+    fun mute(member: Member, value: Boolean) = member.apply { mute = value }.edit()
+
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers.request()"))
+    // Note: they have a special return type for this called Task, and it's pretty similar to the
+    // "CompletableFuture" this RestAction returns.
+    fun loadMembers() = fetchMembers.request()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers.request().filter(func)"))
+    fun findMembers(func: (Member) -> Boolean): CompletableFuture<List<Member>>
+            = fetchMembers.request().thenApply { it.filter(func) }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers.request().thenApply(func)"))
+    fun findMembers(func: Consumer<Member>)
+            = fetchMembers.request().thenApply { it.forEach(func) }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("fetchBans"))
     fun retrieveBanList() = fetchBans
@@ -132,6 +292,8 @@ interface PartialGuild: IPartialEntity {
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("/*no-op*/"))
     fun pruneMemberCache() = println("Warning: pruneMemberCache() is a no-op!")
+    @Deprecated("JDA Compatibility Function", ReplaceWith("true"))
+    fun checkVerification() = true
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("/*no-op*/"))
     fun unloadMember(id: Long) = println("Warning: unloadMember(long) is a no-op!")
@@ -182,103 +344,20 @@ interface PartialGuild: IPartialEntity {
         }
     }
     
-    // The bullshit JDA ones
-    // I'm not gonna do anything for these as the guild members intent is assumed to be off for this library
-    @Deprecated("JDA Compatibility Function", ReplaceWith("isMember(user)"))
-    fun isMember(user: User): Boolean = false
-    @Deprecated("JDA Compatibility Function", ReplaceWith("this[user]"))
-    fun getMember(user: User) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith("this[user]"))
-    fun getMember(userId: String) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith("this[user]"))
-    fun getMember(userIdLong: Long) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getMemberByTag(tag: String) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getMemberByTag(tag: String, discrim: String) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getMembersByName(tag: String, ignoreCase: Boolean) = listOf<Member>()
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getMembersByNickname(tag: String, ignoreCase: Boolean) = listOf<Member>()
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getMembersByEffectiveName(tag: String, ignoreCase: Boolean) = listOf<Member>()
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getMembersWithRoles(vararg roles: Role) = listOf<Member>()
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getMembersWithRoles(roles: Collection<Role>) = listOf<Member>()
-    
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getGuildChannelById(id: String) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getGuildChannelById(idLong: Long) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getGuildChannelById(channelType: ChannelType, id: String) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getGuildChannelById(channelType: ChannelType, idLong: Long) = null
-    
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getCategoryById(id: String) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getCategoryById(idLong: Long) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getCategoriesByName(name: String, ignoreCase: Boolean) = null
-    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
-    val categories: List<Nothing>
-        get() = listOf()
-    
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getStoreChannelById(id: String) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getStoreChannelById(idLong: Long) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getStoreChannelsByName(name: String, ignoreCase: Boolean) = null
-    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
-    val storeChannels: List<Nothing>
-        get() = listOf()
-    
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getTextChannelById(id: String) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getTextChannelById(idLong: Long) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getTextChannelsByName(name: String, ignoreCase: Boolean) = null
-    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
-    val textChannels: List<Nothing>
-        get() = listOf()
-    
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getVoiceChannelById(id: String) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getVoiceChannelById(idLong: Long) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getVoiceChannelsByName(name: String, ignoreCase: Boolean) = null
-    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
-    val voiceChannels: List<Nothing>
-        get() = listOf()
-    
-    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
-    val channels: List<Nothing>
-        get() = listOf()
-    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
-    fun getChannels(boolean: Boolean) = listOf<Nothing>()
-    
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getRoleById(id: String) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getRoleById(idLong: Long) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getRolesByName(name: String, ignoreCase: Boolean) = null
-    
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getEmoteById(id: String) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getEmoteById(idLong: Long) = null
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getEmotesByName(name: String, ignoreCase: Boolean) = null
-    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
-    val emotes: List<Nothing>
-        get() = listOf()
-    
+    /*
+    TODO from JDA:
+    Guild#retrieveMembers(Collection<User>)
+    Guild#retrieveMembersByIds(Collection<String>)
+    Guild#retrieveMembersByIds(String...)
+    Guild#retrieveMembersByIds(Collection<Long>)
+    Guild#retrieveMembersByIds(long...)
+    Guild#retrieveMembers(boolean, Collection<User>)
+    Guild#retrieveMembersByIds(boolean, Collection<String>)
+    Guild#retrieveMembersByIds(boolean, String...)
+    Guild#retrieveMembersByIds(boolean, Collection<Long>)
+    Guild#retrieveMembersByIds(boolean, long...)
+    Guild#retrieveMembersByPrefix(String, int)
+    */
 }
 
 /**
@@ -293,7 +372,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
      * id of owner
      */
     var owner: PartialMember.Upgradeable by map.delegateJsonMutable(
-        { getMember(asSnowflake()) },
+        { fetchMember(asSnowflake()) },
         {
             // TODO Check if self is owner
             Json.encodeToJsonElement(it.user.snowflake.id)
@@ -308,7 +387,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     /**
      * roles in the guild
      */
-    val roles: List<Role> by map.delegateJson({ (this as JsonArray).map { Role(it as JsonObject, bot) } })
+    val cachedRoles: List<Role> by map.delegateJson({ (this as JsonArray).map { Role(it as JsonObject, bot) } }, "roles")
     /**
      * custom guild emojis
      */
@@ -397,7 +476,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     /**
      * the channel id that the widget will generate an invite to, or null if set to no invite
      */
-    val widgetChannelSnowflake: PartialTextChannel.Upgradeable? by map.delegateJsonNullable(::delegateChannel, "widget_channel_id")
+    val widgetChannel: PartialTextChannel.Upgradeable? by map.delegateJsonNullable(::delegateChannel, "widget_channel_id")
     
     /**
      * true if the user is the owner of the guild
@@ -445,14 +524,13 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
      */
     val approxPresenceCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_presence_count")
     /**
-     * users in the guild
-     * <br>
-     * Only sent when under the event where the guild becomes available to the bot
+     * users in the guild <br>
+     * Only sent when under the event where the guild becomes available to the bot <br>
+     * Requires the GUILD_MEMBERS privileged intent
      */
-    val members: List<Member>? by map.delegateJsonNullable({ (this as JsonArray).map { Member(it as JsonObject, bot) } })
+    val cachedMembers: List<Member>? by map.delegateJsonNullable({ (this as JsonArray).map { Member(this@Guild, it as JsonObject, bot) } }, "members")
     /**
-     * channels in the guild
-     * <br>
+     * channels in the guild <br>
      * Only sent when under the event where the guild becomes available to the bot
      */
     val cachedChannels: List<GuildChannel>? by map.delegateJsonNullable({ (this as JsonArray).mapNotNull(::parseChannel) }, "channels")
@@ -545,14 +623,20 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
         else "https://cdn.discordapp.com/icons/${snowflake.id}/$icon.${if (icon!!.startsWith("a_")) "gif" else "png"}"
     }
     
-    override val edits: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
+    override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
     
     /**
      * Requests that this guild gets edited based on the altered fields.<br>
      * This object will not be updated to reflect the changes, rather a new Guild object is returned from the RestAction.
      */
-    override fun request(): CompletableFuture<Guild>
-        = RestAction(bot, { Guild(this as JsonObject, bot) }, RestEndpoint.MODIFY_GUILD, snowflake.id) { Json.encodeToString(edits) }.request()
+    override fun edit(): IRestAction<Guild> {
+        if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this guild, yet `edit()` was called.")
+        return RestAction(bot, { Guild(this as JsonObject, bot) }, RestEndpoint.MODIFY_GUILD, snowflake.id) {
+            val res = Json.encodeToString(changes)
+            changes.clear()
+            res
+        }
+    }
     
     /**
      * To finish the procedure, the rest action needs to be called.
@@ -561,7 +645,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
         if (image.width > 1024 || image.height > 1024) throw InvalidRequestException("Neither image dimension may exceed 1024!")
         val baos = ByteArrayOutputStream()
         ImageIO.write(image, format, baos)
-        edits["icon"] = JsonPrimitive("data:image/jpeg;base64,${Base64.getEncoder().encodeToString(baos.toByteArray())}")
+        changes["icon"] = JsonPrimitive("data:image/jpeg;base64,${Base64.getEncoder().encodeToString(baos.toByteArray())}")
         return this
     }
     
@@ -572,7 +656,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
         if (Features.INVITE_SPLASH !in features) throw InvalidRequestException("Cannot change splash without the INVITE_SPLASH feature!")
         val baos = ByteArrayOutputStream()
         ImageIO.write(image, format, baos)
-        edits["splash"] = JsonPrimitive("data:image/jpeg;base64,${Base64.getEncoder().encodeToString(baos.toByteArray())}")
+        changes["splash"] = JsonPrimitive("data:image/jpeg;base64,${Base64.getEncoder().encodeToString(baos.toByteArray())}")
         return this
     }
     
@@ -583,9 +667,32 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
         if (Features.BANNER !in features) throw InvalidRequestException("Cannot change banner without the BANNER feature!")
         val baos = ByteArrayOutputStream()
         ImageIO.write(image, format, baos)
-        edits["banner"] = JsonPrimitive("data:image/jpeg;base64,${Base64.getEncoder().encodeToString(baos.toByteArray())}")
+        changes["banner"] = JsonPrimitive("data:image/jpeg;base64,${Base64.getEncoder().encodeToString(baos.toByteArray())}")
         return this
     }
+    
+    private fun delegateChannel(json: JsonElement): PartialTextChannel.Upgradeable {
+        val systemSnowflake = json.asSnowflake()
+        return object: PartialTextChannel.Upgradeable {
+            override val snowflake: Snowflake = systemSnowflake
+            override val bot: DiscordProxyKt = this@Guild.bot
+            
+            override fun request(): CompletableFuture<TextChannel> =
+                    fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == snowflake } as TextChannel }
+        }
+    }
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
+    val manager: Guild?
+        get() = this
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("edit().request()"))
+    fun queue() = edit().request()
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("owner"))
+    fun retrieveOwner() = owner
+    @Deprecated("JDA Compatibility Function", ReplaceWith("owner"))
+    fun retrieveOwner(cache: Boolean) = owner
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("iconSplash"))
     val splashId: String? by ::iconSplash
@@ -593,6 +700,8 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     val iconId: String? by ::icon
     @Deprecated("JDA Compatibility Field", ReplaceWith("banner"))
     val bannerId: String? by ::banner
+    @Deprecated("JDA Compatibility Field", ReplaceWith("unavailable != true"))
+    val available: Boolean by lazy { unavailable != true } // This isn't just !unavailable as it may also be null
     @Deprecated("JDA Compatibility Field", ReplaceWith("https://cdn.discordapp.com/banners/\${snowflake.id}/\$banner.png"))
     val bannerUrl: String?
         get() = banner?.run { "https://cdn.discordapp.com/banners/${snowflake.id}/$banner.png" }
@@ -614,21 +723,131 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("this[selfUser]"))
     val selfMember: Member
-        get() = getMember(bot.selfUser.request().get().snowflake).request().get()
+        get() = fetchMember(bot.selfUser.request().get().snowflake).request().get()
     
-    private fun delegateChannel(json: JsonElement): PartialTextChannel.Upgradeable {
-        val systemSnowflake = json.asSnowflake()
-        return object: PartialTextChannel.Upgradeable {
-            override val snowflake: Snowflake = systemSnowflake
-            override val bot: DiscordProxyKt = this@Guild.bot
-            
-            override fun request(): CompletableFuture<TextChannel> =
-                    fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == snowflake } as TextChannel }
-        }
-    }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.any { it.user == user } ?: false"))
+    fun isMember(user: User): Boolean
+            = cachedMembers?.any { it.user == user } ?: false
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.find { it.user == user }"))
+    fun getMember(user: User)
+            = cachedMembers?.find { it.user == user }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.find { it.user.snowflake.id == userId }"))
+    fun getMember(userId: String)
+            = cachedMembers?.find { it.user.snowflake.id == userId }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.find { it.user.snowflake.idLong == userIdLong }"))
+    fun getMember(userIdLong: Long)
+            = cachedMembers?.find { it.user.snowflake.idLong == userIdLong }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.find { \"\${it.user.username}#\${it.user.discriminator}\" == tag }"))
+    fun getMemberByTag(tag: String)
+            = cachedMembers?.find { "${it.user.username}#${it.user.discriminator}" == tag }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.find { it.user.username == tag && it.user.discriminator == discrim }"))
+    fun getMemberByTag(tag: String, discrim: String)
+            = cachedMembers?.find { it.user.username == tag && it.user.discriminator == discrim }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.filter { it.user.username.equals(tag, ignoreCase) } ?: listOf()"))
+    fun getMembersByName(tag: String, ignoreCase: Boolean)
+            = cachedMembers?.filter { it.user.username.equals(tag, ignoreCase) } ?: listOf()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.filter { it.nick?.equals(tag, ignoreCase) ?: false } ?: listOf()"))
+    fun getMembersByNickname(tag: String, ignoreCase: Boolean)
+            = cachedMembers?.filter { it.nick?.equals(tag, ignoreCase) ?: false } ?: listOf()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.filter { it.nick?.equals(tag, ignoreCase) ?: it.user.username.equals(tag, ignoreCase) } ?: listOf()"))
+    fun getMembersByEffectiveName(tag: String, ignoreCase: Boolean)
+            = cachedMembers?.filter { it.nick?.equals(tag, ignoreCase) ?: it.user.username.equals(tag, ignoreCase) } ?: listOf()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it.snowflake) } } ?: listOf()"))
+    fun getMembersWithRoles(vararg roles: Role)
+            = cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it.snowflake) } } ?: listOf()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it.snowflake) } } ?: listOf()"))
+    fun getMembersWithRoles(roles: Collection<Role>)
+            = cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it.snowflake) } } ?: listOf()
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.find { it.snowflake.id == id }"))
+    fun getGuildChannelById(id: String)
+            = cachedChannels?.find { it.snowflake.id == id }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.find { it.snowflake.idLong == idLong }"))
+    fun getGuildChannelById(idLong: Long)
+            = cachedChannels?.find { it.snowflake.idLong == idLong }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.find { it.type == channelType && it.snowflake.id == id }"))
+    fun getGuildChannelById(channelType: ChannelType, id: String)
+            = cachedChannels?.find { it.type == channelType && it.snowflake.id == id }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.find { it.type == channelType && it.snowflake.idLong == idLong }"))
+    fun getGuildChannelById(channelType: ChannelType, idLong: Long)
+            = cachedChannels?.find { it.type == channelType && it.snowflake.idLong == idLong }
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? Category }?.find { it.snowflake.id == id }"))
+    fun getCategoryById(id: String)
+            = cachedChannels?.mapNotNull { it as? Category }?.find { it.snowflake.id == id }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? Category }?.find { it.snowflake.idLong == idLong }"))
+    fun getCategoryById(idLong: Long)
+            = cachedChannels?.mapNotNull { it as? Category }?.find { it.snowflake.idLong == idLong }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? Category }?.find { it.name.equals(name, ignoreCase) }"))
+    fun getCategoriesByName(name: String, ignoreCase: Boolean)
+            = cachedChannels?.mapNotNull { it as? Category }?.find { it.name.equals(name, ignoreCase) }
+    @Deprecated("JDA Compatibility Field", ReplaceWith("null"))
+    val categories
+        get() = cachedChannels?.mapNotNull { it as? Category }
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("null"))
+    fun getStoreChannelById(id: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith("null"))
+    fun getStoreChannelById(idLong: Long) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith("null"))
+    fun getStoreChannelsByName(name: String, ignoreCase: Boolean) = null
+    @Deprecated("JDA Compatibility Field", ReplaceWith("null"))
+    val storeChannels: List<Nothing>
+        get() = listOf()
+    @Deprecated("JDA Compatibility Field", ReplaceWith("null"))
+    val voiceStates: List<Nothing>
+        get() = listOf()
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? TextChannel }?.find { it.snowflake.id == id }"))
+    fun getTextChannelById(id: String)
+            = cachedChannels?.mapNotNull { it as? TextChannel }?.find { it.snowflake.id == id }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? TextChannel }?.find { it.snowflake.idLong == idLong }"))
+    fun getTextChannelById(idLong: Long)
+            = cachedChannels?.mapNotNull { it as? TextChannel }?.find { it.snowflake.idLong == idLong }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? TextChannel }?.find { it.name.equals(name, ignoreCase) }"))
+    fun getTextChannelsByName(name: String, ignoreCase: Boolean)
+            = cachedChannels?.mapNotNull { it as? TextChannel }?.find { it.name.equals(name, ignoreCase) }
+    @Deprecated("JDA Compatibility Field", ReplaceWith("null"))
+    val textChannels
+        get() = cachedChannels?.mapNotNull { it as? TextChannel }
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? VoiceChannel }?.find { it.snowflake.id == id }"))
+    fun getVoiceChannelById(id: String)
+            = cachedChannels?.mapNotNull { it as? VoiceChannel }?.find { it.snowflake.id == id }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? VoiceChannel }?.find { it.snowflake.idLong == idLong }"))
+    fun getVoiceChannelById(idLong: Long)
+            = cachedChannels?.mapNotNull { it as? VoiceChannel }?.find { it.snowflake.idLong == idLong }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? VoiceChannel }?.find { it.name.equals(name, ignoreCase) }"))
+    fun getVoiceChannelsByName(name: String, ignoreCase: Boolean)
+            = cachedChannels?.mapNotNull { it as? VoiceChannel }?.find { it.name.equals(name, ignoreCase) }
+    @Deprecated("JDA Compatibility Field", ReplaceWith("null"))
+    val voiceChannels
+        get() = cachedChannels?.mapNotNull { it as? VoiceChannel }
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("cachedChannels"))
+    val channels
+        get() = cachedChannels
+    @Deprecated("JDA Compatibility Field", ReplaceWith("cachedChannels"))
+    fun getChannels(boolean: Boolean) = cachedChannels
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedRoles.find { it.snowflake.id == id }"))
+    fun getRoleById(id: String) = cachedRoles.find { it.snowflake.id == id }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedRoles.find { it.snowflake.idLong == idLong }"))
+    fun getRoleById(idLong: Long) = cachedRoles.find { it.snowflake.idLong == idLong }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("null"))
+    fun getRolesByName(name: String, ignoreCase: Boolean) = cachedRoles.find { it.name.equals(name, ignoreCase) }
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedRoles.find { it.snowflake.id == id }"))
+    fun getEmoteById(id: String) = emojis.find { it.snowflake.id == id }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedRoles.find { it.snowflake.id == id }"))
+    fun getEmoteById(idLong: Long) = emojis.find { it.snowflake.idLong == idLong }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("cachedRoles.find { it.snowflake.id == id }"))
+    fun getEmotesByName(name: String, ignoreCase: Boolean) = emojis.find { it.name.equals(name, ignoreCase) }
+    @Deprecated("JDA Compatibility Field", ReplaceWith("emojis"))
+    val emotes
+        get() = emojis
 }
 
-@Deprecated("JDA Compatibility Class", ReplaceWith("Int"))
 enum class ChannelType {
     TEXT,
     PRIVATE,

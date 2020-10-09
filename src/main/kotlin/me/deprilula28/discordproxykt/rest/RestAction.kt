@@ -33,12 +33,15 @@ open class RestAction<T: Any>(
             .method(endpoint.method.toString(), postData?.run { HttpRequest.BodyPublishers.ofString(this()) }
                     ?: HttpRequest.BodyPublishers.noBody())
             .header("Authorization", bot.authorization)
-            .header("User-Agent", "JDAProxySpectacles Worker")
+            .header("User-Agent", "discord-proxy-kt worker")
             .build()
         return bot.client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream()).thenApply {
-            if (it.statusCode() != 200) throw RestException(request.uri().toString(),
-                                                            it.body().readAllBytes().toString(Charsets.UTF_8),
-                                                            it.statusCode())
+            if (it.statusCode() != 200)
+                throw RestException(
+                    request.uri().toString(),
+                    it.body().readAllBytes().toString(Charsets.UTF_8),
+                    it.statusCode()
+                )
             constructor(Json.decodeFromString(JsonElement.serializer(), it.body().toString()), bot)
         }
     }

@@ -5,6 +5,9 @@ import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.User
+import me.deprilula28.discordproxykt.rest.asBoolean
+import me.deprilula28.discordproxykt.rest.asSnowflake
+import me.deprilula28.discordproxykt.rest.asString
 
 // https://discord.com/developers/docs/resources/emoji#emoji-object
 interface Emoji

@@ -4,6 +4,10 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
+import me.deprilula28.discordproxykt.rest.asInt
+import me.deprilula28.discordproxykt.rest.asString
+import me.deprilula28.discordproxykt.rest.delegateJson
+import me.deprilula28.discordproxykt.rest.delegateJsonNullable
 
 /**
  * https://discord.com/developers/docs/resources/channel#attachment-object

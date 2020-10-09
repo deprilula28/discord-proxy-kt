@@ -5,7 +5,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
-import me.deprilula28.discordproxykt.rest.IRestAction
+import me.deprilula28.discordproxykt.rest.*
 
 /**
  * Channel documentation:
@@ -52,6 +52,10 @@ interface GuildChannel: PartialGuildChannel {
      * id of the parent category for a channel (each parent category can contain up to 50 channels)
      */
     val categorySnowflake: Snowflake?
+    /**
+     * Channel Type, should be constant
+     */
+    val type: ChannelType
 }
 
 /**
@@ -84,6 +88,9 @@ class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Guil
             PermissionOverwrite(it as JsonObject, bot)
         }
     }, "permission_overwrites")
+    
+    override val type: ChannelType
+        get() = ChannelType.VOICE
 }
 
 /**
@@ -103,6 +110,9 @@ class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildCha
             PermissionOverwrite(it as JsonObject, bot)
         }
     }, "permission_overwrites")
+    
+    override val type: ChannelType
+        get() = ChannelType.CATEGORY
 }
 
 /**

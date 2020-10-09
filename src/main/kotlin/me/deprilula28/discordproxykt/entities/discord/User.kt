@@ -5,7 +5,7 @@ import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.message.Message
-import me.deprilula28.discordproxykt.rest.IRestAction
+import me.deprilula28.discordproxykt.rest.*
 import java.util.*
 
 // TODO Other methods

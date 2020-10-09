@@ -221,7 +221,7 @@ import kotlin.test.assertEquals
         assertEquals(guild.afkTimeout, Timeout.SECONDS_300)
         assertEquals(guild.systemChannel, null)
         assertEquals(guild.widgetEnabled, true)
-        assertEquals(guild.widgetChannelSnowflake, Snowflake("639513352485470208"))
+        assertEquals(guild.widgetChannel!!.snowflake, Snowflake("639513352485470208"))
         assertEquals(guild.verificationLevel, VerificationLevel.NONE)
         assertEquals(guild.defaultNotificationLevel, NotificationLevel.MENTIONS_ONLY)
         assertEquals(guild.requiredMFALevel, MFALevel.NONE)
@@ -235,7 +235,7 @@ import kotlin.test.assertEquals
         assertEquals(guild.systemChannelFlags, EnumSet.noneOf(SystemChannelFlags::class.java))
         assertEquals(guild.locale, "en-US")
         assertEquals(guild.rulesChannelSnowflake, null)
-        assertEquals(guild.publicUpdatesChannelSnowflake, null)
+        assertEquals(guild.publicUpdatesChannel, null)
     
         assertEquals(guild.features, EnumSet.of(
             Features.INVITE_SPLASH,
@@ -256,7 +256,7 @@ import kotlin.test.assertEquals
         assert(!emoji.managed)
         assert(emoji.roles.isEmpty())
         
-        val role = guild.roles[0]
+        val role = guild.cachedRoles[0]
         assertEquals(role.name, "@everyone")
         assertEquals(role.snowflake, Snowflake("2909267986263572999"))
         assertEquals(role.position, 0)
