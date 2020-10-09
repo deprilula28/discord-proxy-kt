@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
+import me.deprilula28.discordproxykt.rest.IRestAction
 
 /**
  * Channel documentation:
@@ -22,11 +23,15 @@ interface MessageChannel {
     val lastMessageId: Snowflake
 }
 
+interface PartialGuildChannel: IPartialEntity {
+    interface Upgradeable: PartialGuildChannel
+}
+
 /**
  * Channel documentation:
  * https://discord.com/developers/docs/resources/channel
  */
-interface GuildChannel {
+interface GuildChannel: PartialGuildChannel {
     /**
      * the id of the guild
      */
@@ -55,7 +60,11 @@ interface GuildChannel {
  * Channel documentation:
  * https://discord.com/developers/docs/resources/channel
  */
-class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel {
+interface PartialVoiceChannel: IPartialEntity {
+    interface Upgradeable: PartialVoiceChannel, PartialGuildChannel.Upgradeable, IRestAction<VoiceChannel>
+}
+
+class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel, PartialVoiceChannel {
     /**
      * the bitrate (in bits) of the voice channel
      */

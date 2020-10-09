@@ -13,6 +13,15 @@ interface IRestAction<T> {
     /// Kotlin coroutine await function
     suspend fun await(): T = request().await()
     
+    class MapRestAction<T, V>(val base: IRestAction<T>, val func: (T) -> V): IRestAction<V> {
+        override val bot by base::bot
+        override fun request(): CompletableFuture<V> = base.request().thenApply(func)
+    }
+    
+    fun <V: Any> map(func: (T) -> V): IRestAction<V> {
+        return MapRestAction(this, func)
+    }
+    
     // JDA Compatibility
     @Deprecated("JDA Compatibility Function", ReplaceWith("request()", "java.util.concurrent.CompletableFuture"))
     fun queue() {

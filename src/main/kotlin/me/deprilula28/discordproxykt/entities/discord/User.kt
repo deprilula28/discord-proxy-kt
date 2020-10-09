@@ -13,7 +13,7 @@ interface PartialUser: IPartialEntity, Message.Mentionable {
     override val asMention: String
         get() = "<@${snowflake.id}>"
     
-    interface Upgradeable: PartialUser, IRestAction<Role>
+    interface Upgradeable: PartialUser, IRestAction<User>
 }
 
 /**

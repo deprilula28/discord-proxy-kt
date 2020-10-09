@@ -3,21 +3,308 @@ package me.deprilula28.discordproxykt.entities.discord
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.message.GuildEmoji
 import me.deprilula28.discordproxykt.rest.IRestAction
+import me.deprilula28.discordproxykt.rest.RestAction
+import me.deprilula28.discordproxykt.rest.RestEndpoint
 import java.util.*
+import java.util.concurrent.CompletableFuture
 
-// TODO Other methods
+enum class Region {
+    AMSTERDAN, VIP_AMSTERDAN,
+    BRAZIL, VIP_BRAZIL,
+    EUROPE,  VIP_EUROPE,
+    EU_CENTRAL,  VIP_EU_CENTRAL,
+    EU_WEST, VIP_EU_WEST,
+    FRANKFURT,  VIP_FRANKFURT,
+    HONG_KONG,  VIP_HONG_KONG,
+    JAPAN, VIP_JAPAN,
+    SOUTH_KOREA, VIP_SOUTH_KOREA,
+    LONDON, VIP_LONDON,
+    RUSSIA,  VIP_RUSSIA,
+    INDIA,  VIP_INDIA,
+    SINGAPORE, VIP_SINGAPORE,
+    SOUTH_AFRICA, VIP_SOUTH_AFRICA,
+    SYDNEY, VIP_SYDNEY,
+    US_CENTRAL, VIP_US_CENTRAL,
+    US_EAST, VIP_US_EAST,
+    US_SOUTH, VIP_US_SOUTH,
+    US_WEST, VIP_US_WEST,
+}
+
+/**
+ * https://discord.com/developers/docs/resources/voice#voice-region-object
+ */
+class VoiceRegion(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot) {
+    /**
+     * name of the region
+     */
+    val name: String by map.delegateJson(JsonElement::asString)
+    /**
+     * true if this is a vip-only server
+     * <br>
+     * "VIP" regions are now known as 368kbps regions for boosted servers
+     */
+    val vip: Boolean by map.delegateJson(JsonElement::asBoolean)
+    /**
+     * true for a single server that is closest to the current user's client
+     */
+    val optimal: Boolean by map.delegateJson(JsonElement::asBoolean)
+    /**
+     * whether this is a deprecated voice region (avoid switching to these)
+     */
+    val deprecated: Boolean by map.delegateJson(JsonElement::asBoolean)
+    /**
+     * whether this is a custom voice region (used for events/etc)
+     */
+    val custom: Boolean by map.delegateJson(JsonElement::asBoolean)
+}
+
+/**
+ * https://discord.com/developers/docs/resources/guild#ban-object
+ */
+data class Ban(private val map: JsonObject, private val bot: DiscordProxyKt) {
+    val user: User by map.delegateJson({ User(this as JsonObject, bot) })
+    val reason: String by map.delegateJson(JsonElement::asString)
+}
+
 interface PartialGuild: IPartialEntity {
+    val fetchRegions: IRestAction<List<VoiceRegion>>
+        get() = RestAction(
+            bot, { (this as JsonArray).map { VoiceRegion(it as JsonObject, bot) } },
+            RestEndpoint.GET_GUILD_VOICE_REGIONS, snowflake.id,
+        )
+    
+    val fetchChannels: IRestAction<List<GuildChannel>>
+        get() = RestAction(
+            bot, { (this as JsonArray).mapNotNull(::parseChannel) },
+            RestEndpoint.GET_GUILD_CHANNELS, snowflake.id,
+        )
+    
+    fun getMember(member: Snowflake): PartialMember.Upgradeable
+        = object: PartialMember.Upgradeable,
+            RestAction<Member>(bot, { Member(this as JsonObject, bot) }, RestEndpoint.GET_GUILD_MEMBER, snowflake.id, member.id) {
+                override val snowflake: Snowflake = member
+            }
+    
+    val fetchEmojis: IRestAction<List<GuildEmoji>>
+        get() = RestAction(
+            bot, { (this as JsonArray).map { GuildEmoji(it as JsonObject, bot) } },
+            RestEndpoint.GET_GUILD_EMOJIS, snowflake.id,
+        )
+    
+    fun fetchEmoji(emoji: Snowflake): RestAction<GuildEmoji>
+        = RestAction(
+            bot, { GuildEmoji(this as JsonObject, bot) },
+            RestEndpoint.GET_GUILD_EMOJI, snowflake.id, emoji.id
+        )
+    
+    val fetchVanityCode: IRestAction<String>
+        get() = RestAction(bot, { (this as JsonPrimitive).content }, RestEndpoint.GET_GUILD_VANITY_URL, snowflake.id)
+    
+    val fetchBans: IRestAction<List<Ban>>
+        get() = RestAction(
+            bot, { (this as JsonArray).map { Ban(it as JsonObject, bot) } },
+            RestEndpoint.GET_GUILDS_BANS, snowflake.id,
+        )
+    
+    fun fetchBan(user: PartialUser): RestAction<Ban>
+            = RestAction(
+        bot, { Ban(this as JsonObject, bot) },
+        RestEndpoint.GET_GUILDS_BAN, snowflake.id, user.snowflake.id
+    )
+    
+    fun addMember(accessToken: String, user: PartialUser): IRestAction<Member>
+        = RestAction(
+            bot, { Member(this as JsonObject, it) },
+            RestEndpoint.ADD_GUILD_MEMBER, snowflake.id, user.snowflake.id,
+        )
+    
+    fun retrievePrunableMemberCount(days: Int)
+            = RestAction(bot, { asInt() }, RestEndpoint.GET_GUILD_PRUNE_COUNT, snowflake.id)
+    
     interface Upgradeable: PartialUser, IRestAction<Guild>
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("false"))
+    val loaded: Boolean
+        get() = false
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchEmojis"))
+    fun retrieveEmotes() = fetchEmojis
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchEmoji(Snowflake(id))"))
+    fun retrieveEmoteById(id: String) = fetchEmoji(Snowflake(id))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchEmoji(Snowflake(id.toString()))"))
+    fun retrieveEmoteById(id: Long) = fetchEmoji(Snowflake(id.toString()))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("emote"))
+    fun retrieveEmote(emote: GuildEmoji) = fetchEmoji(emote.snowflake)
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchBans"))
+    fun retrieveBanList() = fetchBans
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchBan(bot.users[Snowflake(id)])"))
+    fun retrieveBanById(id: String) = fetchBan(bot.users[Snowflake(id)])
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchBan(bot.users[Snowflake(id.toString())])"))
+    fun retrieveBanById(id: Long) = fetchBan(bot.users[Snowflake(id.toString())])
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchBan(user)"))
+    fun retrieveBan(user: PartialUser) = fetchBan(user)
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("/*no-op*/"))
+    fun pruneMemberCache() = println("Warning: pruneMemberCache() is a no-op!")
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("/*no-op*/"))
+    fun unloadMember(id: Long) = println("Warning: unloadMember(long) is a no-op!")
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("addMember"))
+    fun addMember(accessToken: String, user: String)
+            = addMember(accessToken, bot.users[Snowflake(user)])
+    @Deprecated("JDA Compatibility Function", ReplaceWith("addMember"))
+    fun addMember(accessToken: String, user: Long)
+            = addMember(accessToken, bot.users[Snowflake(user.toString())])
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("vanityUrl"))
+    fun retrieveVanityUrl() = fetchVanityCode
+    
+    @Deprecated("JDA Compatbility Field", ReplaceWith("\"https://discord.gg/\" + vanityCode"))
+    val vanityUrl: String?
+        get() = fetchVanityCode.request().get()?.run { "https://discord.gg/$this" }
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("regions"))
+    fun retrieveRegions() = RestAction(
+        bot,
+        {
+            val enumSet = EnumSet.noneOf(Region::class.java)
+            (this as JsonArray).forEach {
+                val region = VoiceRegion(it as JsonObject, bot)
+                enumSet.add(Region.valueOf((if (region.vip) "VIP_" else "") + region.name.toUpperCase()))
+            }
+            enumSet
+        },
+        RestEndpoint.GET_GUILD_VOICE_REGIONS,
+        snowflake.id,
+    )
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("regions"))
+    fun retrieveRegions(includeDeprecated: Boolean) = retrieveRegions()
+    
+    // NOT PUBLIC API
+    fun parseChannel(it: JsonElement): GuildChannel? {
+        val obj = it as JsonObject
+        return when (val type = obj["type"]!!.asInt()) {
+            0 -> TextChannel(obj, bot)
+            2 -> VoiceChannel(obj, bot)
+            4 -> Category(obj, bot)
+            else -> {
+                println("Invalid channel type received for guild ${snowflake.id}: $type")
+                null
+            }
+        }
+    }
+    
+    // The bullshit JDA ones
+    // I'm not gonna do anything for these as the guild members intent is assumed to be off for this library
+    @Deprecated("JDA Compatibility Function", ReplaceWith("isMember(user)"))
+    fun isMember(user: User): Boolean = false
+    @Deprecated("JDA Compatibility Function", ReplaceWith("this[user]"))
+    fun getMember(user: User) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith("this[user]"))
+    fun getMember(userId: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith("this[user]"))
+    fun getMember(userIdLong: Long) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getMemberByTag(tag: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getMemberByTag(tag: String, discrim: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getMembersByName(tag: String, ignoreCase: Boolean) = listOf<Member>()
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getMembersByNickname(tag: String, ignoreCase: Boolean) = listOf<Member>()
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getMembersByEffectiveName(tag: String, ignoreCase: Boolean) = listOf<Member>()
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getMembersWithRoles(vararg roles: Role) = listOf<Member>()
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getMembersWithRoles(roles: Collection<Role>) = listOf<Member>()
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getGuildChannelById(id: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getGuildChannelById(idLong: Long) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getGuildChannelById(channelType: Guild.ChannelType, id: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getGuildChannelById(channelType: Guild.ChannelType, idLong: Long) = null
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getCategoryById(id: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getCategoryById(idLong: Long) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getCategoriesByName(name: String, ignoreCase: Boolean) = null
+    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
+    val categories: List<Nothing>
+        get() = listOf()
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getStoreChannelById(id: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getStoreChannelById(idLong: Long) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getStoreChannelsByName(name: String, ignoreCase: Boolean) = null
+    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
+    val storeChannels: List<Nothing>
+        get() = listOf()
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getTextChannelById(id: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getTextChannelById(idLong: Long) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getTextChannelsByName(name: String, ignoreCase: Boolean) = null
+    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
+    val textChannels: List<Nothing>
+        get() = listOf()
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getVoiceChannelById(id: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getVoiceChannelById(idLong: Long) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getVoiceChannelsByName(name: String, ignoreCase: Boolean) = null
+    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
+    val voiceChannels: List<Nothing>
+        get() = listOf()
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
+    val channels: List<Nothing>
+        get() = listOf()
+    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
+    fun getChannels(boolean: Boolean) = listOf<Nothing>()
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getRoleById(id: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getRoleById(idLong: Long) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getRolesByName(name: String, ignoreCase: Boolean) = null
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getEmoteById(id: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getEmoteById(idLong: Long) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun getEmotesByName(name: String, ignoreCase: Boolean) = null
+    @Deprecated("JDA Compatibility Field", ReplaceWith(""))
+    val emotes: List<Nothing>
+        get() = listOf()
+    
 }
 
 /**
  * Guilds in Discord represent an isolated collection of users and channels, and are often referred to as "servers" in the UI.
  */
-class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser {
+class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialGuild {
     /**
      * guild name (2-100 characters, excluding trailing and leading whitespace)
      */
@@ -25,7 +312,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser
     /**
      * id of owner
      */
-    val ownerSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake)
+    val owner: PartialMember.Upgradeable by map.delegateJson({ getMember(asSnowflake()) })
     /**
      * application id of the guild creator if it is bot-created
      */
@@ -59,7 +346,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser
     /**
      * 	the preferred locale of a guild with the "PUBLIC" feature; used in server discovery and notices from Discord; defaults to "en-US"
      */
-    val preferredLocale: String by map.delegateJson(JsonElement::asString, "preferred_locale")
+    val locale: String by map.delegateJson(JsonElement::asString, "preferred_locale")
     /**
      * 	the id of the channel where admins and moderators of guilds with the "PUBLIC" feature receive notices from Discord
      */
@@ -77,15 +364,36 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser
     /**
      * voice region for the guild
      */
-    val region: String by map.delegateJson(JsonElement::asString)
+    val region: Region by lazy { Region.valueOf(regionRaw) }
+    /**
+     * voice region for the guild
+     */
+    val regionRaw: String by map.delegateJson(JsonElement::asString, "region")
     /**
      * id of afk channel
      */
-    val afkChannelSnowflake: Snowflake? by map.delegateJsonNullable(JsonElement::asSnowflake, "afk_channel_id")
+    val afkChannel: PartialVoiceChannel.Upgradeable? by map.delegateJsonNullable({
+        val afkSnowflake = asSnowflake()
+        object: PartialVoiceChannel.Upgradeable {
+            override val snowflake: Snowflake = afkSnowflake
+            override val bot: DiscordProxyKt = bot
+    
+            override fun request(): CompletableFuture<VoiceChannel> =
+                    fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == snowflake } as VoiceChannel }
+        }
+    }, "afk_channel_id")
     /**
      * afk timeout in seconds
      */
-    val afkTimeout: Int by map.delegateJson(JsonElement::asInt, "afk_timeout")
+    val afkTimeout: Timeout by map.delegateJson({ Timeout.values()[asInt()] }, "afk_timeout")
+    
+    enum class Timeout(val seconds: Int) {
+        SECONDS_60(60),
+        SECONDS_300(300),
+        SECONDS_900(900),
+        SECONDS_1800(1800),
+        SECONDS_3600(3600);
+    }
     
     /**
      * true if the server widget is enabled
@@ -132,7 +440,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser
      * <br>
      * Only sent when under the event where the guild becomes available to the bot
      */
-    val memberCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "member_count")
+    val instantMemberCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "member_count")
     /**
      * 	approximate number of members in this guild
      */
@@ -152,21 +460,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser
      * <br>
      * Only sent when under the event where the guild becomes available to the bot
      */
-    val channels: List<GuildChannel>? by map.delegateJsonNullable({
-        (this as JsonArray).map {
-            val obj = it as JsonObject
-            val type = obj["type"]!!.asInt()
-            when (type) {
-                0 -> TextChannel(obj, bot)
-                2 -> VoiceChannel(obj, bot)
-                4 -> Category(obj, bot)
-                else -> {
-                    println("Invalid channel type received for guild ${snowflake.id}: $type")
-                    null
-                }
-            }
-        }.filterNotNull()
-    })
+    val cachedChannels: List<GuildChannel>? by map.delegateJsonNullable({ (this as JsonArray).mapNotNull(::parseChannel) }, "channels")
     
     /**
      * the maximum number of presences for the guild (the default value, currently 25000, is in effect when null is returned)
@@ -183,7 +477,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser
     /**
      * the vanity url code for the guild
      */
-    val vanityUrlCode: String? by map.delegateJsonNullable(JsonElement::asString, "vanity_url_code")
+    val vanityCode: String? by map.delegateJsonNullable(JsonElement::asString, "vanity_url_code")
     
     /**
      * verification level required for the guild
@@ -330,7 +624,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser
     /**
      * premium tier (Server Boost level)
      */
-    val premiumTier: PremiumTier by map.delegateJson({ PremiumTier.values()[asInt()] }, "premium_tier")
+    val boostTier: BoostTier by map.delegateJson({ BoostTier.values()[asInt()] }, "premium_tier")
     /**
      * the number of boosts this guild currently has
      */
@@ -339,17 +633,26 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser
     /**
      * https://discord.com/developers/docs/resources/guild#guild-object-premium-tier
      */
-    enum class PremiumTier {
-        NONE,
-        TIER_1,
-        TIER_2,
-        TIER_3,
+    enum class BoostTier(val bitrate: Int, val emotes: Int, val fileSize: Long) {
+        NONE(96000, 50, 8_388_608L),
+        TIER_1(128000, 100, 8_388_608L),
+        TIER_2(256000, 150, 52_428_800L),
+        TIER_3(384000, 250, 104_857_600L),
     }
     
     /**
      * the id of the channel where guild notices such as welcome messages and boost events are posted
      */
-    val systemChannelSnowflake: Snowflake? by map.delegateJsonNullable(JsonElement::asSnowflake, "system_channel_id")
+    val systemChannel: PartialTextChannel.Upgradeable? by map.delegateJsonNullable({
+        val systemSnowflake = asSnowflake()
+        object: PartialTextChannel.Upgradeable {
+            override val snowflake: Snowflake = systemSnowflake
+            override val bot: DiscordProxyKt = bot
+            
+            override fun request(): CompletableFuture<TextChannel> =
+                    fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == snowflake } as TextChannel }
+        }
+    }, "system_channel_id")
     /**
      * system channel flags
      */
@@ -367,5 +670,50 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser
          * Suppress server boost notifications
          */
         SUPPRESS_PREMIUM_SUBSCRIPTIONS,
+    }
+    
+    val memberCount: Int by lazy { instantMemberCount ?: approxMemberCount ?: -1 }
+    val iconUrl: String? by lazy {
+        if (icon == null) null
+        else "https://cdn.discordapp.com/icons/${snowflake.id}/$icon.${if (icon!!.startsWith("a_")) "gif" else "png"}"
+    }
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("iconSplash"))
+    val splashId: String? by ::iconSplash
+    @Deprecated("JDA Compatibility Field", ReplaceWith("icon"))
+    val iconId: String? by ::icon
+    @Deprecated("JDA Compatibility Field", ReplaceWith("banner"))
+    val bannerId: String? by ::banner
+    @Deprecated("JDA Compatibility Field", ReplaceWith("https://cdn.discordapp.com/banners/\${snowflake.id}/\$banner.png"))
+    val bannerUrl: String?
+        get() = banner?.run { "https://cdn.discordapp.com/banners/${snowflake.id}/$banner.png" }
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("owner.snowflake.id"))
+    val ownerId: String by lazy { owner.snowflake.id }
+    @Deprecated("JDA Compatibility Field", ReplaceWith("owner.snowflake.idLong"))
+    val ownerIdLong: Long by lazy { owner.snowflake.idLong }
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("boostTier.bitrate"))
+    val maxBitrate: Int by boostTier::bitrate
+    @Deprecated("JDA Compatibility Field", ReplaceWith("boostTier.fileSize"))
+    val maxFileSize: Long by boostTier::fileSize
+    @Deprecated("JDA Compatibility Field", ReplaceWith("boostTier.emotes"))
+    val maxEmotes: Int by boostTier::emotes
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("bot.guilds[snowflake]"))
+    fun retrieveMetaData(): IRestAction<Guild> = bot.guilds[snowflake]
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("this[selfUser]"))
+    val selfMember: Member
+        get() = getMember(bot.selfUser.request().get().snowflake).request().get()
+    
+    @Deprecated("JDA Compatibility Class", ReplaceWith("Int"))
+    enum class ChannelType {
+        TEXT,
+        PRIVATE,
+        VOICE,
+        GROUP,
+        CATEGORY,
+        STORE,
     }
 }

@@ -5,15 +5,12 @@ import com.rabbitmq.client.Connection
 import com.rabbitmq.client.ConnectionFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.GlobalScope
+import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.cache.Cache
 import me.deprilula28.discordproxykt.cache.MemoryCache
 import me.deprilula28.discordproxykt.entities.Snowflake
-import me.deprilula28.discordproxykt.entities.discord.PartialRole
-import me.deprilula28.discordproxykt.entities.discord.PartialTextChannel
-import me.deprilula28.discordproxykt.entities.discord.Role
-import me.deprilula28.discordproxykt.entities.discord.TextChannel
+import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.events.EventConsumer
-import me.deprilula28.discordproxykt.rest.ReadyRestAction
 import me.deprilula28.discordproxykt.rest.RestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
 import java.net.URI
@@ -47,17 +44,36 @@ open class DiscordProxyKt internal constructor(
     
     class TextChannels(private val bot: DiscordProxyKt) {
         operator fun get(id: Snowflake): PartialTextChannel.Upgradeable {
-            val ret = bot.cache.retrieve<TextChannel>(id)
-            return if (ret == null) object: PartialTextChannel.Upgradeable,
-                RestAction<TextChannel>(bot, ::TextChannel, RestEndpoint.GET_CHANNEL, id.id) {
+            return object: PartialTextChannel.Upgradeable,
+                RestAction<TextChannel>(bot, { TextChannel(this as JsonObject, bot) }, RestEndpoint.GET_CHANNEL, id.id) {
                 override val snowflake: Snowflake = id
-            }
-            else object: PartialTextChannel.Upgradeable, ReadyRestAction<TextChannel>(ret, bot) {
-                override val snowflake = id
             }
         }
     }
     val channels = TextChannels(this)
+    
+    val selfUser: RestAction<User>
+        get() = RestAction(this, { User(this as JsonObject, this@DiscordProxyKt) }, RestEndpoint.GET_CURRENT_USER)
+    
+    class Guilds(private val bot: DiscordProxyKt) {
+        operator fun get(id: Snowflake): PartialGuild.Upgradeable {
+            return object: PartialGuild.Upgradeable,
+                RestAction<Guild>(bot, { Guild(this as JsonObject, bot) }, RestEndpoint.GET_GUILD, id.id) {
+                override val snowflake: Snowflake = id
+            }
+        }
+    }
+    val guilds = Guilds(this)
+    
+    class Users(private val bot: DiscordProxyKt) {
+        operator fun get(id: Snowflake): PartialUser.Upgradeable {
+            return object: PartialUser.Upgradeable,
+                RestAction<User>(bot, { User(this as JsonObject, bot) }, RestEndpoint.GET_USER, id.id) {
+                override val snowflake: Snowflake = id
+            }
+        }
+    }
+    val users = Users(this)
     
     init {
         val factory = ConnectionFactory()

@@ -10,7 +10,6 @@ import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
 import me.deprilula28.discordproxykt.rest.IRestAction
-import me.deprilula28.discordproxykt.rest.ReadyRestAction
 import me.deprilula28.discordproxykt.rest.RestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
 
@@ -24,16 +23,11 @@ interface PartialTextChannel: IPartialEntity, Message.Mentionable {
     /// Retrieve a message by the given ID.
     /// <br>
     /// This will check the cache and return a PartialMessage with a free request if possible.
-    operator fun get(message: Snowflake): PartialMessage {
-        val ret = bot.cache.retrieve<Message>(message)
-        return if (ret == null) object: PartialMessage,
-            RestAction<Message>(bot, ::Message, RestEndpoint.GET_CHANNEL_MESSAGE, snowflake.id, message.id) {
+    operator fun get(message: Snowflake): PartialMessage.Upgradeable
+        = object: PartialMessage.Upgradeable,
+            RestAction<Message>(bot, { Message(this as JsonObject, bot) }, RestEndpoint.GET_CHANNEL_MESSAGE, snowflake.id, message.id) {
             override val snowflake: Snowflake = message
         }
-        else object: PartialMessage.Upgradeable, ReadyRestAction<Message>(ret, bot) {
-            override val snowflake = message
-        }
-    }
     
     fun bulkDelete(messages: Collection<Message>) = bulkDeleteSnowflake(messages.map { it.snowflake })
     fun bulkDeleteSnowflake(messages: Collection<Snowflake>)
