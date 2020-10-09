@@ -5,14 +5,11 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
-import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.rest.IRestAction
 
 // TODO Fill this
-interface PartialMember: IPartialEntity, Message.Mentionable {
-    override val asMention: String
-        get() = "<@${snowflake.id}>"
-    
+interface PartialMember {
+    val user: PartialUser
     interface Upgradeable: PartialMember, IRestAction<Member>
 }
 
@@ -21,11 +18,11 @@ interface PartialMember: IPartialEntity, Message.Mentionable {
  * <br>
  * https://discord.com/developers/docs/resources/guild#guild-member-object
  */
-class Member(map: JsonObject, bot: DiscordProxyKt, readyUser: User? = null): Entity(map, bot), PartialMember {
+class Member(private val map: JsonObject, private val bot: DiscordProxyKt, readyUser: User? = null): PartialMember {
     /**
      * the user this guild member represents
      */
-    val user: User by lazy { readyUser ?: User(map["user"] as JsonObject, bot) }
+    override val user: User by lazy { readyUser ?: User(map["user"] as JsonObject, bot) }
     /**
      * this users guild nickname
      */

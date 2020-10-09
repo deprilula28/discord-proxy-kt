@@ -21,7 +21,7 @@ interface IPartialEntity {
     val bot: DiscordProxyKt
 }
 
-interface EntityManager: IRestAction<Unit> {
+interface EntityManager<T>: IRestAction<T> {
     val edits: MutableMap<String, JsonElement>
 }
 
@@ -72,11 +72,11 @@ inline fun <reified T> JsonObject.delegateJsonMutable(
     crossinline read: JsonElement.() -> T,
     crossinline write: (T) -> JsonElement,
     field: String? = null,
-): ReadWriteProperty<EntityManager, T> = object: ReadWriteProperty<EntityManager, T> {
-    override fun getValue(thisRef: EntityManager, property: KProperty<*>): T = getValue(this@delegateJsonMutable,
+): ReadWriteProperty<EntityManager<*>, T> = object: ReadWriteProperty<EntityManager<*>, T> {
+    override fun getValue(thisRef: EntityManager<*>, property: KProperty<*>): T = getValue(this@delegateJsonMutable,
                                                                                         field ?: property.name, read)
     
-    override fun setValue(thisRef: EntityManager, property: KProperty<*>, value: T) {
+    override fun setValue(thisRef: EntityManager<*>, property: KProperty<*>, value: T) {
         thisRef.edits[field ?: property.name] = write(value)
     }
 }
@@ -85,11 +85,11 @@ inline fun <reified T> JsonObject.delegateJsonMutableNullable(
     crossinline read: JsonElement.() -> T?,
     crossinline write: (T) -> JsonElement,
     field: String? = null,
-): ReadWriteProperty<EntityManager, T?> = object: ReadWriteProperty<EntityManager, T?> {
-    override fun getValue(thisRef: EntityManager, property: KProperty<*>): T? = getValueNullable(
+): ReadWriteProperty<EntityManager<*>, T?> = object: ReadWriteProperty<EntityManager<*>, T?> {
+    override fun getValue(thisRef: EntityManager<*>, property: KProperty<*>): T? = getValueNullable(
         this@delegateJsonMutableNullable, field ?: property.name, read)
     
-    override fun setValue(thisRef: EntityManager, property: KProperty<*>, value: T?) {
+    override fun setValue(thisRef: EntityManager<*>, property: KProperty<*>, value: T?) {
         thisRef.edits[field ?: property.name] = write(value!!)
     }
 }

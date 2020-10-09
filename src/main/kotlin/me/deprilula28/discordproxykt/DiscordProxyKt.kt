@@ -5,6 +5,7 @@ import com.rabbitmq.client.Connection
 import com.rabbitmq.client.ConnectionFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.GlobalScope
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.cache.Cache
 import me.deprilula28.discordproxykt.cache.MemoryCache
@@ -59,6 +60,7 @@ open class DiscordProxyKt internal constructor(
         operator fun get(id: Snowflake): PartialGuild.Upgradeable {
             return object: PartialGuild.Upgradeable,
                 RestAction<Guild>(bot, { Guild(this as JsonObject, bot) }, RestEndpoint.GET_GUILD, id.id) {
+                override val edits: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
                 override val snowflake: Snowflake = id
             }
         }

@@ -25,7 +25,7 @@ class GuildEmoji(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Emoji 
     /**
      * roles this emoji is whitelisted to
      */
-    val roles: List<Snowflake> by lazy { (map["mention_roles"] as JsonArray).map { it.asSnowflake() } }
+    val roles: List<Snowflake> by lazy { (map["roles"] as JsonArray).map { it.asSnowflake() } }
     /**
      * user that created this emoji
      */
