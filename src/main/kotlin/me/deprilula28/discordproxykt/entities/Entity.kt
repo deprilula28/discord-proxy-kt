@@ -83,14 +83,14 @@ inline fun <reified T> JsonObject.delegateJsonMutable(
 
 inline fun <reified T> JsonObject.delegateJsonMutableNullable(
     crossinline read: JsonElement.() -> T?,
-    crossinline write: (T) -> JsonElement,
+    crossinline write: (T?) -> JsonElement,
     field: String? = null,
 ): ReadWriteProperty<EntityManager<*>, T?> = object: ReadWriteProperty<EntityManager<*>, T?> {
     override fun getValue(thisRef: EntityManager<*>, property: KProperty<*>): T? = getValueNullable(
         this@delegateJsonMutableNullable, field ?: property.name, read)
     
     override fun setValue(thisRef: EntityManager<*>, property: KProperty<*>, value: T?) {
-        thisRef.edits[field ?: property.name] = write(value!!)
+        thisRef.edits[field ?: property.name] = write(value)
     }
 }
 

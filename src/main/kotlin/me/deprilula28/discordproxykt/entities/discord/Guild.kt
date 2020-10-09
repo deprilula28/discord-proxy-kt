@@ -1,39 +1,19 @@
 package me.deprilula28.discordproxykt.entities.discord
 
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.message.GuildEmoji
 import me.deprilula28.discordproxykt.rest.IRestAction
+import me.deprilula28.discordproxykt.rest.InvalidRequestException
 import me.deprilula28.discordproxykt.rest.RestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
+import java.awt.image.RenderedImage
+import java.io.ByteArrayOutputStream
 import java.util.*
 import java.util.concurrent.CompletableFuture
-
-enum class Region {
-    AMSTERDAN, VIP_AMSTERDAN,
-    BRAZIL, VIP_BRAZIL,
-    EUROPE,  VIP_EUROPE,
-    EU_CENTRAL,  VIP_EU_CENTRAL,
-    EU_WEST, VIP_EU_WEST,
-    FRANKFURT,  VIP_FRANKFURT,
-    HONG_KONG,  VIP_HONG_KONG,
-    JAPAN, VIP_JAPAN,
-    SOUTH_KOREA, VIP_SOUTH_KOREA,
-    LONDON, VIP_LONDON,
-    RUSSIA,  VIP_RUSSIA,
-    INDIA,  VIP_INDIA,
-    SINGAPORE, VIP_SINGAPORE,
-    SOUTH_AFRICA, VIP_SOUTH_AFRICA,
-    SYDNEY, VIP_SYDNEY,
-    US_CENTRAL, VIP_US_CENTRAL,
-    US_EAST, VIP_US_EAST,
-    US_SOUTH, VIP_US_SOUTH,
-    US_WEST, VIP_US_WEST,
-}
+import javax.imageio.ImageIO
 
 /**
  * https://discord.com/developers/docs/resources/voice#voice-region-object
@@ -84,10 +64,10 @@ interface PartialGuild: IPartialEntity {
             RestEndpoint.GET_GUILD_CHANNELS, snowflake.id,
         )
     
-    fun getMember(member: Snowflake): PartialMember.Upgradeable
+    fun getMember(user: Snowflake): PartialMember.Upgradeable
         = object: PartialMember.Upgradeable,
-            RestAction<Member>(bot, { Member(this as JsonObject, bot) }, RestEndpoint.GET_GUILD_MEMBER, snowflake.id, member.id) {
-                override val snowflake: Snowflake = member
+            RestAction<Member>(bot, { Member(this as JsonObject, bot) }, RestEndpoint.GET_GUILD_MEMBER, snowflake.id, user.id) {
+                override val user: PartialUser by lazy { bot.users[user] }
             }
     
     val fetchEmojis: IRestAction<List<GuildEmoji>>
@@ -126,7 +106,7 @@ interface PartialGuild: IPartialEntity {
     fun retrievePrunableMemberCount(days: Int)
             = RestAction(bot, { asInt() }, RestEndpoint.GET_GUILD_PRUNE_COUNT, snowflake.id)
     
-    interface Upgradeable: PartialUser, IRestAction<Guild>
+    interface Upgradeable: PartialGuild, IRestAction<Guild>
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("false"))
     val loaded: Boolean
@@ -232,9 +212,9 @@ interface PartialGuild: IPartialEntity {
     @Deprecated("JDA Compatibility Function", ReplaceWith(""))
     fun getGuildChannelById(idLong: Long) = null
     @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getGuildChannelById(channelType: Guild.ChannelType, id: String) = null
+    fun getGuildChannelById(channelType: ChannelType, id: String) = null
     @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun getGuildChannelById(channelType: Guild.ChannelType, idLong: Long) = null
+    fun getGuildChannelById(channelType: ChannelType, idLong: Long) = null
     
     @Deprecated("JDA Compatibility Function", ReplaceWith(""))
     fun getCategoryById(id: String) = null
@@ -304,15 +284,22 @@ interface PartialGuild: IPartialEntity {
 /**
  * Guilds in Discord represent an isolated collection of users and channels, and are often referred to as "servers" in the UI.
  */
-class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialGuild {
+class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManager<Guild>, PartialGuild {
     /**
      * guild name (2-100 characters, excluding trailing and leading whitespace)
      */
-    val name: String by map.delegateJson(JsonElement::asString)
+    var name: String by map.delegateJsonMutable(JsonElement::asString, Json::encodeToJsonElement)
     /**
      * id of owner
      */
-    val owner: PartialMember.Upgradeable by map.delegateJson({ getMember(asSnowflake()) })
+    var owner: PartialMember.Upgradeable by map.delegateJsonMutable(
+        { getMember(asSnowflake()) },
+        {
+            // TODO Check if self is owner
+            Json.encodeToJsonElement(it.user.snowflake.id)
+        },
+        "owner_id"
+    )
     /**
      * application id of the guild creator if it is bot-created
      */
@@ -346,11 +333,15 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialGuil
     /**
      * 	the preferred locale of a guild with the "PUBLIC" feature; used in server discovery and notices from Discord; defaults to "en-US"
      */
-    val locale: String by map.delegateJson(JsonElement::asString, "preferred_locale")
+    var locale: String by map.delegateJsonMutable(JsonElement::asString, Json::encodeToJsonElement, "preferred_locale")
     /**
      * 	the id of the channel where admins and moderators of guilds with the "PUBLIC" feature receive notices from Discord
      */
-    val publicUpdatesChannelSnowflake: Snowflake? by map.delegateJsonNullable(JsonElement::asSnowflake, "public_updates_channel_id")
+    var publicUpdatesChannel: PartialTextChannel.Upgradeable? by map.delegateJsonMutableNullable(
+        ::delegateChannel,
+        { Json.encodeToJsonElement(it?.snowflake?.id) },
+        "public_updates_channel_id"
+    )
     
     /**
      * icon hash
@@ -364,7 +355,10 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialGuil
     /**
      * voice region for the guild
      */
-    val region: Region by lazy { Region.valueOf(regionRaw) }
+    var region: Region by map.delegateJsonMutable(
+        { Region.valueOf(asString().toUpperCase().replace("-", "_")) },
+        { Json.encodeToJsonElement(it.toString()) },
+    )
     /**
      * voice region for the guild
      */
@@ -372,28 +366,29 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialGuil
     /**
      * id of afk channel
      */
-    val afkChannel: PartialVoiceChannel.Upgradeable? by map.delegateJsonNullable({
-        val afkSnowflake = asSnowflake()
-        object: PartialVoiceChannel.Upgradeable {
-            override val snowflake: Snowflake = afkSnowflake
-            override val bot: DiscordProxyKt = bot
+    var afkChannel: PartialVoiceChannel.Upgradeable? by map.delegateJsonMutableNullable(
+        {
+            val afkSnowflake = asSnowflake()
+            object: PartialVoiceChannel.Upgradeable {
+                override val snowflake: Snowflake = afkSnowflake
+                override val bot: DiscordProxyKt = bot
+        
+                override fun request(): CompletableFuture<VoiceChannel> =
+                        fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == snowflake } as VoiceChannel }
+            }
+        },
+        { Json.encodeToJsonElement(it?.snowflake?.id) },
+        "afk_channel_id",
+    )
     
-            override fun request(): CompletableFuture<VoiceChannel> =
-                    fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == snowflake } as VoiceChannel }
-        }
-    }, "afk_channel_id")
     /**
      * afk timeout in seconds
      */
-    val afkTimeout: Timeout by map.delegateJson({ Timeout.values()[asInt()] }, "afk_timeout")
-    
-    enum class Timeout(val seconds: Int) {
-        SECONDS_60(60),
-        SECONDS_300(300),
-        SECONDS_900(900),
-        SECONDS_1800(1800),
-        SECONDS_3600(3600);
-    }
+    var afkTimeout: Timeout by map.delegateJsonMutable(
+        { Timeout.valueOf("SECONDS_${asInt()}") },
+        { Json.encodeToJsonElement(it.ordinal) },
+        "afk_timeout",
+    )
     
     /**
      * true if the server widget is enabled
@@ -402,7 +397,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialGuil
     /**
      * the channel id that the widget will generate an invite to, or null if set to no invite
      */
-    val widgetChannelSnowflake: Snowflake? by map.delegateJsonNullable(JsonElement::asSnowflake, "widget_channel_id")
+    val widgetChannelSnowflake: PartialTextChannel.Upgradeable? by map.delegateJsonNullable(::delegateChannel, "widget_channel_id")
     
     /**
      * true if the user is the owner of the guild
@@ -482,60 +477,29 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialGuil
     /**
      * verification level required for the guild
      */
-    val verificationLevel: VerificationLevel by map.delegateJson({ VerificationLevel.values()[asInt()] }, "verification_level")
-    
-    /**
-     * https://discord.com/developers/docs/resources/guild#guild-object-verification-level
-     */
-    enum class VerificationLevel {
-        /**
-         * Unrestricted
-         */
-        NONE,
-        /**
-         * Must have verified email on account
-         */
-        LOW,
-        /**
-         * Must be registered on Discord for longer than 5 minutes
-         */
-        MEDIUM,
-        /**
-         * (╯°□°）╯︵ ┻━┻ - must be a member of the server for longer than 10 minutes
-         */
-        HIGH,
-        /**
-         * ┻━┻ ミヽ(ಠ 益 ಠ)ﾉ彡 ┻━┻ - must have a verified phone number
-         */
-        VERY_HIGH
-    }
+    var verificationLevel: VerificationLevel by map.delegateJsonMutable(
+        { VerificationLevel.values()[asInt()] },
+        { Json.encodeToJsonElement(it.ordinal) },
+        "verification_level",
+    )
     
     /**
      * default message notifications level
      */
-    val defaultNotificationLevel: NotificationLevel by map.delegateJson({ NotificationLevel.values()[asInt()] }, "default_message_notifications")
-    
-    /**
-     * https://discord.com/developers/docs/resources/guild#guild-object-default-message-notification-level
-     */
-    enum class NotificationLevel {
-        ALL_MESSAGES,
-        MENTIONS_ONLY
-    }
+    var defaultNotificationLevel: NotificationLevel by map.delegateJsonMutable(
+        { NotificationLevel.values()[asInt()] },
+        { Json.encodeToJsonElement(it.ordinal) },
+        "default_message_notifications",
+    )
     
     /**
      * explicit content filter level
      */
-    val explicitContentLevel: ExplicitContentFilterLevel by map.delegateJson({ ExplicitContentFilterLevel.values()[asInt()] }, "explicit_content_filter")
-    
-    /**
-     * https://discord.com/developers/docs/resources/guild#guild-object-explicit-content-filter-level
-     */
-    enum class ExplicitContentFilterLevel {
-        OFF,
-        NO_ROLE,
-        ALL,
-    }
+    var explicitContentLevel: ExplicitContentFilterLevel by map.delegateJsonMutable(
+        { ExplicitContentFilterLevel.values()[asInt()] },
+        { Json.encodeToJsonElement(it.ordinal) },
+        "explicit_content_filter",
+    )
     
     // This is encoded as a list of strings instead of a bitset for god knows why
     /**
@@ -546,80 +510,11 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialGuil
         (this as JsonArray).forEach { set.add(Features.valueOf(it.asString())) }
         set
     })
-    /**
-     * https://discord.com/developers/docs/resources/guild#guild-object-guild-features
-     */
-    enum class Features {
-        /**
-         * Guild has access to set an invite splash background
-         */
-        INVITE_SPLASH,
-        /**
-         * Guild has access to set 384kbps bitrate in voice (previously VIP voice servers)
-         */
-        VIP_REGIONS,
-        /**
-         * Guild has access to set a vanity URL
-         */
-        VANITY_URL,
-        /**
-         * Guild is verified
-         */
-        VERIFIED,
-        /**
-         * Guild is partnered
-         */
-        PARTNERED,
-        /**
-         * Guild is public
-         */
-        PUBLIC,
-        /**
-         * Guild has access to use commerce features (i.e. create store channels)
-         */
-        COMMERCE,
-        /**
-         * Guild has access to create news channels
-         */
-        NEWS,
-        /**
-         * Guild is able to be discovered in the directory
-         */
-        DISCOVERABLE,
-        /**
-         * Guild is able to be featured in the directory
-         */
-        FEATURABLE,
-        /**
-         * Guild has access to set an animated guild icon
-         */
-        ANIMATED_ICON,
-        /**
-         * Guild has access to set a guild banner image
-         */
-        BANNER,
-        /**
-         * Guild cannot be public
-         */
-        PUBLIC_DISABLED,
-        /**
-         * Guild has enabled the welcome screen
-         */
-        WELCOME_SCREEN_ENABLED,
-    }
     
     /**
      * required MFA level for the guild
      */
     val requiredMFALevel: MFALevel by map.delegateJson({ MFALevel.values()[asInt()] }, "mfa_level")
-    
-    /**
-     * https://discord.com/developers/docs/resources/guild#guild-object-mfa-level
-     */
-    enum class MFALevel {
-        NONE,
-        ELEVATED
-    }
     
     /**
      * premium tier (Server Boost level)
@@ -631,51 +526,65 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialGuil
     val boosters: Int? by map.delegateJsonNullable(JsonElement::asInt, "premium_subscription_count")
     
     /**
-     * https://discord.com/developers/docs/resources/guild#guild-object-premium-tier
-     */
-    enum class BoostTier(val bitrate: Int, val emotes: Int, val fileSize: Long) {
-        NONE(96000, 50, 8_388_608L),
-        TIER_1(128000, 100, 8_388_608L),
-        TIER_2(256000, 150, 52_428_800L),
-        TIER_3(384000, 250, 104_857_600L),
-    }
-    
-    /**
      * the id of the channel where guild notices such as welcome messages and boost events are posted
      */
-    val systemChannel: PartialTextChannel.Upgradeable? by map.delegateJsonNullable({
-        val systemSnowflake = asSnowflake()
-        object: PartialTextChannel.Upgradeable {
-            override val snowflake: Snowflake = systemSnowflake
-            override val bot: DiscordProxyKt = bot
-            
-            override fun request(): CompletableFuture<TextChannel> =
-                    fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == snowflake } as TextChannel }
-        }
-    }, "system_channel_id")
+    val systemChannel: PartialTextChannel.Upgradeable? by map.delegateJsonMutableNullable(
+        ::delegateChannel,
+        { Json.encodeToJsonElement(it?.snowflake?.id) },
+        "system_channel_id",
+    )
+    
     /**
      * system channel flags
      */
     val systemChannelFlags: EnumSet<SystemChannelFlags> by map.delegateJson({ asLong().bitSetToEnumSet(SystemChannelFlags.values()) }, "system_channel_flags")
     
-    /**
-     * https://discord.com/developers/docs/resources/guild#guild-object-system-channel-flags
-     */
-    enum class SystemChannelFlags {
-        /**
-         * Suppress member join notifications
-         */
-        SUPPRESS_JOIN_NOTIFICATIONS,
-        /**
-         * Suppress server boost notifications
-         */
-        SUPPRESS_PREMIUM_SUBSCRIPTIONS,
-    }
-    
     val memberCount: Int by lazy { instantMemberCount ?: approxMemberCount ?: -1 }
     val iconUrl: String? by lazy {
         if (icon == null) null
         else "https://cdn.discordapp.com/icons/${snowflake.id}/$icon.${if (icon!!.startsWith("a_")) "gif" else "png"}"
+    }
+    
+    override val edits: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
+    
+    /**
+     * Requests that this guild gets edited based on the altered fields.<br>
+     * This object will not be updated to reflect the changes, rather a new Guild object is returned from the RestAction.
+     */
+    override fun request(): CompletableFuture<Guild>
+        = RestAction(bot, { Guild(this as JsonObject, bot) }, RestEndpoint.MODIFY_GUILD, snowflake.id) { Json.encodeToString(edits) }.request()
+    
+    /**
+     * To finish the procedure, the rest action needs to be called.
+     */
+    fun setIcon(image: RenderedImage, format: String): Guild {
+        if (image.width > 1024 || image.height > 1024) throw InvalidRequestException("Neither image dimension may exceed 1024!")
+        val baos = ByteArrayOutputStream()
+        ImageIO.write(image, format, baos)
+        edits["icon"] = JsonPrimitive("data:image/jpeg;base64,${Base64.getEncoder().encodeToString(baos.toByteArray())}")
+        return this
+    }
+    
+    /**
+     * To finish the procedure, the rest action needs to be called.
+     */
+    fun setSplash(image: RenderedImage, format: String): Guild {
+        if (Features.INVITE_SPLASH !in features) throw InvalidRequestException("Cannot change splash without the INVITE_SPLASH feature!")
+        val baos = ByteArrayOutputStream()
+        ImageIO.write(image, format, baos)
+        edits["splash"] = JsonPrimitive("data:image/jpeg;base64,${Base64.getEncoder().encodeToString(baos.toByteArray())}")
+        return this
+    }
+    
+    /**
+     * To finish the procedure, the rest action needs to be called.
+     */
+    fun setBanner(image: RenderedImage, format: String): Guild {
+        if (Features.BANNER !in features) throw InvalidRequestException("Cannot change banner without the BANNER feature!")
+        val baos = ByteArrayOutputStream()
+        ImageIO.write(image, format, baos)
+        edits["banner"] = JsonPrimitive("data:image/jpeg;base64,${Base64.getEncoder().encodeToString(baos.toByteArray())}")
+        return this
     }
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("iconSplash"))
@@ -689,9 +598,9 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialGuil
         get() = banner?.run { "https://cdn.discordapp.com/banners/${snowflake.id}/$banner.png" }
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("owner.snowflake.id"))
-    val ownerId: String by lazy { owner.snowflake.id }
+    val ownerId: String by lazy { owner.user.snowflake.id }
     @Deprecated("JDA Compatibility Field", ReplaceWith("owner.snowflake.idLong"))
-    val ownerIdLong: Long by lazy { owner.snowflake.idLong }
+    val ownerIdLong: Long by lazy { owner.user.snowflake.idLong }
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("boostTier.bitrate"))
     val maxBitrate: Int by boostTier::bitrate
@@ -707,13 +616,191 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialGuil
     val selfMember: Member
         get() = getMember(bot.selfUser.request().get().snowflake).request().get()
     
-    @Deprecated("JDA Compatibility Class", ReplaceWith("Int"))
-    enum class ChannelType {
-        TEXT,
-        PRIVATE,
-        VOICE,
-        GROUP,
-        CATEGORY,
-        STORE,
+    private fun delegateChannel(json: JsonElement): PartialTextChannel.Upgradeable {
+        val systemSnowflake = json.asSnowflake()
+        return object: PartialTextChannel.Upgradeable {
+            override val snowflake: Snowflake = systemSnowflake
+            override val bot: DiscordProxyKt = this@Guild.bot
+            
+            override fun request(): CompletableFuture<TextChannel> =
+                    fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == snowflake } as TextChannel }
+        }
     }
+}
+
+@Deprecated("JDA Compatibility Class", ReplaceWith("Int"))
+enum class ChannelType {
+    TEXT,
+    PRIVATE,
+    VOICE,
+    GROUP,
+    CATEGORY,
+    STORE,
+}
+
+enum class Region {
+    AMSTERDAN, VIP_AMSTERDAN,
+    BRAZIL, VIP_BRAZIL,
+    EUROPE,  VIP_EUROPE,
+    EU_CENTRAL,  VIP_EU_CENTRAL,
+    EU_WEST, VIP_EU_WEST,
+    FRANKFURT,  VIP_FRANKFURT,
+    HONG_KONG,  VIP_HONG_KONG,
+    JAPAN, VIP_JAPAN,
+    SOUTH_KOREA, VIP_SOUTH_KOREA,
+    LONDON, VIP_LONDON,
+    RUSSIA,  VIP_RUSSIA,
+    INDIA,  VIP_INDIA,
+    SINGAPORE, VIP_SINGAPORE,
+    SOUTH_AFRICA, VIP_SOUTH_AFRICA,
+    SYDNEY, VIP_SYDNEY,
+    US_CENTRAL, VIP_US_CENTRAL,
+    US_EAST, VIP_US_EAST,
+    US_SOUTH, VIP_US_SOUTH,
+    US_WEST, VIP_US_WEST,
+}
+
+/**
+ * https://discord.com/developers/docs/resources/guild#guild-object-system-channel-flags
+ */
+enum class SystemChannelFlags {
+    /**
+     * Suppress member join notifications
+     */
+    SUPPRESS_JOIN_NOTIFICATIONS,
+    /**
+     * Suppress server boost notifications
+     */
+    SUPPRESS_PREMIUM_SUBSCRIPTIONS,
+}
+
+/**
+ * https://discord.com/developers/docs/resources/guild#guild-object-premium-tier
+ */
+enum class BoostTier(val bitrate: Int, val emotes: Int, val fileSize: Long) {
+    NONE(96000, 50, 8_388_608L),
+    TIER_1(128000, 100, 8_388_608L),
+    TIER_2(256000, 150, 52_428_800L),
+    TIER_3(384000, 250, 104_857_600L),
+}
+
+/**
+ * https://discord.com/developers/docs/resources/guild#guild-object-mfa-level
+ */
+enum class MFALevel {
+    NONE,
+    ELEVATED
+}
+
+/**
+ * https://discord.com/developers/docs/resources/guild#guild-object-explicit-content-filter-level
+ */
+enum class ExplicitContentFilterLevel {
+    OFF,
+    NO_ROLE,
+    ALL,
+}
+
+/**
+ * https://discord.com/developers/docs/resources/guild#guild-object-default-message-notification-level
+ */
+enum class NotificationLevel {
+    ALL_MESSAGES,
+    MENTIONS_ONLY
+}
+
+/**
+ * https://discord.com/developers/docs/resources/guild#guild-object-verification-level
+ */
+enum class VerificationLevel {
+    /**
+     * Unrestricted
+     */
+    NONE,
+    /**
+     * Must have verified email on account
+     */
+    LOW,
+    /**
+     * Must be registered on Discord for longer than 5 minutes
+     */
+    MEDIUM,
+    /**
+     * (╯°□°）╯︵ ┻━┻ - must be a member of the server for longer than 10 minutes
+     */
+    HIGH,
+    /**
+     * ┻━┻ ミヽ(ಠ 益 ಠ)ﾉ彡 ┻━┻ - must have a verified phone number
+     */
+    VERY_HIGH
+}
+
+enum class Timeout(val seconds: Int) {
+    SECONDS_60(60),
+    SECONDS_300(300),
+    SECONDS_900(900),
+    SECONDS_1800(1800),
+    SECONDS_3600(3600);
+}
+
+/**
+ * https://discord.com/developers/docs/resources/guild#guild-object-guild-features
+ */
+enum class Features {
+    /**
+     * Guild has access to set an invite splash background
+     */
+    INVITE_SPLASH,
+    /**
+     * Guild has access to set 384kbps bitrate in voice (previously VIP voice servers)
+     */
+    VIP_REGIONS,
+    /**
+     * Guild has access to set a vanity URL
+     */
+    VANITY_URL,
+    /**
+     * Guild is verified
+     */
+    VERIFIED,
+    /**
+     * Guild is partnered
+     */
+    PARTNERED,
+    /**
+     * Guild is public
+     */
+    PUBLIC,
+    /**
+     * Guild has access to use commerce features (i.e. create store channels)
+     */
+    COMMERCE,
+    /**
+     * Guild has access to create news channels
+     */
+    NEWS,
+    /**
+     * Guild is able to be discovered in the directory
+     */
+    DISCOVERABLE,
+    /**
+     * Guild is able to be featured in the directory
+     */
+    FEATURABLE,
+    /**
+     * Guild has access to set an animated guild icon
+     */
+    ANIMATED_ICON,
+    /**
+     * Guild has access to set a guild banner image
+     */
+    BANNER,
+    /**
+     * Guild cannot be public
+     */
+    PUBLIC_DISABLED,
+    /**
+     * Guild has enabled the welcome screen
+     */
+    WELCOME_SCREEN_ENABLED,
 }

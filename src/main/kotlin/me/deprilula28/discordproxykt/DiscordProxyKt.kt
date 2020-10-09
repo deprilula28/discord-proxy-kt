@@ -60,7 +60,6 @@ open class DiscordProxyKt internal constructor(
         operator fun get(id: Snowflake): PartialGuild.Upgradeable {
             return object: PartialGuild.Upgradeable,
                 RestAction<Guild>(bot, { Guild(this as JsonObject, bot) }, RestEndpoint.GET_GUILD, id.id) {
-                override val edits: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
                 override val snowflake: Snowflake = id
             }
         }
