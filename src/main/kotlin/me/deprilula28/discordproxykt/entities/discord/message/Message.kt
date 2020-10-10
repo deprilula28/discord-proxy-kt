@@ -51,12 +51,7 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     /**
      * member properties for this message's author
      */
-    val member: Member? by map.delegateJsonNullable({ if (guildSnowflake != null) Member(object : PartialGuild {
-        override val snowflake: Snowflake
-            get() = guildSnowflake!!
-        override val bot: DiscordProxyKt
-            get() = this@Message.bot
-    }, this as JsonObject, bot, author) else null })
+    val member: Member? by map.delegateJsonNullable({ if (guildSnowflake != null) Member(PartialGuild.new(guildSnowflake!!, bot), this as JsonObject, bot, author) else null })
     /**
      * contents of the message
      */

@@ -80,6 +80,16 @@ class ExtendedInvite(map: JsonObject, bot: DiscordProxyKt): Invite(map, bot) {
  * type, if it isn't one already.
  */
 interface PartialGuild: IPartialEntity {
+    companion object {
+        fun new(snowflake: Snowflake, bot: DiscordProxyKt): PartialGuild {
+            return object : PartialGuild {
+                override val snowflake: Snowflake
+                    get() = snowflake
+                override val bot: DiscordProxyKt
+                    get() = bot
+            }
+        }
+    }
     val fetchAuditLogs: PaginatedAction<AuditLogEntry>
         get() = PaginatedAction(
             bot, { AuditLogEntry(this as JsonObject, bot) },
