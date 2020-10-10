@@ -33,7 +33,7 @@ open class RestAction<T: Any>(
             .method(endpoint.method.toString(), postData?.run { HttpRequest.BodyPublishers.ofString(this()) }
                     ?: HttpRequest.BodyPublishers.noBody())
             .header("Authorization", bot.authorization)
-            .header("User-Agent", "discord-proxy-kt worker")
+            .header("User-Agent", "DiscordBot (https://github.com/deprilula28/discord-proxy-kt v0.0.1)")
             .build()
         return bot.client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream()).thenApply {
             if (it.statusCode() != 200)
