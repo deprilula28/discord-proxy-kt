@@ -42,7 +42,9 @@ open class RestAction<T: Any>(
                     it.body().readAllBytes().toString(Charsets.UTF_8),
                     it.statusCode()
                 )
-            constructor(Json.decodeFromString(JsonElement.serializer(), it.body().toString()), bot)
+            val res = Json.decodeFromString(JsonElement.serializer(), it.body().toString())
+            if (endpoint.method == RestEndpoint.Method.GET) bot.cache.store(path, res)
+            constructor(res, bot)
         }
     }
     
