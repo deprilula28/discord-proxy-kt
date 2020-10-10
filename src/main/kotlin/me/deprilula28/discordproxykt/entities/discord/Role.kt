@@ -1,10 +1,11 @@
 package me.deprilula28.discordproxykt.entities.discord
 
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
-import me.deprilula28.discordproxykt.entities.*
+import me.deprilula28.discordproxykt.entities.Entity
+import me.deprilula28.discordproxykt.entities.IPartialEntity
+import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.rest.*
 import java.awt.Color

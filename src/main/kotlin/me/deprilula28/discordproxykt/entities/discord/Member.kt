@@ -16,7 +16,7 @@ interface PartialMember {
         return (guild as? Guild)?.run {
             assertPermissions(Permissions.MANAGE_ROLES) {
                 (role as? Role)?.run {
-                    assertAboveRole(position, func)
+                    assertAboveRole(position) { func() }
                 } ?: func()
             }
         } ?: func()
