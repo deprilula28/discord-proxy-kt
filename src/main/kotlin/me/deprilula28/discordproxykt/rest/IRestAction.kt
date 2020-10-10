@@ -4,36 +4,41 @@ import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 
 interface IRestAction<T> {
     val bot: DiscordProxyKt
     
     fun request(): CompletableFuture<T>
+    fun getIfAvailable(): T?
+    
+    open class FuturesRestAction<T>(override val bot: DiscordProxyKt, futureProvider: () -> CompletableFuture<T>): IRestAction<T> {
+        private val lazyFuture = lazy(futureProvider)
+        override fun request() = lazyFuture.value
+        override fun getIfAvailable(): T? = if (lazyFuture.isInitialized()) lazyFuture.value.getNow(null) else null
+    }
+    
+    open class ProvidedRestAction<T>(override val bot: DiscordProxyKt, private val value: T): IRestAction<T> {
+        private val future by lazy { CompletableFuture.completedFuture(value) }
+        override fun request(): CompletableFuture<T> = future
+        override fun getIfAvailable(): T? = value
+    }
+    
+    // TODO Find a way to optimize these
+    fun <V: Any> map(func: (T) -> V): IRestAction<V> = FuturesRestAction(bot) { this@IRestAction.request().thenApply(func) }
+    fun <V: Any> flatMap(func: (T) -> CompletableFuture<V>): IRestAction<V> = FuturesRestAction(bot) { this@IRestAction.request().thenCompose(func) }
     
     /// Kotlin coroutine await function
     suspend fun await(): T = request().await()
     
-    class MapRestAction<T, V>(val base: IRestAction<T>, val func: (T) -> V): IRestAction<V> {
-        override val bot by base::bot
-        override fun request(): CompletableFuture<V> = base.request().thenApply(func)
-    }
-    
-    fun <V: Any> map(func: (T) -> V): IRestAction<V> {
-        return MapRestAction(this, func)
-    }
-    
-    // JDA Compatibility
-    @Deprecated("JDA Compatibility Function", ReplaceWith("request()", "java.util.concurrent.CompletableFuture"))
     fun queue() {
-        bot.scope.launch { await() }
+        queue({}, bot.defaultExceptionHandler)
     }
     
-    @Deprecated("JDA Compatibility Function", ReplaceWith("request()", "java.util.concurrent.CompletableFuture"))
     fun queue(func: (T) -> Unit) {
-        bot.scope.launch { func(await()) }
+        queue(func, bot.defaultExceptionHandler)
     }
     
-    @Deprecated("JDA Compatibility Function", ReplaceWith("request()", "java.util.concurrent.CompletableFuture"))
     fun queue(func: (T) -> Unit, err: (Exception) -> Unit) {
         bot.scope.launch {
             try {
@@ -44,6 +49,7 @@ interface IRestAction<T> {
         }
     }
     
-    @Deprecated("JDA Compatibility Function", ReplaceWith("request()", "java.util.concurrent.CompletableFuture"))
+    // JDA Compatibility
+    @Deprecated("JDA Compatibility Function", ReplaceWith("queue()"))
     fun complete(): T = request().get()
 }

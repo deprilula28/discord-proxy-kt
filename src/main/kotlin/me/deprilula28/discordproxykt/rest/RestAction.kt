@@ -45,4 +45,13 @@ open class RestAction<T: Any>(
             constructor(Json.decodeFromString(JsonElement.serializer(), it.body().toString()), bot)
         }
     }
+    
+    override fun getIfAvailable(): T? {
+        val path = endpoint.path(*pathParts)
+        if (endpoint.method == RestEndpoint.Method.GET) {
+            val item = bot.cache.retrieve<T>(path)
+            if (item != null) return item
+        }
+        return null
+    }
 }

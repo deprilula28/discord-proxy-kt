@@ -12,6 +12,14 @@ import java.util.*
 
 // TODO This
 interface PartialMessage: IPartialEntity {
+    companion object {
+        fun new(channel: PartialTextChannel, id: Snowflake): Upgradeable
+            = object: Upgradeable,
+                RestAction<Message>(channel.bot, { Message(this as JsonObject, channel.bot) }, RestEndpoint.GET_CHANNEL_MESSAGE, channel.snowflake.id, id.id) {
+                override val snowflake: Snowflake = channel.snowflake
+            }
+    }
+    
     fun editMessage(text: CharSequence) {}
     fun editMessage(embed: Embed) {}
     fun editMessageFormat(str: String, vararg format: Any) = editMessage(String.format(str, *format))

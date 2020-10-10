@@ -30,6 +30,7 @@ open class DiscordProxyKt internal constructor(
     val client: HttpClient,
     token: String?,
     val cache: Cache,
+    val defaultExceptionHandler: (Exception) -> Unit,
 ) {
     internal val authorization = "Bot $token"
     private val conn: Connection
@@ -99,9 +100,10 @@ open class DiscordProxyKt internal constructor(
                 .connectTimeout(Duration.ofSeconds(30L))
                 .build()
             var cache: Cache = MemoryCache(coroutineScope, 5L to TimeUnit.MINUTES)
+            var defaultExceptionHandler: (Exception) -> Unit = { it.printStackTrace() }
             
             fun build(): DiscordProxyKt = DiscordProxyKt(group, subgroup, broker, coroutineScope, httpClient, token,
-                                                         cache)
+                                                         cache, defaultExceptionHandler)
         }
     }
 }

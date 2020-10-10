@@ -12,12 +12,26 @@ interface PartialMember {
     val user: PartialUser
     val bot: DiscordProxyKt
     
+    private inline fun <reified T: Any> assertRolePerms(role: PartialRole, crossinline func: () -> IRestAction<T>): IRestAction<T> {
+        return (guild as? Guild)?.run {
+            assertPermissions(Permissions.MANAGE_ROLES) {
+                (role as? Role)?.run {
+                    assertAboveRole(position, func)
+                } ?: func()
+            }
+        } ?: func()
+    }
+    
     fun add(role: PartialRole): IRestAction<Unit>
-            = RestAction(bot, { Unit }, RestEndpoint.ADD_GUILD_MEMBER_ROLE, guild.snowflake.id, user.snowflake.id, role.snowflake.id)
+        = assertRolePerms(role) {
+            RestAction(bot, { Unit }, RestEndpoint.ADD_GUILD_MEMBER_ROLE, guild.snowflake.id, user.snowflake.id, role.snowflake.id)
+        }
     
     fun remove(role: PartialRole): IRestAction<Unit>
-            = RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER_ROLE, guild.snowflake.id, user.snowflake.id, role.snowflake.id)
-    
+        = assertRolePerms(role) {
+            RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER_ROLE, guild.snowflake.id, user.snowflake.id, role.snowflake.id)
+        }
+
     interface Upgradeable: PartialMember, IRestAction<Member>
 }
 
@@ -38,9 +52,9 @@ class Member(override val guild: PartialGuild, private val map: JsonObject, over
     /**
      * array of role object ids
      */
-    val roles: List<Snowflake> by map.delegateJsonMutable(
-        { (this as JsonArray).map { it.asSnowflake() } },
-        { Json.encodeToJsonElement(it.map { sn -> sn.id }) }
+    val roles: List<PartialRole.Upgradeable> by map.delegateJsonMutable(
+        { (this as JsonArray).map { guild.fetchRole(it.asSnowflake()) } },
+        { Json.encodeToJsonElement(it.map { sn -> sn.snowflake.id }) }
     )
     /**
      * when the user joined the guild
@@ -70,6 +84,17 @@ class Member(override val guild: PartialGuild, private val map: JsonObject, over
     }
     
     /**
+     * The same as fetching all values of `roles`, but more optimized
+     */
+    val fetchRoles: IRestAction<List<Role>>
+        get() {
+            val roleSnowflakes = roles.map { it.snowflake }
+            return guild.fetchRoles.map { finalRoles ->
+                finalRoles.filter { it.snowflake in roleSnowflakes }
+            }
+        }
+    
+    /**
      * Requests that this guild gets edited based on the altered fields.<br>
      * This object will not be updated to reflect the changes, rather a new Webhook object is returned from the RestAction.
      */
@@ -80,5 +105,10 @@ class Member(override val guild: PartialGuild, private val map: JsonObject, over
             changes.clear()
             res
         }
+    }
+    
+    fun setRoles(newRoles: Collection<Role>) {
+        (newRoles - roles).forEach { role -> add(role) }
+        (roles - newRoles).forEach { role -> remove(role) }
     }
 }

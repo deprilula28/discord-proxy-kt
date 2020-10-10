@@ -10,6 +10,7 @@ import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
 import me.deprilula28.discordproxykt.rest.*
+import java.util.concurrent.CompletableFuture
 
 /**
  * This type is used for operations when an ID of a {@link me.deprilula28.discordproxykt.entities.discord.TextChannel TextChannel} is known.
@@ -18,6 +19,16 @@ import me.deprilula28.discordproxykt.rest.*
  * you can get data of a text channel by calling `await()` or `request()`.
  */
 interface PartialTextChannel: IPartialEntity, Message.Mentionable {
+    companion object {
+        fun new(guild: PartialGuild, id: Snowflake): Upgradeable
+            = object: Upgradeable,
+                    IRestAction.FuturesRestAction<TextChannel>(
+                        guild.bot,
+                        { guild.fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == id } as TextChannel } }) {
+                override val snowflake: Snowflake = id
+            }
+    }
+    
     /// Retrieve a message by the given ID.
     /// <br>
     /// This will check the cache and return a PartialMessage with a free request if possible.

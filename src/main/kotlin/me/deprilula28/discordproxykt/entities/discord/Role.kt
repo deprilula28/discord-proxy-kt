@@ -1,5 +1,6 @@
 package me.deprilula28.discordproxykt.entities.discord
 
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
@@ -11,6 +12,19 @@ import java.util.*
 
 // TODO Other methods
 interface PartialRole: IPartialEntity, Message.Mentionable {
+    companion object {
+        fun new(guild: PartialGuild, id: Snowflake): Upgradeable {
+            return object: Upgradeable,
+                IRestAction.FuturesRestAction<Role>(
+                    guild.bot,
+                    // Get requests are cached, so this shouldn't run many times if cache is set up properly
+                    { guild.fetchRoles.request().thenApply { it.find { role -> role.snowflake == id }!! } },
+                ) {
+                    override val snowflake: Snowflake = id
+                }
+        }
+    }
+    
     override val asMention: String
         get() = "<@&${snowflake.id}>"
     
@@ -45,7 +59,11 @@ class Role(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialRole 
     /**
      * permission bit set
      */
-    val permissions: EnumSet<Permissions> by map.delegateJson({ asLong().bitSetToEnumSet(Permissions.values()) })
+    val permissions: EnumSet<Permissions> by lazy { permissionsRaw.bitSetToEnumSet(Permissions.values()) }
+    /**
+     * permission bit set
+     */
+    val permissionsRaw: Long by map.delegateJson(JsonElement::asLong, "permissions")
     /**
      * whether this role is managed by an integration
      */

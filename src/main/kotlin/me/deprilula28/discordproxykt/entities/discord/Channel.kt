@@ -65,6 +65,16 @@ interface GuildChannel: PartialGuildChannel {
  * https://discord.com/developers/docs/resources/channel
  */
 interface PartialVoiceChannel: IPartialEntity {
+    companion object {
+        fun new(guild: PartialGuild, id: Snowflake): Upgradeable
+                = object: Upgradeable,
+            IRestAction.FuturesRestAction<VoiceChannel>(
+                guild.bot,
+                { guild.fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == id } as VoiceChannel } }) {
+            override val snowflake: Snowflake = id
+        }
+    }
+    
     interface Upgradeable: PartialVoiceChannel, PartialGuildChannel.Upgradeable, IRestAction<VoiceChannel>
 }
 

@@ -90,17 +90,30 @@ interface PartialGuild: IPartialEntity {
             }
         }
     }
-    val fetchAuditLogs: PaginatedAction<AuditLogEntry>
-        get() = PaginatedAction(
-            bot, { AuditLogEntry(this as JsonObject, bot) },
-            RestEndpoint.GET_GUILD_AUDIT_LOGS, snowflake.id,
+    
+    val fetchRoles: IRestAction<List<Role>>
+        get() = PaginatedAction( // This isn't actually paginated, but PaginatedAction supports a list format by default
+            bot, { Role(this as JsonObject, bot) },
+            RestEndpoint.GET_GUILD_ROLES, snowflake.id,
         )
     
+    fun fetchRole(role: Snowflake): PartialRole.Upgradeable = PartialRole.new(this, role)
+    
+    val fetchAuditLogs: IRestAction<List<AuditLogEntry>>
+        get() = assertPermissions(Permissions.VIEW_AUDIT_LOG) {
+            PaginatedAction(
+                bot, { AuditLogEntry(this as JsonObject, bot) },
+                RestEndpoint.GET_GUILD_AUDIT_LOGS, snowflake.id,
+            )
+        }
+    
     val fetchInvites: IRestAction<List<ExtendedInvite>>
-        get() = RestAction(
-            bot, { (this as JsonArray).map { ExtendedInvite(it as JsonObject, bot) } },
-            RestEndpoint.GET_GUILD_INVITES, snowflake.id,
-        )
+        get() = assertPermissions(Permissions.MANAGE_GUILD) {
+            RestAction(
+                bot, { (this as JsonArray).map { ExtendedInvite(it as JsonObject, bot) } },
+                RestEndpoint.GET_GUILD_INVITES, snowflake.id,
+            )
+        }
     
     val fetchRegions: IRestAction<List<VoiceRegion>>
         get() = RestAction(
@@ -115,10 +128,12 @@ interface PartialGuild: IPartialEntity {
         )
     
     val fetchWebhooks: IRestAction<List<Webhook>>
-        get() = RestAction(
-            bot, { (this as JsonArray).map { Webhook(it as JsonObject, bot) } },
-            RestEndpoint.GET_GUILD_AUDIT_LOGS, snowflake.id,
-        )
+        get() = assertPermissions(Permissions.MANAGE_WEBHOOKS) {
+            RestAction(
+                bot, { (this as JsonArray).map { Webhook(it as JsonObject, bot) } },
+                RestEndpoint.GET_GUILD_AUDIT_LOGS, snowflake.id,
+            )
+        }
     
     /**
      * Requires the GUILD_MEMBERS privileged intent
@@ -142,7 +157,7 @@ interface PartialGuild: IPartialEntity {
             RestEndpoint.GET_GUILD_EMOJIS, snowflake.id,
         )
     
-    fun fetchEmoji(emoji: Snowflake): RestAction<GuildEmoji>
+    fun fetchEmoji(emoji: Snowflake): IRestAction<GuildEmoji>
         = RestAction(
             bot, { GuildEmoji(this as JsonObject, bot) },
             RestEndpoint.GET_GUILD_EMOJI, snowflake.id, emoji.id
@@ -157,52 +172,105 @@ interface PartialGuild: IPartialEntity {
             RestEndpoint.GET_GUILDS_BANS, snowflake.id,
         )
     
-    fun fetchBan(user: PartialUser): RestAction<Ban>
-            = RestAction(
-        bot, { Ban(this as JsonObject, bot) },
-        RestEndpoint.GET_GUILDS_BAN, snowflake.id, user.snowflake.id
-    )
-    
-    fun addMember(accessToken: String, user: PartialUser): IRestAction<Member>
+    fun fetchBan(user: PartialUser): IRestAction<Ban>
         = RestAction(
-            bot, { Member(this@PartialGuild, this as JsonObject, it) },
-            RestEndpoint.ADD_GUILD_MEMBER, snowflake.id, user.snowflake.id,
+            bot, { Ban(this as JsonObject, bot) },
+            RestEndpoint.GET_GUILDS_BAN, snowflake.id, user.snowflake.id
         )
     
-    fun retrievePrunableMemberCount(days: Int)
-            = RestAction(bot, { (this as JsonObject)["pruned"]!!.asInt() }, RestEndpoint.GET_GUILD_PRUNE_COUNT, snowflake.id, days.toString())
+    val fetchSelfMember: IRestAction<Member>
+        get() = IRestAction.FuturesRestAction(bot) {
+            bot.selfUser.request().thenCompose { fetchMember(it.snowflake).request() }
+        }
     
-    fun prune(days: Int, vararg role: PartialRole)
-            = RestAction(bot, { Unit }, RestEndpoint.BEGIN_GUILD_PRUNE_COUNT, snowflake.id) {
+    val fetchUserPermissions: IRestAction<EnumSet<Permissions>>
+        get() = IRestAction.FuturesRestAction(bot) {
+            // In constructed guilds, fetchRoles has no requests needed
+            fetchSelfMember.request().thenCompose { fetchRoles.request() }.thenApply { selfRoles ->
+                var set = 0L
+                selfRoles.forEach { el -> set = set and el.permissionsRaw }
+                set.bitSetToEnumSet(Permissions.values())
+            }
+        }
+    
+    fun addMember(accessToken: String, user: PartialUser): IRestAction<Member>
+        = assertPermissions(Permissions.CREATE_INSTANT_INVITE) {
+            RestAction(
+                bot, { Member(this@PartialGuild, this as JsonObject, it) },
+                RestEndpoint.ADD_GUILD_MEMBER, snowflake.id, user.snowflake.id,
+            ) {
+                Json.encodeToString(
+                    "access_token" to JsonPrimitive(accessToken)
+                )
+            }
+        }
+    
+    fun retrievePrunableMemberCount(days: Int): IRestAction<Int>
+        = assertPermissions(Permissions.KICK_MEMBERS) {
+            RestAction(bot, { (this as JsonObject)["pruned"]!!.asInt() }, RestEndpoint.GET_GUILD_PRUNE_COUNT, snowflake.id,
+                       days.toString())
+        }
+        
+    fun prune(days: Int, vararg role: PartialRole): IRestAction<Unit>
+        = assertPermissions(Permissions.KICK_MEMBERS) {
+            RestAction(bot, { Unit }, RestEndpoint.BEGIN_GUILD_PRUNE_COUNT, snowflake.id) {
                 Json.encodeToString(mapOf(
                     "days" to JsonPrimitive(days),
                     "compute_prune_count" to JsonPrimitive(false),
                     "include_roles" to Json.encodeToString(role.map { it.snowflake.id }),
                 ))
             }
+        }
     
-    fun kick(member: PartialMember)
-            = RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER, snowflake.id, member.user.snowflake.id)
+    fun kick(member: PartialMember): IRestAction<Unit>
+        = assertPermissions(Permissions.KICK_MEMBERS) {
+            RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER, snowflake.id, member.user.snowflake.id)
+        }
     
-    fun ban(member: PartialMember, days: Int = 7): RestAction<Unit> {
+    fun ban(member: PartialMember, days: Int = 7): IRestAction<Unit> {
         if (days !in 0 .. 7) throw InvalidRequestException("Message deletion days on ban must be from 0 to 7")
-        return RestAction(bot, { Unit }, RestEndpoint.CREATE_GUILD_BAN, snowflake.id, member.user.snowflake.id) {
-            Json.encodeToString(mapOf("delete_message_days" to JsonPrimitive(days)))
+        return assertPermissions(Permissions.BAN_MEMBERS) {
+            RestAction(bot, { Unit }, RestEndpoint.CREATE_GUILD_BAN, snowflake.id, member.user.snowflake.id) {
+                Json.encodeToString(mapOf("delete_message_days" to JsonPrimitive(days)))
+            }
         }
     }
     
-    fun unban(member: PartialMember)
-            = RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_BAN, snowflake.id, member.user.snowflake.id)
+    fun unban(member: PartialMember): IRestAction<Unit>
+        = assertPermissions(Permissions.BAN_MEMBERS) {
+            RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_BAN, snowflake.id, member.user.snowflake.id)
+        }
     
-    fun leave() = RestAction(bot, { Unit }, RestEndpoint.LEAVE_GUILD, snowflake.id)
+    fun leave(): IRestAction<Unit> = RestAction(bot, { Unit }, RestEndpoint.LEAVE_GUILD, snowflake.id)
     
-    fun delete() = RestAction(bot, { Unit }, RestEndpoint.DELETE_GUILD, snowflake.id)
+    fun delete(): IRestAction<Unit> = RestAction(bot, { Unit }, RestEndpoint.DELETE_GUILD, snowflake.id)
     
     interface Upgradeable: PartialGuild, IRestAction<Guild>
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("false"))
     val loaded: Boolean
         get() = false
+    
+    private fun checkPerms(expected: Array<out Permissions>, actual: EnumSet<Permissions>) {
+        if (actual.contains(Permissions.ADMINISTRATOR)) return // Has full bypass
+        val lackingPerms = expected.filter { !actual.contains(it) }
+        if (lackingPerms.isNotEmpty()) throw InsufficientPermissionsException(lackingPerms)
+    }
+    
+    fun <T: Any> assertPermissions(vararg perm: Permissions, then: () -> IRestAction<T>): IRestAction<T> {
+        return fetchUserPermissions.getIfAvailable()?.run {
+            checkPerms(perm, this)
+            then()
+        } ?: fetchUserPermissions.flatMap {
+            checkPerms(perm, it)
+            then().request()
+        }
+    }
+    
+    fun <T: Any> assertAboveRole(position: Int, then: () -> IRestAction<T>): IRestAction<T> {
+        // TODO Ensure the bot has permission over the role at this position
+        return then()
+    }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("delete()"))
     fun delete(mfa: String) = delete()
@@ -235,11 +303,15 @@ interface PartialGuild: IPartialEntity {
     fun removeRoleFromMember(member: String, role: PartialRole) = fetchMember(Snowflake(member)).remove(role)
     @Deprecated("JDA Compatibility Function", ReplaceWith("member.remove(role)"))
     fun removeRoleFromMember(member: Long, role: PartialRole) = fetchMember(Snowflake(member.toString())).remove(role)
-    @Deprecated("JDA Compatibility Function", ReplaceWith("member.add(role)"))
-    fun modifyMemberRoles(member: PartialMember.Upgradeable, roles: Collection<Role>) = member.map {
-        val new = roles - it.roles
-        val remove = it.roles - roles
+    @Deprecated("JDA Compatibility Function", ReplaceWith("add.forEach { member.add(it) }\nremove.forEach { member.remove(it) }"))
+    fun modifyMemberRoles(member: Member, add: Collection<Role>, remove: Collection<Role>) {
+        add.forEach { member.add(it) }
+        remove.forEach { member.remove(it) }
     }
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.setRoles(roles)"))
+    fun modifyMemberRoles(member: Member, roles: Collection<Role>) = member.setRoles(roles)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.setRoles(roles)"))
+    fun modifyMemberRoles(member: Member, vararg roles: Role) = member.setRoles(roles.toList())
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("fetchAuditLogs"))
     fun retrieveAuditLogs() = fetchAuditLogs
@@ -276,9 +348,9 @@ interface PartialGuild: IPartialEntity {
     @Deprecated("JDA Compatibility Function", ReplaceWith("member.apply { nick = nickname }.edit()"))
     fun modifyNickname(member: Member, nickname: String?) = member.apply { nick = nickname }.edit()
     @Deprecated("JDA Compatibility Function", ReplaceWith("member.apply { deaf = value }.edit()"))
-    fun deafen(member: Member, value: Boolean) = member.apply { deaf = value }.edit()
+    fun deafen(member: Member, value: Boolean = true) = member.apply { deaf = value }.edit()
     @Deprecated("JDA Compatibility Function", ReplaceWith("member.apply { mute = value }.edit()"))
-    fun mute(member: Member, value: Boolean) = member.apply { mute = value }.edit()
+    fun mute(member: Member, value: Boolean = true) = member.apply { mute = value }.edit()
 
     @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers.request()"))
     // Note: they have a special return type for this called Task, and it's pretty similar to the
@@ -456,16 +528,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
      * id of afk channel
      */
     var afkChannel: PartialVoiceChannel.Upgradeable? by map.delegateJsonMutableNullable(
-        {
-            val afkSnowflake = asSnowflake()
-            object: PartialVoiceChannel.Upgradeable {
-                override val snowflake: Snowflake = afkSnowflake
-                override val bot: DiscordProxyKt = bot
-        
-                override fun request(): CompletableFuture<VoiceChannel> =
-                        fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == snowflake } as VoiceChannel }
-            }
-        },
+        { PartialVoiceChannel.new(this@Guild, asSnowflake()) },
         { Json.encodeToJsonElement(it?.snowflake?.id) },
         "afk_channel_id",
     )
@@ -499,7 +562,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
      * <br>
      * Only sent under "GET Current User Guilds" endpoint, relative to current user
      */
-    val userPermissions: EnumSet<Permissions>? by map.delegateJsonNullable({ asLong().bitSetToEnumSet(Permissions.values()) }, "permissions")
+    val cachedUserPermissions: EnumSet<Permissions>? by map.delegateJsonNullable({ asLong().bitSetToEnumSet(Permissions.values()) }, "permissions")
     
     /**
      * when this guild was joined at
@@ -641,10 +704,12 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
      */
     override fun edit(): IRestAction<Guild> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this guild, yet `edit()` was called.")
-        return RestAction(bot, { Guild(this as JsonObject, bot) }, RestEndpoint.MODIFY_GUILD, snowflake.id) {
-            val res = Json.encodeToString(changes)
-            changes.clear()
-            res
+        return assertPermissions(Permissions.MANAGE_GUILD) {
+            RestAction(bot, { Guild(this as JsonObject, bot) }, RestEndpoint.MODIFY_GUILD, snowflake.id) {
+                val res = Json.encodeToString(changes)
+                changes.clear()
+                res
+            }
         }
     }
     
@@ -681,17 +746,20 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
         return this
     }
     
-    private fun delegateChannel(json: JsonElement): PartialTextChannel.Upgradeable {
-        val systemSnowflake = json.asSnowflake()
-        return object: PartialTextChannel.Upgradeable {
-            override val snowflake: Snowflake = systemSnowflake
-            override val bot: DiscordProxyKt = this@Guild.bot
-            
-            override fun request(): CompletableFuture<TextChannel> =
-                    fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == snowflake } as TextChannel }
-        }
-    }
+    private fun delegateChannel(json: JsonElement): PartialTextChannel.Upgradeable
+        = PartialTextChannel.new(this, json.asSnowflake())
     
+    /*
+        Properties below override PartialGuild to use the additional information this type has available
+     */
+    
+    // Ensure cached items are used instead of fetching when possible
+    override val fetchUserPermissions: IRestAction<EnumSet<Permissions>>
+        get() = cachedUserPermissions?.run { IRestAction.ProvidedRestAction(bot, this) } ?: super.fetchUserPermissions
+    
+    override val fetchRoles: IRestAction<List<Role>>
+        get() = IRestAction.ProvidedRestAction(bot, cachedRoles)
+
     @Deprecated("JDA Compatibility Field", ReplaceWith(""))
     val manager: Guild?
         get() = this
@@ -730,10 +798,6 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("bot.guilds[snowflake]"))
     fun retrieveMetaData(): IRestAction<Guild> = bot.guilds[snowflake]
-    
-    @Deprecated("JDA Compatibility Field", ReplaceWith("this[selfUser]"))
-    val selfMember: Member
-        get() = fetchMember(bot.selfUser.request().get().snowflake).request().get()
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.any { it.user == user } ?: false"))
     fun isMember(user: User): Boolean
@@ -856,6 +920,9 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     @Deprecated("JDA Compatibility Field", ReplaceWith("emojis"))
     val emotes
         get() = emojis
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("apply { owner = member }.edit()"))
+    fun transferOwnership(member: PartialMember.Upgradeable): IRestAction<Guild> = apply { owner = member }.edit()
 }
 
 enum class ChannelType {
