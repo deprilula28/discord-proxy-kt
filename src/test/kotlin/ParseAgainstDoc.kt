@@ -133,7 +133,7 @@ import kotlin.test.assertEquals
             }
         """.trimIndent()
         
-        val member = Member(Json.decodeFromString(JsonObject.serializer(), text), Mockito.mock(DiscordProxyKt::class.java))
+        val member = Member(Mockito.mock(PartialGuild::class.java), Json.decodeFromString(JsonObject.serializer(), text), Mockito.mock(DiscordProxyKt::class.java))
     
         assertEquals(member.nick, "NOT API SUPPORT")
         assert(!member.deaf)
