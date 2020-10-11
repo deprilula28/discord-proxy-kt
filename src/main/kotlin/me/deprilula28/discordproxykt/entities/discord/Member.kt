@@ -131,14 +131,24 @@ class Member(override val guild: PartialGuild, private val map: JsonObject, over
     
     /**
      * Requests that this guild gets edited based on the altered fields.<br>
-     * This object will not be updated to reflect the changes, rather a new Webhook object is returned from the RestAction.
+     * This object will not be updated to reflect the changes, rather a new Member object is returned from the RestAction.
      */
     override fun edit(): IRestAction<Member> {
-        if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this webhook, yet `edit()` was called.")
-        return RestAction(bot, { Member(guild, this as JsonObject, bot) }, RestEndpoint.MODIFY_GUILD_MEMBER, guild.snowflake.id, user.snowflake.id) {
-            val res = Json.encodeToString(changes)
-            changes.clear()
-            res
+        if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this member, yet `edit()` was called.")
+        val permissions = mutableListOf<Permissions>()
+        if (changes.containsKey("nick")) permissions.add(Permissions.MANAGE_NICKNAMES)
+        if (changes.containsKey("roles")) permissions.add(Permissions.MANAGE_ROLES)
+        if (changes.containsKey("mute")) permissions.add(Permissions.MUTE_MEMBERS)
+        if (changes.containsKey("deaf")) permissions.add(Permissions.DEAFEN_MEMBERS)
+        if (changes.containsKey("channel_id")) permissions.add(Permissions.MOVE_MEMBERS)
+        
+        return guild.assertPermissions(*permissions.toTypedArray()) {
+            RestAction(bot, { Member(guild, this as JsonObject, bot) }, RestEndpoint.MODIFY_GUILD_MEMBER,
+                       guild.snowflake.id, user.snowflake.id) {
+                val res = Json.encodeToString(changes)
+                changes.clear()
+                res
+            }
         }
     }
     

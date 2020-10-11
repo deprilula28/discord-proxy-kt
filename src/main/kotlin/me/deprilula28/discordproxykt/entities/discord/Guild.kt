@@ -93,7 +93,7 @@ interface PartialGuild: IPartialEntity {
     
     val fetchRoles: IRestAction<List<Role>>
         get() = PaginatedAction( // This isn't actually paginated, but PaginatedAction supports a list format by default
-            bot, { Role(this as JsonObject, bot) },
+            bot, { Role(this@PartialGuild, this as JsonObject, bot) },
             RestEndpoint.GET_GUILD_ROLES, snowflake.id,
         )
     
@@ -451,7 +451,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     /**
      * roles in the guild
      */
-    val cachedRoles: List<Role> by map.delegateJson({ (this as JsonArray).map { Role(it as JsonObject, bot) } }, "roles")
+    val cachedRoles: List<Role> by map.delegateJson({ (this as JsonArray).map { Role(this@Guild, it as JsonObject, bot) } }, "roles")
     /**
      * custom guild emojis
      */
