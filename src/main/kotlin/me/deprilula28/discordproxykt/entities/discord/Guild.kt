@@ -248,11 +248,6 @@ interface PartialGuild: IPartialEntity {
         }
     }
     
-    fun <T: Any> assertAboveRole(position: Int, then: () -> IRestAction<T>): IRestAction<T> {
-        // TODO Ensure the bot has permission over the role at this position
-        return then()
-    }
-    
     @Deprecated("JDA Compatibility Function", ReplaceWith("delete()"))
     fun delete(mfa: String) = delete()
     @Deprecated("JDA Compatibility Function", ReplaceWith("prune(days, *role)"))

@@ -3,21 +3,30 @@ package me.deprilula28.discordproxykt.entities.discord
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
-import me.deprilula28.discordproxykt.entities.*
+import me.deprilula28.discordproxykt.entities.Timestamp
 import me.deprilula28.discordproxykt.rest.*
+import java.awt.Color
 import java.time.OffsetDateTime
 
-// TODO Fill this
 interface PartialMember {
     val guild: PartialGuild
     val user: PartialUser
     val bot: DiscordProxyKt
     
+    // TODO unclutter this mess
     private inline fun <reified T: Any> assertRolePerms(role: PartialRole, crossinline func: () -> IRestAction<T>): IRestAction<T> {
         return (guild as? Guild)?.run {
             assertPermissions(Permissions.MANAGE_ROLES) {
                 (role as? Role)?.run {
-                    assertAboveRole(position) { func() }
+                    IRestAction.FuturesRestAction(bot) {
+                        guild.fetchSelfMember.request().thenCompose { member ->
+                            member.fetchRoles.request().thenCompose { roles ->
+                                val highest = roles.maxByOrNull { it.position }
+                                if (highest == null || this.position > highest.position) throw PermissionHierarchyException(this, highest)
+                                func().request()
+                            }
+                        }
+                    }
                 } ?: func()
             }
         } ?: func()
@@ -35,8 +44,8 @@ interface PartialMember {
     
     fun kick(): IRestAction<Unit>
             = guild.assertPermissions(Permissions.KICK_MEMBERS) {
-        RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER, guild.snowflake.id, user.snowflake.id)
-    }
+            RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER, guild.snowflake.id, user.snowflake.id)
+        }
     
     fun ban(days: Int = 7): IRestAction<Unit> {
         if (days !in 0 .. 7) throw InvalidRequestException("Message deletion days on ban must be from 0 to 7")
@@ -138,6 +147,29 @@ class Member(override val guild: PartialGuild, private val map: JsonObject, over
         (roles - newRoles).forEach { role -> remove(role) }
     }
     
+    fun hasAuthorityOver(other: Member): IRestAction<Boolean>
+            = IRestAction.FuturesRestAction(bot) {
+                fetchRoles.request().thenCompose { selfRoles ->
+                    other.fetchRoles.request().thenApply { otherRoles ->
+                        (selfRoles.maxByOrNull { it.position }?.position ?: 0) > (otherRoles.maxByOrNull { it.position }?.position ?: 0)
+                    }
+                }
+            }
+    
+    fun hasAuthorityOver(role: Role): IRestAction<Boolean>
+            = fetchRoles.map { roles -> roles.maxByOrNull { it.position }?.position ?: 0 > role.position }
+    
+    val fetchColor: IRestAction<Color>
+        get() = fetchRoles.map { roles ->
+            roles.filter { it.color != Color.black }.maxByOrNull { it.position }?.color ?: Color.black
+        }
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("guild.owner == member"))
+    val owner: Boolean
+        get() {
+            return if (guild is Guild) guild.owner.user.snowflake == user.snowflake
+            else (guild as PartialGuild.Upgradeable).request().get().owner.user.snowflake == user.snowflake
+        }
     @Deprecated("JDA Compatibility Field", ReplaceWith("joinedAt.offsetDateTime"))
     val timeJoined: OffsetDateTime
         get() = joinedAt.offsetDateTime
@@ -147,6 +179,17 @@ class Member(override val guild: PartialGuild, private val map: JsonObject, over
     @Deprecated("JDA Compatibility Field", ReplaceWith("listOf()"))
     val activity: List<Nothing>
         get() = listOf()
+    @Deprecated("JDA Compatibility Field", ReplaceWith("color"))
+    val color: Color
+        get() = fetchColor.request().get()
+    @Deprecated("JDA Compatibility Field", ReplaceWith("color.rgb"))
+    val colorRaw: Int
+        get() = fetchColor.request().get().rgb
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("hasAuthorityOver(member).request().get()"))
+    fun canInteract(member: Member) = hasAuthorityOver(member).request().get()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("hasAuthorityOver(role).request().get()"))
+    fun canInteract(role: Role) = hasAuthorityOver(role).request().get()
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("apply { nick = nickname }.edit()"))
     fun modifyNickname(nickname: String?) = apply { nick = nickname }.edit()
