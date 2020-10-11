@@ -5,6 +5,7 @@ import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.rest.*
+import java.time.OffsetDateTime
 
 // TODO Fill this
 interface PartialMember {
@@ -31,10 +32,35 @@ interface PartialMember {
         = assertRolePerms(role) {
             RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER_ROLE, guild.snowflake.id, user.snowflake.id, role.snowflake.id)
         }
-
+    
+    fun kick(): IRestAction<Unit>
+            = guild.assertPermissions(Permissions.KICK_MEMBERS) {
+        RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER, guild.snowflake.id, user.snowflake.id)
+    }
+    
+    fun ban(days: Int = 7): IRestAction<Unit> {
+        if (days !in 0 .. 7) throw InvalidRequestException("Message deletion days on ban must be from 0 to 7")
+        return guild.assertPermissions(Permissions.BAN_MEMBERS) {
+            RestAction(bot, { Unit }, RestEndpoint.CREATE_GUILD_BAN, guild.snowflake.id, user.snowflake.id) {
+                Json.encodeToString(mapOf("delete_message_days" to JsonPrimitive(days)))
+            }
+        }
+    }
+    
+    fun unban(): IRestAction<Unit>
+            = guild.assertPermissions(Permissions.BAN_MEMBERS) {
+        RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_BAN, guild.snowflake.id, user.snowflake.id)
+    }
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("ban(days)"))
+    fun ban(days: Int = 7, reason: String?) = ban(days)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("kick()"))
+    fun kick(member: String) = kick()
+    
     interface Upgradeable: PartialMember, IRestAction<Member>
 }
 
+// Warning: Provide readyUser for MESSAGE_CREATE and MESSAGE_UPDATE as Discord won't include the field!
 /**
  * a user within a guild
  * <br>
@@ -111,4 +137,23 @@ class Member(override val guild: PartialGuild, private val map: JsonObject, over
         (newRoles - roles).forEach { role -> add(role) }
         (roles - newRoles).forEach { role -> remove(role) }
     }
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("joinedAt.offsetDateTime"))
+    val timeJoined: OffsetDateTime
+        get() = joinedAt.offsetDateTime
+    @Deprecated("JDA Compatibility Field", ReplaceWith("premiumSince.offsetDateTime"))
+    val timeBoosted: OffsetDateTime?
+        get() = premiumSince?.offsetDateTime
+    @Deprecated("JDA Compatibility Field", ReplaceWith("listOf()"))
+    val activity: List<Nothing>
+        get() = listOf()
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("apply { nick = nickname }.edit()"))
+    fun modifyNickname(nickname: String?) = apply { nick = nickname }.edit()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("apply { deaf = value }.edit()"))
+    fun deafen(value: Boolean = true) = apply { deaf = value }.edit()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("apply { mute = value }.edit()"))
+    fun mute(value: Boolean = true) = apply { mute = value }.edit()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("true"))
+    fun hasTimeJoined() = true
 }

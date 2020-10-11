@@ -222,25 +222,6 @@ interface PartialGuild: IPartialEntity {
             }
         }
     
-    fun kick(member: PartialMember): IRestAction<Unit>
-        = assertPermissions(Permissions.KICK_MEMBERS) {
-            RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER, snowflake.id, member.user.snowflake.id)
-        }
-    
-    fun ban(member: PartialMember, days: Int = 7): IRestAction<Unit> {
-        if (days !in 0 .. 7) throw InvalidRequestException("Message deletion days on ban must be from 0 to 7")
-        return assertPermissions(Permissions.BAN_MEMBERS) {
-            RestAction(bot, { Unit }, RestEndpoint.CREATE_GUILD_BAN, snowflake.id, member.user.snowflake.id) {
-                Json.encodeToString(mapOf("delete_message_days" to JsonPrimitive(days)))
-            }
-        }
-    }
-    
-    fun unban(member: PartialMember): IRestAction<Unit>
-        = assertPermissions(Permissions.BAN_MEMBERS) {
-            RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_BAN, snowflake.id, member.user.snowflake.id)
-        }
-    
     fun leave(): IRestAction<Unit> = RestAction(bot, { Unit }, RestEndpoint.LEAVE_GUILD, snowflake.id)
     
     fun delete(): IRestAction<Unit> = RestAction(bot, { Unit }, RestEndpoint.DELETE_GUILD, snowflake.id)
@@ -276,20 +257,26 @@ interface PartialGuild: IPartialEntity {
     fun delete(mfa: String) = delete()
     @Deprecated("JDA Compatibility Function", ReplaceWith("prune(days, *role)"))
     fun prune(days: Int, bool: Boolean, vararg role: PartialRole) = prune(days, *role)
-    @Deprecated("JDA Compatibility Function", ReplaceWith("kick(fetchMember(Snowflake(member)))"))
-    fun kick(member: String) = kick(fetchMember(Snowflake(member)))
-    @Deprecated("JDA Compatibility Function", ReplaceWith("kick()"))
-    fun kick(member: PartialMember, reason: String?) = kick(member)
-    @Deprecated("JDA Compatibility Function", ReplaceWith("kick(fetchMember(Snowflake(member)))"))
-    fun kick(member: String, reason: String?) = kick(fetchMember(Snowflake(member)))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.kick()"))
+    fun kick(member: PartialMember) = member.kick()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMember(Snowflake(member)).kick()"))
+    fun kick(member: String) = fetchMember(Snowflake(member)).kick()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.kick()"))
+    fun kick(member: PartialMember, reason: String?) = member.kick()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMember(Snowflake(member)).kick()"))
+    fun kick(member: String, reason: String?) = fetchMember(Snowflake(member)).kick()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMember(Snowflake(member)).ban(days)"))
+    fun ban(member: String, days: Int = 7) = fetchMember(Snowflake(member)).ban(days)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.ban(days)"))
+    fun ban(member: PartialMember, days: Int = 7) = member.ban(days)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("member.ban(days)"))
+    fun ban(member: PartialMember, days: Int = 7, reason: String?) = member.ban(days)
     @Deprecated("JDA Compatibility Function", ReplaceWith("ban(fetchMember(Snowflake(member)))"))
-    fun ban(member: String, days: Int = 7) = ban(fetchMember(Snowflake(member)), days)
-    @Deprecated("JDA Compatibility Function", ReplaceWith("ban()"))
-    fun ban(member: PartialMember, days: Int = 7, reason: String?) = ban(member, days)
-    @Deprecated("JDA Compatibility Function", ReplaceWith("ban(fetchMember(Snowflake(member)))"))
-    fun ban(member: String, days: Int = 7, reason: String?) = ban(fetchMember(Snowflake(member)), days)
+    fun ban(member: String, days: Int = 7, reason: String?) = fetchMember(Snowflake(member)).ban(days)
     @Deprecated("JDA Compatibility Function", ReplaceWith("unban(fetchMember(Snowflake(member)))"))
-    fun unban(member: String) = unban(fetchMember(Snowflake(member)))
+    fun unban(member: String) = fetchMember(Snowflake(member)).unban()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("unban(fetchMember(Snowflake(member)))"))
+    fun unban(member: PartialMember) = member.unban()
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("member.add(role)"))
     fun addRoleToMember(member: PartialMember, role: PartialRole) = member.add(role)
@@ -390,7 +377,7 @@ interface PartialGuild: IPartialEntity {
     @Deprecated("JDA Compatibility Function", ReplaceWith("vanityUrl"))
     fun retrieveVanityUrl() = fetchVanityCode
     
-    @Deprecated("JDA Compatbility Field", ReplaceWith("\"https://discord.gg/\" + vanityCode"))
+    @Deprecated("JDA Compatibility Field", ReplaceWith("\"https://discord.gg/\" + vanityCode"))
     val vanityUrl: String?
         get() = fetchVanityCode.request().get()?.run { "https://discord.gg/$this" }
     
