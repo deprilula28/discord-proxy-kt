@@ -1,4 +1,4 @@
-package me.deprilula28.discordproxykt.entities.discord
+package me.deprilula28.discordproxykt.entities.discord.channel
 
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -6,16 +6,21 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
-import me.deprilula28.discordproxykt.entities.*
+import me.deprilula28.discordproxykt.entities.Entity
+import me.deprilula28.discordproxykt.entities.IPartialEntity
+import me.deprilula28.discordproxykt.entities.Snowflake
+import me.deprilula28.discordproxykt.entities.Timestamp
+import me.deprilula28.discordproxykt.entities.discord.ChannelType
+import me.deprilula28.discordproxykt.entities.discord.PartialGuild
+import me.deprilula28.discordproxykt.entities.discord.PermissionOverwrite
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
 import me.deprilula28.discordproxykt.rest.*
-import java.util.concurrent.CompletableFuture
 
 /**
- * This type is used for operations when an ID of a {@link me.deprilula28.discordproxykt.entities.discord.TextChannel TextChannel} is known.
+ * This type is used for operations when an ID of a {@link me.deprilula28.discordproxykt.entities.discord.channel.TextChannel TextChannel} is known.
  * <br>
- * If it is {@link me.deprilula28.discordproxykt.entities.discord.PartialTextChannel$Upgradeable Upgradeable},
+ * If it is {@link me.deprilula28.discordproxykt.entities.discord.channel.PartialTextChannel$Upgradeable Upgradeable},
  * you can get data of a text channel by calling `await()` or `request()`.
  */
 interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, IPartialEntity, Message.Mentionable {
@@ -45,10 +50,8 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, IParti
     @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDeleteSnowflake"))
     fun deleteMessagesByIds(messages: Collection<String>) = bulkDeleteSnowflake(messages.map { Snowflake(it) })
     
-    /// Retrieve a message by the given ID.
-    /// <br>
-    /// This will check the cache and return a PartialMessage with a free request if possible.
-    override operator fun get(message: Snowflake): PartialMessage.Upgradeable = PartialMessage.new(this, message)
+    override operator fun get(message: Snowflake): PartialMessage.Upgradeable
+        = PartialMessage.new(guild, this, message)
     
     interface Upgradeable: PartialTextChannel, PartialMessageChannel.Upgradeable, IRestAction<TextChannel>
     
@@ -62,10 +65,7 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, IParti
  * https://discord.com/developers/docs/resources/channel
  */
 class TextChannel(override val guild: PartialGuild, map: JsonObject, bot: DiscordProxyKt):
-    Entity(map, bot),
-    MessageChannel,
-    GuildChannel,
-    PartialTextChannel
+    Entity(map, bot), MessageChannel, GuildChannel, PartialTextChannel
 {
     /**
      * the channel topic (0-1024 characters)
