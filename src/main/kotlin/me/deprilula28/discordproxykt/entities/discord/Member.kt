@@ -3,6 +3,7 @@ package me.deprilula28.discordproxykt.entities.discord
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.entities.discord.channel.PartialVoiceChannel
 import me.deprilula28.discordproxykt.entities.Timestamp
 import me.deprilula28.discordproxykt.rest.*
 import java.awt.Color

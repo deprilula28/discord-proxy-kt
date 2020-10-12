@@ -7,6 +7,7 @@ import me.deprilula28.discordproxykt.entities.Entity
 import me.deprilula28.discordproxykt.entities.IPartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
+import me.deprilula28.discordproxykt.entities.discord.channel.*
 import me.deprilula28.discordproxykt.entities.discord.message.GuildEmoji
 import me.deprilula28.discordproxykt.rest.*
 import java.awt.image.RenderedImage
@@ -240,7 +241,7 @@ interface PartialGuild: IPartialEntity {
     val loaded: Boolean
         get() = false
     
-    private fun checkPerms(expected: Array<out Permissions>, actual: EnumSet<Permissions>) {
+    fun checkPerms(expected: Array<out Permissions>, actual: EnumSet<Permissions>) {
         if (actual.contains(Permissions.ADMINISTRATOR)) return // Has full bypass
         val lackingPerms = expected.filter { !actual.contains(it) }
         if (lackingPerms.isNotEmpty()) throw InsufficientPermissionsException(lackingPerms)

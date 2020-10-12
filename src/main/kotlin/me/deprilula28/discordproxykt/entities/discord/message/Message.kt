@@ -6,6 +6,9 @@ import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.*
+import me.deprilula28.discordproxykt.entities.discord.channel.PartialMessageChannel
+import me.deprilula28.discordproxykt.entities.discord.channel.PartialPrivateChannel
+import me.deprilula28.discordproxykt.entities.discord.channel.PartialTextChannel
 import me.deprilula28.discordproxykt.rest.*
 import java.time.OffsetDateTime
 import java.util.*
@@ -14,10 +17,29 @@ import java.util.*
 interface PartialMessage: IPartialEntity {
     companion object {
         fun new(channel: PartialMessageChannel, id: Snowflake): Upgradeable
-            = object: Upgradeable,
-                RestAction<Message>(channel.bot, { Message(this as JsonObject, channel.bot) }, RestEndpoint.GET_CHANNEL_MESSAGE, channel.snowflake.id, id.id) {
-                override val snowflake: Snowflake = channel.snowflake
-            }
+                = object: Upgradeable,
+            RestAction<Message>(
+                channel.bot,
+                RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id), { Message(this as JsonObject, channel.bot) }
+            ) {
+            override val snowflake: Snowflake = id
+        }
+        
+        // Includes permission check for reading the message in the guild
+        // TODO make this less of a spaghetti mess
+        fun new(guild: PartialGuild, channel: PartialMessageChannel, id: Snowflake): Upgradeable
+                = object: Upgradeable,
+                IRestAction.FuturesRestAction<Message>(channel.bot, {
+                    guild.fetchUserPermissions.request().thenCompose {
+                        guild.checkPerms(arrayOf(Permissions.READ_MESSAGE_HISTORY), it)
+                        RestAction(
+                            channel.bot,
+                            RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id), { Message(this as JsonObject, channel.bot) }
+                        ).request()
+                    }
+                }) {
+            override val snowflake: Snowflake = id
+        }
     }
     
     fun editMessage(text: CharSequence) {}
@@ -106,7 +128,7 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     /**
      * reactions to the message
      */
-    val reactions: List<Reaction> by map.delegateJson({ (this as JsonArray).map { Reaction(it as JsonObject, bot) } })
+    val reactions: List<Reaction>? by map.delegateJsonNullable({ (this as JsonArray).map { Reaction(it as JsonObject, bot) } })
     /**
      * whether this message is pinned
      */

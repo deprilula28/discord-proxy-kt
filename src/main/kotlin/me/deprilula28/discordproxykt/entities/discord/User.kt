@@ -45,11 +45,11 @@ class User(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser 
     /**
      * whether the user belongs to an OAuth2 application
      */
-    val isBot: Boolean by map.delegateJson(JsonElement::asBoolean, "bot")
+    val isBot: Boolean by lazy { map["bot"]?.asBoolean() ?: false }
     /**
      * whether the user is an Official Discord System user (part of the urgent message system)
      */
-    val system: Boolean by map.delegateJson(JsonElement::asBoolean)
+    val system: Boolean by lazy { map["system"]?.asBoolean() ?: false }
     
     /**
      * the user's avatar hash
