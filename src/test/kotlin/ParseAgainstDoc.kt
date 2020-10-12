@@ -54,7 +54,7 @@ import kotlin.test.assertEquals
         val message = Message(Json.decodeFromString(JsonObject.serializer(), text), Mockito.mock(DiscordProxyKt::class.java))
         
         assertEquals(message.snowflake, Snowflake("334385199974967042"))
-        assertEquals(message.channelSnowflake, Snowflake("290926798999357250"))
+        assertEquals(message.channelRaw, Snowflake("290926798999357250"))
         assertEquals(message.guildSnowflake, null)
         assertEquals(message.member, null)
         assertEquals(message.content, "Supa Hot")
@@ -280,6 +280,6 @@ import kotlin.test.assertEquals
         ))
         assert(!role.mentionable)
         assert(!role.managed)
-        assert(!role.hoist)
+        assert(!role.hoisted)
     }
 }

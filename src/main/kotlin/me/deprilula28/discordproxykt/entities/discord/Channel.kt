@@ -1,11 +1,17 @@
 package me.deprilula28.discordproxykt.entities.discord
 
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
+import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
 import me.deprilula28.discordproxykt.rest.*
+
+interface PartialMessageChannel: IPartialEntity {
+    operator fun get(message: Snowflake): PartialMessage.Upgradeable
+    
+    interface Upgradeable: PartialMessageChannel
+}
 
 /**
  * Channel documentation:
@@ -123,6 +129,25 @@ class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildCha
     
     override val type: ChannelType
         get() = ChannelType.CATEGORY
+}
+
+interface PartialPrivateChannel: PartialMessageChannel, IPartialEntity {
+    companion object {
+        fun new(id: Snowflake, bot: DiscordProxyKt): Upgradeable
+            = object: Upgradeable,
+                    RestAction<PrivateChannel>(bot, RestEndpoint.CREATE_DM.path(),
+                         { PrivateChannel(this as JsonObject, bot) }, { Json.encodeToString(
+                             "recipient_id" to JsonPrimitive(id.id)
+                         ) }
+                    ) {
+                override val snowflake: Snowflake = id
+                override val bot: DiscordProxyKt = bot
+        }
+    }
+    
+    override operator fun get(message: Snowflake): PartialMessage.Upgradeable = PartialMessage.new(this, message)
+    
+    interface Upgradeable: PartialPrivateChannel, PartialMessageChannel.Upgradeable, IRestAction<PrivateChannel>
 }
 
 /**

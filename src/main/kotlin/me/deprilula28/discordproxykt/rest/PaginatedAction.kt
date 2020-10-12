@@ -9,6 +9,6 @@ open class PaginatedAction<T: Any>(
     constructor: JsonElement.(DiscordProxyKt) -> T,
     endpoint: RestEndpoint,
     vararg pathParts: String,
-): RestAction<List<T>>(bot, { (this as JsonArray).map { constructor(it, bot) } }, endpoint, *pathParts) {
+): RestAction<List<T>>(bot, endpoint.path(*pathParts), { (this as JsonArray).map { constructor(it, bot) } }) {
 // TODO Actual pagination
 }

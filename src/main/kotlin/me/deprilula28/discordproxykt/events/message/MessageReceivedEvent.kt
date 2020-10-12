@@ -9,6 +9,6 @@ class MessageReceivedEvent(map: JsonObject, override val bot: DiscordProxyKt): G
     val message: Message = Message(map, bot)
     
     override val id: Snowflake by lazy { message.snowflake }
-    override val channel: Snowflake by lazy { message.channelSnowflake }
+    override val channel: Snowflake by lazy { message.channelRaw }
     override val guild: Snowflake? by lazy { message.guildSnowflake }
 }

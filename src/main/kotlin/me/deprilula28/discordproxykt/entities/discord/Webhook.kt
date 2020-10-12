@@ -4,6 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Entity
+import me.deprilula28.discordproxykt.entities.UnavailableField
 import me.deprilula28.discordproxykt.rest.*
 import java.awt.image.RenderedImage
 import java.io.ByteArrayOutputStream
@@ -25,9 +26,9 @@ class Webhook(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityMan
      * the channel id this webhook is for
      */
     var channel: PartialTextChannel.Upgradeable? by map.delegateJsonMutable(
-        { bot.channels[asSnowflake()] },
+        { PartialTextChannel.new(guild ?: throw UnavailableField(), asSnowflake()) },
         { Json.encodeToJsonElement((it ?: throw InvalidRequestException("Cannot set channel to null")).snowflake.id) },
-        "channel_id"
+        "channel_id",
     )
     /**
      * 	the user this webhook was created by (not returned when getting a webhook with its token)
@@ -39,7 +40,7 @@ class Webhook(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityMan
         Json::encodeToJsonElement,
     )
     
-    fun delete() = RestAction(bot, { Unit }, RestEndpoint.DELETE_WEBHOOK, snowflake.id)
+    fun delete() = bot.request(RestEndpoint.DELETE_WEBHOOK.path(snowflake.id), { Unit })
     
     override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
     
@@ -59,7 +60,7 @@ class Webhook(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityMan
      */
     override fun edit(): IRestAction<Webhook> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this webhook, yet `edit()` was called.")
-        return RestAction(bot, { Webhook(this as JsonObject, bot) }, RestEndpoint.MODIFY_WEBHOOK, snowflake.id) {
+        return bot.request(RestEndpoint.MODIFY_WEBHOOK.path(snowflake.id), { Webhook(this as JsonObject, bot) }) {
             val res = Json.encodeToString(changes)
             changes.clear()
             res

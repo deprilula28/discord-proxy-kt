@@ -58,7 +58,7 @@ data class Ban(private val map: JsonObject, private val bot: DiscordProxyKt) {
 open class Invite(private val map: JsonObject, private val bot: DiscordProxyKt) {
     val code: String by map.delegateJson(JsonElement::asString)
     val guild: Guild? by map.delegateJsonNullable({ Guild(this as JsonObject, bot) })
-    val channel: TextChannel by map.delegateJson({ TextChannel(this as JsonObject, bot) })
+    val channel: TextChannel by map.delegateJson({ TextChannel(guild!!, this as JsonObject, bot) })
     val inviter: User? by map.delegateJsonNullable({ User(this as JsonObject, bot) })
     val targetUser: User? by map.delegateJsonNullable({ User(this as JsonObject, bot) }, "target_user")
     val approxPresenceCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_presence_count")
@@ -81,8 +81,12 @@ class ExtendedInvite(map: JsonObject, bot: DiscordProxyKt): Invite(map, bot) {
  */
 interface PartialGuild: IPartialEntity {
     companion object {
-        fun new(snowflake: Snowflake, bot: DiscordProxyKt): PartialGuild {
-            return object : PartialGuild {
+        fun new(snowflake: Snowflake, bot: DiscordProxyKt): Upgradeable {
+            return object : Upgradeable,
+                    RestAction<Guild>(
+                        bot, RestEndpoint.GET_GUILD.path(snowflake.id),
+                        { Guild(this as JsonObject, bot) },
+                    ) {
                 override val snowflake: Snowflake
                     get() = snowflake
                 override val bot: DiscordProxyKt
@@ -109,29 +113,29 @@ interface PartialGuild: IPartialEntity {
     
     val fetchInvites: IRestAction<List<ExtendedInvite>>
         get() = assertPermissions(Permissions.MANAGE_GUILD) {
-            RestAction(
-                bot, { (this as JsonArray).map { ExtendedInvite(it as JsonObject, bot) } },
-                RestEndpoint.GET_GUILD_INVITES, snowflake.id,
+            bot.request(
+                RestEndpoint.GET_GUILD_INVITES.path(snowflake.id),
+                { (this as JsonArray).map { ExtendedInvite(it as JsonObject, bot) } }
             )
         }
     
     val fetchRegions: IRestAction<List<VoiceRegion>>
-        get() = RestAction(
-            bot, { (this as JsonArray).map { VoiceRegion(it as JsonObject, bot) } },
-            RestEndpoint.GET_GUILD_VOICE_REGIONS, snowflake.id,
+        get() = bot.request(
+            RestEndpoint.GET_GUILD_VOICE_REGIONS.path(snowflake.id),
+            { (this as JsonArray).map { VoiceRegion(it as JsonObject, bot) } }
         )
     
     val fetchChannels: IRestAction<List<GuildChannel>>
-        get() = RestAction(
-            bot, { (this as JsonArray).mapNotNull(::parseChannel) },
-            RestEndpoint.GET_GUILD_CHANNELS, snowflake.id,
+        get() = bot.request(
+            RestEndpoint.GET_GUILD_CHANNELS.path(snowflake.id),
+            { (this as JsonArray).mapNotNull(::parseChannel)  }
         )
     
     val fetchWebhooks: IRestAction<List<Webhook>>
         get() = assertPermissions(Permissions.MANAGE_WEBHOOKS) {
-            RestAction(
-                bot, { (this as JsonArray).map { Webhook(it as JsonObject, bot) } },
-                RestEndpoint.GET_GUILD_AUDIT_LOGS, snowflake.id,
+            bot.request(
+                RestEndpoint.GET_GUILD_AUDIT_LOGS.path(snowflake.id),
+                { (this as JsonArray).map { Webhook(it as JsonObject, bot) } }
             )
         }
     
@@ -146,36 +150,38 @@ interface PartialGuild: IPartialEntity {
     
     fun fetchMember(user: Snowflake): PartialMember.Upgradeable
         = object: PartialMember.Upgradeable,
-            RestAction<Member>(bot, { Member(this@PartialGuild, this as JsonObject, bot) }, RestEndpoint.GET_GUILD_MEMBER, snowflake.id, user.id) {
+            RestAction<Member>(bot, RestEndpoint.GET_GUILD_MEMBER.path(snowflake.id, user.id),
+                               { Member(this@PartialGuild, this as JsonObject, bot) }
+            ) {
                 override val guild: PartialGuild = this@PartialGuild
                 override val user: PartialUser by lazy { bot.users[user] }
             }
     
     val fetchEmojis: IRestAction<List<GuildEmoji>>
-        get() = RestAction(
-            bot, { (this as JsonArray).map { GuildEmoji(it as JsonObject, bot) } },
-            RestEndpoint.GET_GUILD_EMOJIS, snowflake.id,
+        get() = bot.request(
+            RestEndpoint.GET_GUILD_EMOJIS.path(snowflake.id),
+            { (this as JsonArray).map { GuildEmoji(it as JsonObject, bot) } }
         )
     
     fun fetchEmoji(emoji: Snowflake): IRestAction<GuildEmoji>
-        = RestAction(
-            bot, { GuildEmoji(this as JsonObject, bot) },
-            RestEndpoint.GET_GUILD_EMOJI, snowflake.id, emoji.id
+        = bot.request(
+            RestEndpoint.GET_GUILD_EMOJI.path(snowflake.id, emoji.id),
+            { GuildEmoji(this as JsonObject, bot) }
         )
     
     val fetchVanityCode: IRestAction<String>
-        get() = RestAction(bot, { (this as JsonPrimitive).content }, RestEndpoint.GET_GUILD_VANITY_URL, snowflake.id)
+        get() = bot.request(RestEndpoint.GET_GUILD_VANITY_URL.path(snowflake.id), { (this as JsonPrimitive).content })
     
     val fetchBans: IRestAction<List<Ban>>
-        get() = RestAction(
-            bot, { (this as JsonArray).map { Ban(it as JsonObject, bot) } },
-            RestEndpoint.GET_GUILDS_BANS, snowflake.id,
+        get() = bot.request(
+            RestEndpoint.GET_GUILDS_BANS.path(snowflake.id),
+            { (this as JsonArray).map { Ban(it as JsonObject, bot) } },
         )
     
     fun fetchBan(user: PartialUser): IRestAction<Ban>
-        = RestAction(
-            bot, { Ban(this as JsonObject, bot) },
-            RestEndpoint.GET_GUILDS_BAN, snowflake.id, user.snowflake.id
+        = bot.request(
+            RestEndpoint.GET_GUILDS_BAN.path(snowflake.id, user.snowflake.id),
+            { Ban(this as JsonObject, bot) },
         )
     
     val fetchSelfMember: IRestAction<Member>
@@ -195,9 +201,9 @@ interface PartialGuild: IPartialEntity {
     
     fun addMember(accessToken: String, user: PartialUser): IRestAction<Member>
         = assertPermissions(Permissions.CREATE_INSTANT_INVITE) {
-            RestAction(
-                bot, { Member(this@PartialGuild, this as JsonObject, it) },
-                RestEndpoint.ADD_GUILD_MEMBER, snowflake.id, user.snowflake.id,
+            bot.request(
+                RestEndpoint.ADD_GUILD_MEMBER.path(snowflake.id, user.snowflake.id),
+                { Member(this@PartialGuild, this as JsonObject, it) },
             ) {
                 Json.encodeToString(
                     "access_token" to JsonPrimitive(accessToken)
@@ -207,13 +213,15 @@ interface PartialGuild: IPartialEntity {
     
     fun retrievePrunableMemberCount(days: Int): IRestAction<Int>
         = assertPermissions(Permissions.KICK_MEMBERS) {
-            RestAction(bot, { (this as JsonObject)["pruned"]!!.asInt() }, RestEndpoint.GET_GUILD_PRUNE_COUNT, snowflake.id,
-                       days.toString())
+            bot.request(
+                RestEndpoint.DELETE_GUILD.path(listOf("days" to days.toString()), snowflake.id),
+                { (this as JsonObject)["pruned"]!!.asInt() }
+            )
         }
         
     fun prune(days: Int, vararg role: PartialRole): IRestAction<Unit>
         = assertPermissions(Permissions.KICK_MEMBERS) {
-            RestAction(bot, { Unit }, RestEndpoint.BEGIN_GUILD_PRUNE_COUNT, snowflake.id) {
+            bot.request(RestEndpoint.BEGIN_GUILD_PRUNE_COUNT.path(snowflake.id), { Unit }) {
                 Json.encodeToString(mapOf(
                     "days" to JsonPrimitive(days),
                     "compute_prune_count" to JsonPrimitive(false),
@@ -222,9 +230,9 @@ interface PartialGuild: IPartialEntity {
             }
         }
     
-    fun leave(): IRestAction<Unit> = RestAction(bot, { Unit }, RestEndpoint.LEAVE_GUILD, snowflake.id)
+    fun leave(): IRestAction<Unit> = bot.request(RestEndpoint.LEAVE_GUILD.path(snowflake.id), { Unit })
     
-    fun delete(): IRestAction<Unit> = RestAction(bot, { Unit }, RestEndpoint.DELETE_GUILD, snowflake.id)
+    fun delete(): IRestAction<Unit> = bot.request(RestEndpoint.DELETE_GUILD.path(snowflake.id), { Unit })
     
     interface Upgradeable: PartialGuild, IRestAction<Guild>
     
@@ -377,19 +385,15 @@ interface PartialGuild: IPartialEntity {
         get() = fetchVanityCode.request().get()?.run { "https://discord.gg/$this" }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("regions"))
-    fun retrieveRegions() = RestAction(
-        bot,
-        {
+    fun retrieveRegions()
+        = bot.request(RestEndpoint.GET_GUILD_VOICE_REGIONS.path(snowflake.id), {
             val enumSet = EnumSet.noneOf(Region::class.java)
             (this as JsonArray).forEach {
                 val region = VoiceRegion(it as JsonObject, bot)
                 enumSet.add(Region.valueOf((if (region.vip) "VIP_" else "") + region.name.toUpperCase()))
             }
             enumSet
-        },
-        RestEndpoint.GET_GUILD_VOICE_REGIONS,
-        snowflake.id,
-    )
+        })
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("regions"))
     fun retrieveRegions(includeDeprecated: Boolean) = retrieveRegions()
@@ -398,7 +402,7 @@ interface PartialGuild: IPartialEntity {
     fun parseChannel(it: JsonElement): GuildChannel? {
         val obj = it as JsonObject
         return when (val type = obj["type"]!!.asInt()) {
-            0 -> TextChannel(obj, bot)
+            0 -> TextChannel(this@PartialGuild, obj, bot)
             2 -> VoiceChannel(obj, bot)
             4 -> Category(obj, bot)
             else -> {
@@ -687,7 +691,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     override fun edit(): IRestAction<Guild> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this guild, yet `edit()` was called.")
         return assertPermissions(Permissions.MANAGE_GUILD) {
-            RestAction(bot, { Guild(this as JsonObject, bot) }, RestEndpoint.MODIFY_GUILD, snowflake.id) {
+            bot.request(RestEndpoint.MODIFY_GUILD.path(snowflake.id), { Guild(this as JsonObject, bot) }) {
                 val res = Json.encodeToString(changes)
                 changes.clear()
                 res

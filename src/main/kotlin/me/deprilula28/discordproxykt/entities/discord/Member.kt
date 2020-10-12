@@ -34,23 +34,23 @@ interface PartialMember {
     
     fun add(role: PartialRole): IRestAction<Unit>
         = assertRolePerms(role) {
-            RestAction(bot, { Unit }, RestEndpoint.ADD_GUILD_MEMBER_ROLE, guild.snowflake.id, user.snowflake.id, role.snowflake.id)
+            bot.request(RestEndpoint.ADD_GUILD_MEMBER_ROLE.path(guild.snowflake.id, user.snowflake.id, role.snowflake.id), { Unit })
         }
     
     fun remove(role: PartialRole): IRestAction<Unit>
         = assertRolePerms(role) {
-            RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER_ROLE, guild.snowflake.id, user.snowflake.id, role.snowflake.id)
+            bot.request(RestEndpoint.REMOVE_GUILD_MEMBER_ROLE.path(guild.snowflake.id, user.snowflake.id, role.snowflake.id), { Unit })
         }
     
     fun kick(): IRestAction<Unit>
-            = guild.assertPermissions(Permissions.KICK_MEMBERS) {
-            RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_MEMBER, guild.snowflake.id, user.snowflake.id)
+        = guild.assertPermissions(Permissions.KICK_MEMBERS) {
+            bot.request(RestEndpoint.REMOVE_GUILD_MEMBER.path(guild.snowflake.id, user.snowflake.id), { Unit })
         }
     
     fun ban(days: Int = 7): IRestAction<Unit> {
         if (days !in 0 .. 7) throw InvalidRequestException("Message deletion days on ban must be from 0 to 7")
         return guild.assertPermissions(Permissions.BAN_MEMBERS) {
-            RestAction(bot, { Unit }, RestEndpoint.CREATE_GUILD_BAN, guild.snowflake.id, user.snowflake.id) {
+            bot.request(RestEndpoint.CREATE_GUILD_BAN.path(guild.snowflake.id, user.snowflake.id), { Unit }) {
                 Json.encodeToString(mapOf("delete_message_days" to JsonPrimitive(days)))
             }
         }
@@ -58,7 +58,7 @@ interface PartialMember {
     
     fun unban(): IRestAction<Unit>
             = guild.assertPermissions(Permissions.BAN_MEMBERS) {
-        RestAction(bot, { Unit }, RestEndpoint.REMOVE_GUILD_BAN, guild.snowflake.id, user.snowflake.id)
+        bot.request(RestEndpoint.REMOVE_GUILD_BAN.path(guild.snowflake.id, user.snowflake.id), { Unit })
     }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("ban(days)"))
@@ -143,8 +143,10 @@ class Member(override val guild: PartialGuild, private val map: JsonObject, over
         if (changes.containsKey("channel_id")) permissions.add(Permissions.MOVE_MEMBERS)
         
         return guild.assertPermissions(*permissions.toTypedArray()) {
-            RestAction(bot, { Member(guild, this as JsonObject, bot) }, RestEndpoint.MODIFY_GUILD_MEMBER,
-                       guild.snowflake.id, user.snowflake.id) {
+            bot.request(
+                RestEndpoint.MODIFY_GUILD_MEMBER.path(guild.snowflake.id, user.snowflake.id),
+                { Member(guild, this as JsonObject, bot) }
+            ) {
                 val res = Json.encodeToString(changes)
                 changes.clear()
                 res

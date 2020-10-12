@@ -44,23 +44,13 @@ open class DiscordProxyKt internal constructor(
             channel
         }
     
-    class TextChannels(private val bot: DiscordProxyKt) {
-        operator fun get(id: Snowflake): PartialTextChannel.Upgradeable {
-            return object: PartialTextChannel.Upgradeable,
-                RestAction<TextChannel>(bot, { TextChannel(this as JsonObject, bot) }, RestEndpoint.GET_CHANNEL, id.id) {
-                override val snowflake: Snowflake = id
-            }
-        }
-    }
-    val channels = TextChannels(this)
-    
     val selfUser: RestAction<User>
-        get() = RestAction(this, { User(this as JsonObject, this@DiscordProxyKt) }, RestEndpoint.GET_CURRENT_USER)
+        get() = request(RestEndpoint.GET_CURRENT_USER.path(), { User(this as JsonObject, this@DiscordProxyKt) })
     
     class Guilds(private val bot: DiscordProxyKt) {
         operator fun get(id: Snowflake): PartialGuild.Upgradeable {
             return object: PartialGuild.Upgradeable,
-                RestAction<Guild>(bot, { Guild(this as JsonObject, bot) }, RestEndpoint.GET_GUILD, id.id) {
+                RestAction<Guild>(bot, RestEndpoint.GET_GUILD.path(id.id), { Guild(this as JsonObject, bot) }) {
                 override val snowflake: Snowflake = id
             }
         }
@@ -70,7 +60,7 @@ open class DiscordProxyKt internal constructor(
     class Users(private val bot: DiscordProxyKt) {
         operator fun get(id: Snowflake): PartialUser.Upgradeable {
             return object: PartialUser.Upgradeable,
-                RestAction<User>(bot, { User(this as JsonObject, bot) }, RestEndpoint.GET_USER, id.id) {
+                RestAction<User>(bot, RestEndpoint.GET_USER.path(id.id), { User(this as JsonObject, bot) }) {
                 override val snowflake: Snowflake = id
             }
         }
@@ -91,6 +81,9 @@ open class DiscordProxyKt internal constructor(
             channel.basicConsume(queue, false, EventConsumer(this, event, channel))
         }
     }
+    
+    fun <T: Any> request(path: RestEndpoint.Path, constructor: JsonElement.(DiscordProxyKt) -> T, postData: (() -> String)? = null)
+        = RestAction(this, path, constructor, postData)
     
     companion object {
         class Builder(var group: String, var subgroup: String, var broker: URI, var token: String?) {

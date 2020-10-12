@@ -13,7 +13,7 @@ import java.util.*
 // TODO This
 interface PartialMessage: IPartialEntity {
     companion object {
-        fun new(channel: PartialTextChannel, id: Snowflake): Upgradeable
+        fun new(channel: PartialMessageChannel, id: Snowflake): Upgradeable
             = object: Upgradeable,
                 RestAction<Message>(channel.bot, { Message(this as JsonObject, channel.bot) }, RestEndpoint.GET_CHANNEL_MESSAGE, channel.snowflake.id, id.id) {
                 override val snowflake: Snowflake = channel.snowflake
@@ -47,11 +47,11 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     /**
      * id of the channel the message was sent in
      */
-    val channelSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "channel_id")
+    val channelRaw: Snowflake by map.delegateJson(JsonElement::asSnowflake, "channel_id")
     /**
      * id of the guild the message was sent in
      */
-    val guildSnowflake: Snowflake? by map.delegateJsonNullable(JsonElement::asSnowflake, "guild_id")
+    val guild: PartialGuild.Upgradeable? by map.delegateJsonNullable({ PartialGuild.new(asSnowflake(), bot) }, "guild_id")
     /**
      * the author of this message (not guaranteed to be a valid user, see below)
      */
@@ -59,7 +59,7 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     /**
      * member properties for this message's author
      */
-    val member: Member? by map.delegateJsonNullable({ if (guildSnowflake != null) Member(PartialGuild.new(guildSnowflake!!, bot), this as JsonObject, bot, author) else null })
+    val member: Member? by map.delegateJsonNullable({ if (guild != null) Member(guild ?: throw UnavailableField(), this as JsonObject, bot, author) else null })
     /**
      * contents of the message
      */
@@ -91,7 +91,10 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     /**
      * channels specifically mentioned in this message
      */
-    val mentionChannels: List<PartialTextChannel>? by map.delegateJsonNullable({ (this as JsonArray?)?.map { bot.channels[(it as JsonObject)["id"]!!.asSnowflake()] } }, "mention_channels")
+    val mentionChannels: List<PartialTextChannel.Upgradeable>? by map.delegateJsonNullable({
+        if (guild == null) null
+        else (this as JsonArray?)?.map { PartialTextChannel.new(guild!!, (it as JsonObject)["id"]!!.asSnowflake()) }
+    }, "mention_channels")
     /**
      * any attached files
      */
@@ -125,6 +128,20 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     fun getMentions(vararg types: MentionType): List<Mentionable> = types.flatMap { it.method(this@Message) }
     @Suppress("UNCHECKED_CAST") fun isMentioned(mentionable: Mentionable, vararg types: List<MentionType>): Boolean
             = getMentions(*types.ifEmpty { MentionType.values() } as Array<out MentionType>).contains(mentionable)
+    
+    /**
+     * @returns PartialTextChannel.Upgradeable if this is a text channel.
+     * @throws UnavailableField if there is no valid guild.
+     */
+    val textChannel: PartialTextChannel.Upgradeable? by lazy { PartialTextChannel.new(guild ?: throw UnavailableField(), channelRaw) }
+    /**
+     * @returns PartialTextChannel.Upgradeable if this is a text channel.
+     * @throws UnavailableField if there is no valid guild.
+     */
+    val privateChannel: PartialPrivateChannel.Upgradeable? by lazy {
+        if (guild != null) throw UnavailableField()
+        PartialPrivateChannel.new(channelRaw, bot)
+    }
     
     interface Mentionable {
         val asMention: String

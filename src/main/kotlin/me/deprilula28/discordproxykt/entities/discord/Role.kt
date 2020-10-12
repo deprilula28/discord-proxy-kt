@@ -32,7 +32,7 @@ interface PartialRole: IPartialEntity, Message.Mentionable {
         }
     }
     
-    fun delete(): IRestAction<Unit> = RestAction(bot, { Unit }, RestEndpoint.DELETE_GUILD_ROLE, guild.snowflake.id, snowflake.id)
+    fun delete(): IRestAction<Unit> = bot.request(RestEndpoint.DELETE_GUILD_ROLE.path(guild.snowflake.id, snowflake.id), { Unit })
     
     override val asMention: String
         get() = "<@&${snowflake.id}>"
@@ -94,8 +94,10 @@ class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordProxyK
     override fun edit(): IRestAction<Role> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this role, yet `edit()` was called.")
         return guild.assertPermissions(Permissions.MANAGE_ROLES) {
-            RestAction(bot, { Role(guild, this as JsonObject, bot) }, RestEndpoint.MODIFY_GUILD_ROLE,
-                       guild.snowflake.id, snowflake.id) {
+            bot.request(
+                RestEndpoint.MODIFY_GUILD_ROLE.path(guild.snowflake.id, snowflake.id),
+                { Role(guild, this as JsonObject, bot) }
+            ) {
                 val res = Json.encodeToString(changes)
                 changes.clear()
                 res

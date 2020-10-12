@@ -12,9 +12,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 open class RestAction<T: Any>(
     override val bot: DiscordProxyKt,
+    private val path: RestEndpoint.Path,
     private val constructor: JsonElement.(DiscordProxyKt) -> T,
-    private val endpoint: RestEndpoint,
-    private vararg val pathParts: String,
     private val postData: (() -> String)? = null,
 ): IRestAction<T> {
     companion object {
@@ -28,10 +27,10 @@ open class RestAction<T: Any>(
         )
     }
     
-    private fun createRequest(path: String, bucket: RateLimitBucket): CompletableFuture<T> {
+    private fun createRequest(bucket: RateLimitBucket): CompletableFuture<T> {
         val request = HttpRequest.newBuilder()
-            .uri(URI(DISCORD_PATH + path))
-            .method(endpoint.method.toString(), postData?.run { HttpRequest.BodyPublishers.ofString(this()) }
+            .uri(URI(DISCORD_PATH + path.url))
+            .method(path.endpoint.method.toString(), postData?.run { HttpRequest.BodyPublishers.ofString(this()) }
                     ?: HttpRequest.BodyPublishers.noBody())
             .header("Authorization", bot.authorization)
             .header("User-Agent", "DiscordBot (https://github.com/deprilula28/discord-proxy-kt v0.0.1)")
@@ -51,7 +50,7 @@ open class RestAction<T: Any>(
                     it.statusCode()
                 )
             val res = Json.decodeFromString(JsonElement.serializer(), it.body().toString())
-            if (endpoint.method == RestEndpoint.Method.GET) bot.cache.store(path, res)
+            if (path.endpoint.method == RestEndpoint.Method.GET) bot.cache.store(path, res)
             constructor(res, bot)
         }
     }
@@ -60,7 +59,7 @@ open class RestAction<T: Any>(
      * Sends this REST action and returns a Java future.
      */
     override fun request(): CompletableFuture<T> {
-        val path = endpoint.path(*pathParts)
+        val endpoint = path.endpoint
         if (endpoint.method == RestEndpoint.Method.GET) {
             val item = bot.cache.retrieve<T>(path)
             if (item != null) return CompletableFuture.completedFuture(item)
@@ -71,21 +70,20 @@ open class RestAction<T: Any>(
         synchronized(bucket) {
             val time = bucket.resetEpochSecs
             // Join in the waiting future
-            if (bucket.waitingFuture != null) return bucket.waitingFuture!!.thenCompose { createRequest(path, bucket) }
+            if (bucket.waitingFuture != null) return bucket.waitingFuture!!.thenCompose { createRequest(bucket) }
             if (bucket.remaining == 0) {
                 val wait = CompletableFuture.supplyAsync { Thread.sleep(System.currentTimeMillis() - (time * 1000)) }
                 bucket.waitingFuture = wait
-                return wait.thenCompose { createRequest(path, bucket) }
+                return wait.thenCompose { createRequest(bucket) }
             }
             bucket.remaining --
         }
         
-        return createRequest(path, bucket)
+        return createRequest(bucket)
     }
     
     override fun getIfAvailable(): T? {
-        val path = endpoint.path(*pathParts)
-        if (endpoint.method == RestEndpoint.Method.GET) {
+        if (path.endpoint.method == RestEndpoint.Method.GET) {
             val item = bot.cache.retrieve<T>(path)
             if (item != null) return item
         }

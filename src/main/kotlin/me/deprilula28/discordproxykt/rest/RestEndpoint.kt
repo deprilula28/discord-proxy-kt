@@ -40,7 +40,7 @@ enum class RestEndpoint(private val path: String, val method: Method) {
     
     // Guild
     CREATE_GUILD("/guilds", Method.POST),
-    GET_GUILD("/guilds/%s?with_counts=true", Method.GET),
+    GET_GUILD("/guilds/%s", Method.GET),
     GET_GUILD_PREVIEW("/guilds/%s/preview", Method.GET),
     MODIFY_GUILD("/guilds/%s", Method.PATCH),
     DELETE_GUILD("/guilds/%s", Method.DELETE),
@@ -58,7 +58,7 @@ enum class RestEndpoint(private val path: String, val method: Method) {
     GET_GUILDS_BAN("/guilds/%s/bans/%s", Method.GET),
     CREATE_GUILD_BAN("/guilds/%s/bans/%s", Method.PUT),
     REMOVE_GUILD_BAN("/guilds/%s/bans/%s", Method.DELETE),
-    GET_GUILD_PRUNE_COUNT("/guilds/%s/prune?days=%s", Method.GET),
+    GET_GUILD_PRUNE_COUNT("/guilds/%s/prune", Method.GET),
     BEGIN_GUILD_PRUNE_COUNT("/guilds/%s/prune", Method.POST),
     GET_GUILD_VOICE_REGIONS("/guilds/%s/regions", Method.GET),
     GET_GUILD_INVITES("/guilds/%s/invites", Method.GET),
@@ -110,6 +110,8 @@ enum class RestEndpoint(private val path: String, val method: Method) {
     DELETE_INVITE("/invites/%s", Method.DELETE),
     GET_VOICE_REGIONS("/voice/regions", Method.GET);
     
+    data class Path(val url: String, val endpoint: RestEndpoint)
+    
     enum class Method {
         GET,
         POST,
@@ -118,5 +120,9 @@ enum class RestEndpoint(private val path: String, val method: Method) {
         DELETE
     }
     
-    fun path(vararg parts: String) = String.format(path, *parts)
+    fun path(vararg parts: String) = Path(String.format(path, *parts), this)
+    fun path(getParameters: List<Pair<String?, String>>, vararg parts: String)
+        = Path(String.format(path, *parts) + "?" + getParameters.joinToString("&") {
+                (key, value) -> if (key == null) value else "$key=$value"
+        }, this)
 }

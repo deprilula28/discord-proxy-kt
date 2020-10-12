@@ -18,7 +18,9 @@ import java.util.concurrent.CompletableFuture
  * If it is {@link me.deprilula28.discordproxykt.entities.discord.PartialTextChannel$Upgradeable Upgradeable},
  * you can get data of a text channel by calling `await()` or `request()`.
  */
-interface PartialTextChannel: IPartialEntity, Message.Mentionable {
+interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, IPartialEntity, Message.Mentionable {
+    val guild: PartialGuild
+    
     companion object {
         fun new(guild: PartialGuild, id: Snowflake): Upgradeable
             = object: Upgradeable,
@@ -26,23 +28,16 @@ interface PartialTextChannel: IPartialEntity, Message.Mentionable {
                         guild.bot,
                         { guild.fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == id } as TextChannel } }) {
                 override val snowflake: Snowflake = id
+                override val guild: PartialGuild = guild
             }
     }
     
-    /// Retrieve a message by the given ID.
-    /// <br>
-    /// This will check the cache and return a PartialMessage with a free request if possible.
-    operator fun get(message: Snowflake): PartialMessage.Upgradeable
-        = object: PartialMessage.Upgradeable,
-            RestAction<Message>(bot, { Message(this as JsonObject, bot) }, RestEndpoint.GET_CHANNEL_MESSAGE, snowflake.id, message.id) {
-            override val snowflake: Snowflake = message
-        }
-    
     fun bulkDelete(messages: Collection<Message>) = bulkDeleteSnowflake(messages.map { it.snowflake })
+    
     fun bulkDeleteSnowflake(messages: Collection<Snowflake>)
-            = RestAction(bot, { Unit }, RestEndpoint.BULK_DELETE_MESSAGES, snowflake.id) {
-        Json.encodeToString(messages.map { it.id })
-    }
+        = bot.request(RestEndpoint.BULK_DELETE_MESSAGES.path(snowflake.id), { Unit }) {
+            Json.encodeToString(messages.map { it.id })
+        }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDelete"))
     fun deleteMessages(messages: Collection<Message>) = bulkDeleteSnowflake(messages.map { it.snowflake })
@@ -50,7 +45,12 @@ interface PartialTextChannel: IPartialEntity, Message.Mentionable {
     @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDeleteSnowflake"))
     fun deleteMessagesByIds(messages: Collection<String>) = bulkDeleteSnowflake(messages.map { Snowflake(it) })
     
-    interface Upgradeable: PartialTextChannel, IRestAction<TextChannel>
+    /// Retrieve a message by the given ID.
+    /// <br>
+    /// This will check the cache and return a PartialMessage with a free request if possible.
+    override operator fun get(message: Snowflake): PartialMessage.Upgradeable = PartialMessage.new(this, message)
+    
+    interface Upgradeable: PartialTextChannel, PartialMessageChannel.Upgradeable, IRestAction<TextChannel>
     
     override val asMention: String
         get() = "<#${snowflake.id}>"
@@ -61,7 +61,7 @@ interface PartialTextChannel: IPartialEntity, Message.Mentionable {
  * Channel documentation:
  * https://discord.com/developers/docs/resources/channel
  */
-class TextChannel(map: JsonObject, bot: DiscordProxyKt):
+class TextChannel(override val guild: PartialGuild, map: JsonObject, bot: DiscordProxyKt):
     Entity(map, bot),
     MessageChannel,
     GuildChannel,
