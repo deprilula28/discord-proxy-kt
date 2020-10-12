@@ -42,10 +42,10 @@ class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Guil
      */
     val userLimit: Int by map.delegateJson(JsonElement::asInt, "user_limit")
     
-    override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
+    override val guild: PartialGuild.Upgradeable by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     override val position: Int by map.delegateJson(JsonElement::asInt)
     override val name: String by map.delegateJson(JsonElement::asString)
-    override val categorySnowflake: Snowflake? by map.delegateJsonNullable(JsonElement::asSnowflake, "parent_id")
+    override val category: PartialCategory.Upgradeable? by map.delegateJsonNullable({ PartialCategory.new(guild, asSnowflake()) }, "parent_id")
     
     override val permissions: List<PermissionOverwrite> by map.delegateJson({
         (this as JsonArray).map {

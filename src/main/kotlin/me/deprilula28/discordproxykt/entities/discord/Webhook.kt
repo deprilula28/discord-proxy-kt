@@ -22,7 +22,7 @@ class Webhook(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityMan
     /**
      * the guild id this webhook is for
      */
-    val guild: PartialGuild.Upgradeable? by map.delegateJsonNullable({ bot.guilds[asSnowflake()] }, "guild_id")
+    val guild: PartialGuild.Upgradeable? by map.delegateJsonNullable({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     /**
      * the channel id this webhook is for
      */

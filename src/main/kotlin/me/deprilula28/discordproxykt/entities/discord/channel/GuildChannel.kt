@@ -3,6 +3,8 @@ package me.deprilula28.discordproxykt.entities.discord.channel
 import me.deprilula28.discordproxykt.entities.IPartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.ChannelType
+import me.deprilula28.discordproxykt.entities.discord.Guild
+import me.deprilula28.discordproxykt.entities.discord.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.PermissionOverwrite
 
 interface PartialGuildChannel: IPartialEntity {
@@ -17,7 +19,7 @@ interface GuildChannel: PartialGuildChannel {
     /**
      * the id of the guild
      */
-    val guildSnowflake: Snowflake
+    val guild: PartialGuild.Upgradeable
     /**
      * sorting position of the channel
      */
@@ -33,7 +35,7 @@ interface GuildChannel: PartialGuildChannel {
     /**
      * id of the parent category for a channel (each parent category can contain up to 50 channels)
      */
-    val categorySnowflake: Snowflake?
+    val category: PartialCategory?
     /**
      * Channel Type, should be constant
      */

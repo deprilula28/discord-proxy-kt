@@ -10,6 +10,17 @@ import java.util.*
 
 // TODO Other methods
 interface PartialUser: IPartialEntity, Message.Mentionable {
+    companion object {
+        fun new(id: Snowflake, bot: DiscordProxyKt): Upgradeable
+            = object: PartialUser.Upgradeable,
+                RestAction<User>(
+                    bot, RestEndpoint.GET_USER.path(id.id),
+                    { User(this as JsonObject, bot) }
+                ) {
+                override val snowflake: Snowflake = id
+            }
+    }
+    
     override val asMention: String
         get() = "<@${snowflake.id}>"
     

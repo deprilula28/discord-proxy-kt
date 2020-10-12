@@ -4,8 +4,8 @@ plugins {
     kotlin("plugin.serialization") version "1.4.10"
 }
 
-group = "com.gamesrob"
-version = "1.0.0"
+group = "me.deprilula28"
+version = "0.1.0"
 
 repositories {
     mavenCentral()

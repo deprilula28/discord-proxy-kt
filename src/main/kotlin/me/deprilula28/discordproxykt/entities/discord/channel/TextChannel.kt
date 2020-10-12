@@ -24,7 +24,7 @@ import me.deprilula28.discordproxykt.rest.*
  * you can get data of a text channel by calling `await()` or `request()`.
  */
 interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, IPartialEntity, Message.Mentionable {
-    val guild: PartialGuild
+    val internalGuild: PartialGuild
     
     companion object {
         fun new(guild: PartialGuild, id: Snowflake): Upgradeable
@@ -33,7 +33,7 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, IParti
                         guild.bot,
                         { guild.fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == id } as TextChannel } }) {
                 override val snowflake: Snowflake = id
-                override val guild: PartialGuild = guild
+                override val internalGuild: PartialGuild = guild
             }
     }
     
@@ -51,7 +51,7 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, IParti
     fun deleteMessagesByIds(messages: Collection<String>) = bulkDeleteSnowflake(messages.map { Snowflake(it) })
     
     override operator fun get(message: Snowflake): PartialMessage.Upgradeable
-        = PartialMessage.new(guild, this, message)
+        = PartialMessage.new(internalGuild, this, message)
     
     interface Upgradeable: PartialTextChannel, PartialMessageChannel.Upgradeable, IRestAction<TextChannel>
     
@@ -64,7 +64,7 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, IParti
  * Channel documentation:
  * https://discord.com/developers/docs/resources/channel
  */
-class TextChannel(override val guild: PartialGuild, map: JsonObject, bot: DiscordProxyKt):
+class TextChannel(override val internalGuild: PartialGuild, map: JsonObject, bot: DiscordProxyKt):
     Entity(map, bot), MessageChannel, GuildChannel, PartialTextChannel
 {
     /**
@@ -84,9 +84,9 @@ class TextChannel(override val guild: PartialGuild, map: JsonObject, bot: Discor
     override val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
     override val lastMessageId: Snowflake by map.delegateJson(JsonElement::asSnowflake, "last_message_id")
     
-    override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
+    override val guild: PartialGuild.Upgradeable by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     override val position: Int by map.delegateJson(JsonElement::asInt)
-    override val categorySnowflake: Snowflake? by map.delegateJsonNullable(JsonElement::asSnowflake, "parent_id")
+    override val category: PartialCategory.Upgradeable? by map.delegateJsonNullable({ PartialCategory.new(guild, asSnowflake()) }, "parent_id")
     
     override val permissions: List<PermissionOverwrite> by map.delegateJson({
         (this as JsonArray).map {

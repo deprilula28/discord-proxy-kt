@@ -47,25 +47,8 @@ open class DiscordProxyKt internal constructor(
     val selfUser: RestAction<User>
         get() = request(RestEndpoint.GET_CURRENT_USER.path(), { User(this as JsonObject, this@DiscordProxyKt) })
     
-    class Guilds(private val bot: DiscordProxyKt) {
-        operator fun get(id: Snowflake): PartialGuild.Upgradeable {
-            return object: PartialGuild.Upgradeable,
-                RestAction<Guild>(bot, RestEndpoint.GET_GUILD.path(id.id), { Guild(this as JsonObject, bot) }) {
-                override val snowflake: Snowflake = id
-            }
-        }
-    }
-    val guilds = Guilds(this)
-    
-    class Users(private val bot: DiscordProxyKt) {
-        operator fun get(id: Snowflake): PartialUser.Upgradeable {
-            return object: PartialUser.Upgradeable,
-                RestAction<User>(bot, RestEndpoint.GET_USER.path(id.id), { User(this as JsonObject, bot) }) {
-                override val snowflake: Snowflake = id
-            }
-        }
-    }
-    val users = Users(this)
+    fun fetchGuild(snowflake: Snowflake) = PartialGuild.new(snowflake, this)
+    fun fetchUser(snowflake: Snowflake) = PartialUser.new(snowflake, this)
     
     init {
         val factory = ConnectionFactory()

@@ -73,7 +73,7 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     /**
      * id of the guild the message was sent in
      */
-    val guild: PartialGuild.Upgradeable? by map.delegateJsonNullable({ PartialGuild.new(asSnowflake(), bot) }, "guild_id")
+    val guild: PartialGuild.Upgradeable? by map.delegateJsonNullable({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     /**
      * the author of this message (not guaranteed to be a valid user, see below)
      */

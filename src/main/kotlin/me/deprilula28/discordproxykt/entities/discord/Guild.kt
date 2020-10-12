@@ -155,7 +155,7 @@ interface PartialGuild: IPartialEntity {
                                { Member(this@PartialGuild, this as JsonObject, bot) }
             ) {
                 override val guild: PartialGuild = this@PartialGuild
-                override val user: PartialUser by lazy { bot.users[user] }
+                override val user: PartialUser by lazy { bot.fetchUser(user) }
             }
     
     val fetchEmojis: IRestAction<List<GuildEmoji>>
@@ -356,10 +356,10 @@ interface PartialGuild: IPartialEntity {
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("fetchBans"))
     fun retrieveBanList() = fetchBans
-    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchBan(bot.users[Snowflake(id)])"))
-    fun retrieveBanById(id: String) = fetchBan(bot.users[Snowflake(id)])
-    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchBan(bot.users[Snowflake(id.toString())])"))
-    fun retrieveBanById(id: Long) = fetchBan(bot.users[Snowflake(id.toString())])
+    @Deprecated("JDA Compatibility Function", ReplaceWith("bot.fetchUser(Snowflake(id))"))
+    fun retrieveBanById(id: String) = fetchBan(bot.fetchUser(Snowflake(id)))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("bot.fetchUser(Snowflake(id.toString()))"))
+    fun retrieveBanById(id: Long) = fetchBan(bot.fetchUser(Snowflake(id.toString())))
     @Deprecated("JDA Compatibility Function", ReplaceWith("fetchBan(user)"))
     fun retrieveBan(user: PartialUser) = fetchBan(user)
     
@@ -371,12 +371,12 @@ interface PartialGuild: IPartialEntity {
     @Deprecated("JDA Compatibility Function", ReplaceWith("/*no-op*/"))
     fun unloadMember(id: Long) = println("Warning: unloadMember(long) is a no-op!")
     
-    @Deprecated("JDA Compatibility Function", ReplaceWith("addMember"))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("addMember(accessToken, bot.fetchUser(Snowflake(user)))"))
     fun addMember(accessToken: String, user: String)
-            = addMember(accessToken, bot.users[Snowflake(user)])
-    @Deprecated("JDA Compatibility Function", ReplaceWith("addMember"))
+            = addMember(accessToken, bot.fetchUser(Snowflake(user)))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("addMember(accessToken, bot.fetchUser(Snowflake(user.toString())))"))
     fun addMember(accessToken: String, user: Long)
-            = addMember(accessToken, bot.users[Snowflake(user.toString())])
+            = addMember(accessToken, bot.fetchUser(Snowflake(user.toString())))
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("vanityUrl"))
     fun retrieveVanityUrl() = fetchVanityCode
@@ -784,7 +784,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     val maxEmotes: Int by boostTier::emotes
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("bot.guilds[snowflake]"))
-    fun retrieveMetaData(): IRestAction<Guild> = bot.guilds[snowflake]
+    fun retrieveMetaData(): IRestAction<Guild> = bot.fetchGuild(snowflake)
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.any { it.user == user } ?: false"))
     fun isMember(user: User): Boolean
