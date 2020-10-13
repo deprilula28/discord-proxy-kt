@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.rest.asBoolean
 import me.deprilula28.discordproxykt.rest.asInt
+import me.deprilula28.discordproxykt.rest.asString
 import me.deprilula28.discordproxykt.rest.delegateJson
 
 /**
@@ -26,7 +27,7 @@ class Reaction(private val map: JsonObject, val bot: DiscordProxyKt) {
     val emoji: Emoji by map.delegateJson({
         val obj = this as JsonObject
         val id = obj["id"]
-        if (id == null || id == JsonNull || id.toString() == "null") UnicodeEmoji(obj) else ReactionEmoji(obj, bot)
+        if (id == null || id == JsonNull || id.toString() == "null") UnicodeEmoji(obj["name"]!!.asString()) else ReactionEmoji(obj, bot)
     })
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("bot")) val jda: DiscordProxyKt by ::bot

@@ -120,6 +120,11 @@ enum class RestEndpoint(private val path: String, val method: Method) {
         DELETE
     }
     
+    enum class BodyType(val typeStr: String) {
+        JSON("application/json"),
+        FORM("multipart/form-data"),
+    }
+    
     fun path(vararg parts: String) = Path(String.format(path, *parts), this)
     fun path(getParameters: List<Pair<String?, String>>, vararg parts: String)
         = Path(String.format(path, *parts) + "?" + getParameters.joinToString("&") {

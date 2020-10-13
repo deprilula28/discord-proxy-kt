@@ -7,14 +7,13 @@ import me.deprilula28.discordproxykt.rest.asSnowflake
 import me.deprilula28.discordproxykt.rest.delegateJson
 
 /// Interfaces deriving this only need the ID to run the included functions.
-interface IPartialEntity {
+interface PartialEntity {
     val snowflake: Snowflake
     val bot: DiscordProxyKt
 }
 
 /// Classes deriving this will be Discord entities, with an ID and delegated fields.
-open class Entity(private val map: JsonObject, override val bot: DiscordProxyKt): IPartialEntity {
-    
+open class Entity(protected var map: JsonObject, override val bot: DiscordProxyKt): PartialEntity {
     @Deprecated("JDA Compatibility Field", ReplaceWith("bot")) val jda: DiscordProxyKt by ::bot
     
     override val snowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "id")

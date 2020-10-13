@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Entity
-import me.deprilula28.discordproxykt.entities.IPartialEntity
+import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
 import me.deprilula28.discordproxykt.entities.discord.ChannelType
@@ -23,7 +23,7 @@ import me.deprilula28.discordproxykt.rest.*
  * If it is {@link me.deprilula28.discordproxykt.entities.discord.channel.PartialTextChannel$Upgradeable Upgradeable},
  * you can get data of a text channel by calling `await()` or `request()`.
  */
-interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, IPartialEntity, Message.Mentionable {
+interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, PartialEntity, Message.Mentionable {
     val internalGuild: PartialGuild
     
     companion object {
@@ -37,20 +37,30 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, IParti
             }
     }
     
-    fun bulkDelete(messages: Collection<Message>) = bulkDeleteSnowflake(messages.map { it.snowflake })
-    
-    fun bulkDeleteSnowflake(messages: Collection<Snowflake>)
+    fun bulkDelete(messages: Collection<PartialMessage>)
         = bot.request(RestEndpoint.BULK_DELETE_MESSAGES.path(snowflake.id), { Unit }) {
-            Json.encodeToString(messages.map { it.id })
+            Json.encodeToString(messages.map { it.snowflake.id })
         }
     
-    @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDelete"))
-    fun deleteMessages(messages: Collection<Message>) = bulkDeleteSnowflake(messages.map { it.snowflake })
+    fun bulkDelete(vararg messages: PartialMessage)
+        = bot.request(RestEndpoint.BULK_DELETE_MESSAGES.path(snowflake.id), { Unit }) {
+            Json.encodeToString(messages.map { it.snowflake.id })
+        }
     
-    @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDeleteSnowflake"))
-    fun deleteMessagesByIds(messages: Collection<String>) = bulkDeleteSnowflake(messages.map { Snowflake(it) })
+    @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDelete(messages)"))
+    fun deleteMessages(messages: Collection<PartialMessage>) = bulkDelete(messages)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDelete(messages.map { fetchMessage(Snowflake(it)) })"))
+    fun deleteMessagesByIds(messages: Collection<String>) = bulkDelete(messages.map { fetchMessage(Snowflake(it)) })
+    @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDelete(messages.map { fetchMessage(Snowflake(it)) })"))
+    fun purgeMessagesById(messages: Collection<String>) = bulkDelete(messages.map { fetchMessage(Snowflake(it)) })
+    @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDelete(messages.map { fetchMessage(Snowflake(it)) })"))
+    fun purgeMessagesById(vararg messages: String) = bulkDelete(messages.map { fetchMessage(Snowflake(it)) })
+    @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDelete(messages)"))
+    fun purgeMessages(messages: Collection<PartialMessage>) = bulkDelete(messages)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDelete(*messages)"))
+    fun purgeMessages(vararg messages: PartialMessage) = bulkDelete(*messages)
     
-    override operator fun get(message: Snowflake): PartialMessage.Upgradeable
+    override fun fetchMessage(message: Snowflake): PartialMessage.Upgradeable
         = PartialMessage.new(internalGuild, this, message)
     
     interface Upgradeable: PartialTextChannel, PartialMessageChannel.Upgradeable, IRestAction<TextChannel>
@@ -82,7 +92,7 @@ class TextChannel(override val internalGuild: PartialGuild, map: JsonObject, bot
     
     override val name: String by map.delegateJson(JsonElement::asString)
     override val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
-    override val lastMessageId: Snowflake by map.delegateJson(JsonElement::asSnowflake, "last_message_id")
+    override val lastMessage: PartialMessage.Upgradeable by map.delegateJson({ fetchMessage(asSnowflake()) }, "last_message_id")
     
     override val guild: PartialGuild.Upgradeable by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     override val position: Int by map.delegateJson(JsonElement::asInt)
@@ -102,9 +112,4 @@ class TextChannel(override val internalGuild: PartialGuild, map: JsonObject, bot
     
     override val type: ChannelType
         get() = ChannelType.TEXT
-    
-    // TODO
-    // https://ci.dv8tion.net/job/JDA/javadoc/net/dv8tion/jda/api/entities/TextChannel.html#createCopy()
-    // https://ci.dv8tion.net/job/JDA/javadoc/net/dv8tion/jda/api/entities/TextChannel.html#createCopy(net.dv8tion.jda.api.entities.Guild)
-    // https://ci.dv8tion.net/job/JDA/javadoc/net/dv8tion/jda/api/entities/TextChannel.html#deleteWebhookById(java.lang.String)
 }

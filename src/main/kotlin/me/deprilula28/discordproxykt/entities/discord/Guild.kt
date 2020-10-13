@@ -4,7 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Entity
-import me.deprilula28.discordproxykt.entities.IPartialEntity
+import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
 import me.deprilula28.discordproxykt.entities.discord.channel.*
@@ -80,7 +80,7 @@ class ExtendedInvite(map: JsonObject, bot: DiscordProxyKt): Invite(map, bot) {
  * You can get a full object by using {@link me.deprilula28.discordproxykt.rest.RestAction#request() request()} in this
  * type, if it isn't one already.
  */
-interface PartialGuild: IPartialEntity {
+interface PartialGuild: PartialEntity {
     companion object {
         fun new(snowflake: Snowflake, bot: DiscordProxyKt): Upgradeable {
             return object : Upgradeable,
@@ -129,7 +129,7 @@ interface PartialGuild: IPartialEntity {
     val fetchChannels: IRestAction<List<GuildChannel>>
         get() = bot.request(
             RestEndpoint.GET_GUILD_CHANNELS.path(snowflake.id),
-            { (this as JsonArray).mapNotNull(::parseChannel)  }
+            { (this as JsonArray).mapNotNull { asGuildChannel(bot, this@PartialGuild) }  }
         )
     
     val fetchWebhooks: IRestAction<List<Webhook>>
@@ -399,20 +399,6 @@ interface PartialGuild: IPartialEntity {
     @Deprecated("JDA Compatibility Function", ReplaceWith("regions"))
     fun retrieveRegions(includeDeprecated: Boolean) = retrieveRegions()
     
-    // NOT PUBLIC API
-    fun parseChannel(it: JsonElement): GuildChannel? {
-        val obj = it as JsonObject
-        return when (val type = obj["type"]!!.asInt()) {
-            0 -> TextChannel(this@PartialGuild, obj, bot)
-            2 -> VoiceChannel(obj, bot)
-            4 -> Category(obj, bot)
-            else -> {
-                println("Invalid channel type received for guild ${snowflake.id}: $type")
-                null
-            }
-        }
-    }
-    
     /*
     TODO from JDA:
     Guild#retrieveMembers(Collection<User>)
@@ -593,7 +579,8 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
      * channels in the guild <br>
      * Only sent when under the event where the guild becomes available to the bot
      */
-    val cachedChannels: List<GuildChannel>? by map.delegateJsonNullable({ (this as JsonArray).mapNotNull(::parseChannel) }, "channels")
+    val cachedChannels: List<GuildChannel>? by map.delegateJsonNullable(
+        { (this as JsonArray).mapNotNull { asGuildChannel(bot, this@Guild) } }, "channels")
     
     /**
      * the maximum number of presences for the guild (the default value, currently 25000, is in effect when null is returned)
@@ -686,13 +673,12 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
     
     /**
-     * Requests that this guild gets edited based on the altered fields.<br>
-     * This object will not be updated to reflect the changes, rather a new Guild object is returned from the RestAction.
+     * Requests that this guild gets edited based on the altered fields.
      */
     override fun edit(): IRestAction<Guild> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this guild, yet `edit()` was called.")
         return assertPermissions(Permissions.MANAGE_GUILD) {
-            bot.request(RestEndpoint.MODIFY_GUILD.path(snowflake.id), { Guild(this as JsonObject, bot) }) {
+            bot.request(RestEndpoint.MODIFY_GUILD.path(snowflake.id), { this@Guild.apply { map = this@request as JsonObject } }) {
                 val res = Json.encodeToString(changes)
                 changes.clear()
                 res

@@ -5,7 +5,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Entity
-import me.deprilula28.discordproxykt.entities.IPartialEntity
+import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.ChannelType
 import me.deprilula28.discordproxykt.entities.discord.PartialGuild
@@ -18,7 +18,7 @@ import me.deprilula28.discordproxykt.rest.*
  * Channel documentation:
  * https://discord.com/developers/docs/resources/channel
  */
-interface PartialVoiceChannel: IPartialEntity {
+interface PartialVoiceChannel: PartialEntity {
     companion object {
         fun new(guild: PartialGuild, id: Snowflake): Upgradeable
                 = object: Upgradeable,

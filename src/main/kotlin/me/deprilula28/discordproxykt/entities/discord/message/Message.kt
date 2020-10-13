@@ -4,17 +4,19 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.builder.MessageBuilder
+import me.deprilula28.discordproxykt.builder.MessageConversion
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.*
-import me.deprilula28.discordproxykt.entities.discord.channel.PartialMessageChannel
-import me.deprilula28.discordproxykt.entities.discord.channel.PartialPrivateChannel
-import me.deprilula28.discordproxykt.entities.discord.channel.PartialTextChannel
+import me.deprilula28.discordproxykt.entities.discord.channel.*
 import me.deprilula28.discordproxykt.rest.*
 import java.time.OffsetDateTime
 import java.util.*
 
 // TODO This
-interface PartialMessage: IPartialEntity {
+interface PartialMessage: PartialEntity {
+    val channelRaw: Snowflake
+
     companion object {
         fun new(channel: PartialMessageChannel, id: Snowflake): Upgradeable
                 = object: Upgradeable,
@@ -22,42 +24,75 @@ interface PartialMessage: IPartialEntity {
                 channel.bot,
                 RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id), { Message(this as JsonObject, channel.bot) }
             ) {
+            override val channelRaw: Snowflake = channel.snowflake
             override val snowflake: Snowflake = id
         }
         
         // Includes permission check for reading the message in the guild
         // TODO make this less of a spaghetti mess
         fun new(guild: PartialGuild, channel: PartialMessageChannel, id: Snowflake): Upgradeable
-                = object: Upgradeable,
-                IRestAction.FuturesRestAction<Message>(channel.bot, {
-                    guild.fetchUserPermissions.request().thenCompose {
-                        guild.checkPerms(arrayOf(Permissions.READ_MESSAGE_HISTORY), it)
-                        RestAction(
-                            channel.bot,
-                            RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id), { Message(this as JsonObject, channel.bot) }
-                        ).request()
-                    }
-                }) {
-            override val snowflake: Snowflake = id
-        }
+            = object: Upgradeable,
+                    IRestAction.FuturesRestAction<Message>(channel.bot, {
+                        guild.fetchUserPermissions.request().thenCompose {
+                            guild.checkPerms(arrayOf(Permissions.READ_MESSAGE_HISTORY), it)
+                            RestAction(
+                                channel.bot,
+                                RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id), { Message(this as JsonObject, channel.bot) }
+                            ).request()
+                        }
+                    }) {
+                override val channelRaw: Snowflake = channel.snowflake
+                override val snowflake: Snowflake = id
+            }
     }
     
-    fun editMessage(text: CharSequence) {}
-    fun editMessage(embed: Embed) {}
-    fun editMessageFormat(str: String, vararg format: Any) = editMessage(String.format(str, *format))
+    fun fetchReactions(emoji: Emoji): PaginatedAction<User>
+        = PaginatedAction(bot, { User(this as JsonObject, bot) }, RestEndpoint.GET_REACTIONS, channelRaw.id, snowflake.id, emoji.toUriPart())
     
-    fun delete() {}
-    fun pin() {}
-    fun unpin() {}
+    fun edit(message: MessageConversion): IRestAction<Message>
+        = bot.request(RestEndpoint.EDIT_MESSAGE.path(channelRaw.id, snowflake.id), { Message(this as JsonObject, bot) }) {
+            message.toMessage().first
+        }
     
-    fun addReaction(emoji: Emoji) {}
-    fun addReaction(unicode: String) {}
+    fun delete(): IRestAction<Unit> = bot.request(RestEndpoint.DELETE_MESSAGE.path(channelRaw.id, snowflake.id), { Unit })
+    fun pin(): IRestAction<Unit> = bot.request(RestEndpoint.ADD_PINNED_CHANNEL_MESSAGE.path(channelRaw.id, snowflake.id), { Unit })
+    fun unpin(): IRestAction<Unit> = bot.request(RestEndpoint.DELETE_PINNED_CHANNEL_MESSAGE.path(channelRaw.id, snowflake.id), { Unit })
     
-    fun clearReactions() {}
-    fun clearReactions(emoji: Emoji) {}
-    fun clearReactions(emoji: Emoji, user: User) {} // TODO Make into partial user
-    fun clearReactions(unicode: String) {}
-    fun clearReactions(unicode: String, user: User) {} // TODO Make into partial user
+    fun addReaction(emoji: Emoji): IRestAction<Unit>
+        = bot.request(RestEndpoint.CREATE_REACTION.path(channelRaw.id, snowflake.id, emoji.toUriPart()), { Unit })
+    fun removeReaction(emoji: Emoji): IRestAction<Unit>
+        = bot.request(RestEndpoint.DELETE_OWN_REACTION.path(channelRaw.id, snowflake.id, emoji.toUriPart()), { Unit })
+    fun removeReaction(emoji: Emoji, user: PartialUser): IRestAction<Unit>
+        = bot.request(RestEndpoint.DELETE_USER_REACTION.path(channelRaw.id, snowflake.id, emoji.toUriPart(), user.snowflake.id), { Unit })
+    
+    fun clearReactions(): IRestAction<Unit>
+            = bot.request(RestEndpoint.DELETE_ALL_REACTIONS.path(channelRaw.id, snowflake.id), { Unit })
+    fun clearReactions(emoji: Emoji): IRestAction<Unit>
+            = bot.request(RestEndpoint.DELETE_ALL_REACTIONS_FOR_EMOJI.path(channelRaw.id, snowflake.id, emoji.toUriPart()), { Unit })
+    
+    fun edit(content: String) = edit(MessageBuilder().setContent(content))
+    fun addReaction(unicode: String) = addReaction(UnicodeEmoji(unicode))
+    fun removeReaction(unicode: String) = removeReaction(UnicodeEmoji(unicode))
+    fun removeReaction(unicode: String, user: PartialUser) = removeReaction(UnicodeEmoji(unicode), user)
+    fun clearReactions(unicode: String) = clearReactions(UnicodeEmoji(unicode))
+    fun fetchReactions(unicode: String) = fetchReactions(UnicodeEmoji(unicode))
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("edit(text)"))
+    fun editMessage(text: String) = edit(text)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchReactions(unicode)"))
+    fun retrieveReactionUsers(unicode: String) = fetchReactions(unicode)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchReactions(emoji)"))
+    fun retrieveReactionUsers(emoji: Emoji) = fetchReactions(emoji)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("edit(embed)"))
+    fun editMessage(embed: MessageConversion) = edit(embed)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("edit(String.format(str, *format))"))
+    fun editMessageFormat(str: String, vararg format: Any) = edit(String.format(str, *format))
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchReactions(unicode)"))
+    fun getReactionByUnicode(unicode: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchReactions(Snowflake(id))"))
+    fun getReactionById(id: String) = null
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchReactions(Snowflake(id.toString()))"))
+    fun getReactionById(id: Long) = null
     
     interface Upgradeable: PartialMessage, IRestAction<Message>
 }
@@ -69,7 +104,7 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     /**
      * id of the channel the message was sent in
      */
-    val channelRaw: Snowflake by map.delegateJson(JsonElement::asSnowflake, "channel_id")
+    override val channelRaw: Snowflake by map.delegateJson(JsonElement::asSnowflake, "channel_id")
     /**
      * id of the guild the message was sent in
      */
@@ -86,6 +121,10 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
      * contents of the message
      */
     val content: String by map.delegateJson(JsonElement::asString)
+    /**
+     * used for validating a message was sent
+     */
+    val nonce: String? by map.delegateJsonNullable(JsonElement::asString)
     /**
      * when this message was sent
      */
@@ -214,4 +253,38 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
         GUILD_DISCOVERY_DISQUALIFIED,
         GUILD_DISCOVERY_REQUALIFIED,
     }
+    
+    // I'm not deprecating this because what the hell is this API, Discord
+    fun surpressEmbeds() = edit(MessageBuilder().setFlags(flags.apply { add(Flags.SUPPRESS_EMBEDS) }))
+    val surpressedEmbeds: Boolean
+        get() = flags.contains(Flags.SUPPRESS_EMBEDS)
+    
+    val jumpUrl: String
+        get() = "https://discord.com/channels/${guild?.snowflake?.id ?: "@me"}/${channelRaw.id}/${snowflake.id}"
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("editTimestamp != null"))
+    val edited: Boolean
+        get() = editTimestamp != null
+    @Deprecated("JDA Compatibility Field", ReplaceWith("content"))
+    val contentRaw: String
+        get() = content
+    @Deprecated("JDA Compatibility Field", ReplaceWith("content"))
+    val contentDisplay: String
+        get() = content
+    @Deprecated("JDA Compatibility Field", ReplaceWith("content.replace(Regex(\"(\\\\*)|(__)|(~)|(\\\\|\\\\|)|(^> )\"), \"\")"))
+    val contentStripped: String
+        get() = content.replace(Regex("(\\*)|(__)|(~)|(\\|\\|)|(^> )"), "")
+    @Deprecated("JDA Compatibility Field", ReplaceWith("textChannel?.request()?.get()?.category?.request()?.get()"))
+    val category: Category?
+        get() = textChannel?.request()?.get()?.category?.request()?.get()
+    
+    override fun edit(message: MessageConversion)
+        = bot.request(RestEndpoint.EDIT_MESSAGE.path(channelRaw.id, channelRaw.id), {
+            this@Message.apply { map = this@request as JsonObject }
+        }) {
+            message.toMessage().first
+        }
+}
+object Everyone: Message.Mentionable {
+    override val asMention: String = "@everyone"
 }

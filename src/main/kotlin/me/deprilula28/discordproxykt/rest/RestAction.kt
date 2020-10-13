@@ -15,6 +15,7 @@ open class RestAction<T: Any>(
     private val path: RestEndpoint.Path,
     private val constructor: JsonElement.(DiscordProxyKt) -> T,
     private val postData: (() -> String)? = null,
+    private val bodyType: RestEndpoint.BodyType = RestEndpoint.BodyType.JSON,
 ): IRestAction<T> {
     companion object {
         const val DISCORD_PATH: String = "https://discord.com/api/v8/"
@@ -33,6 +34,7 @@ open class RestAction<T: Any>(
             .method(path.endpoint.method.toString(), postData?.run { HttpRequest.BodyPublishers.ofString(this()) }
                     ?: HttpRequest.BodyPublishers.noBody())
             .header("Authorization", bot.authorization)
+            .header("Content-Type", bodyType.typeStr)
             .header("User-Agent", "DiscordBot (https://github.com/deprilula28/discord-proxy-kt v0.0.1)")
             .build()
         return bot.client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream()).thenApply {

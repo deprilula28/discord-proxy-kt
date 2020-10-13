@@ -76,7 +76,7 @@ interface PartialMember {
  * <br>
  * https://discord.com/developers/docs/resources/guild#guild-member-object
  */
-class Member(override val guild: PartialGuild, private val map: JsonObject, override val bot: DiscordProxyKt, readyUser: User? = null): PartialMember, EntityManager<Member> {
+class Member(override val guild: PartialGuild, private var map: JsonObject, override val bot: DiscordProxyKt, readyUser: User? = null): PartialMember, EntityManager<Member> {
     /**
      * the user this guild member represents
      */
@@ -131,8 +131,7 @@ class Member(override val guild: PartialGuild, private val map: JsonObject, over
         }
     
     /**
-     * Requests that this guild gets edited based on the altered fields.<br>
-     * This object will not be updated to reflect the changes, rather a new Member object is returned from the RestAction.
+     * Requests that this guild gets edited based on the altered fields.
      */
     override fun edit(): IRestAction<Member> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this member, yet `edit()` was called.")
@@ -146,7 +145,7 @@ class Member(override val guild: PartialGuild, private val map: JsonObject, over
         return guild.assertPermissions(*permissions.toTypedArray()) {
             bot.request(
                 RestEndpoint.MODIFY_GUILD_MEMBER.path(guild.snowflake.id, user.snowflake.id),
-                { Member(guild, this as JsonObject, bot) }
+                { this@Member.apply { map = this@request as JsonObject } }
             ) {
                 val res = Json.encodeToString(changes)
                 changes.clear()

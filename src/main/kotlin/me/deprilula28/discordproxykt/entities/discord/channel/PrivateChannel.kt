@@ -7,12 +7,13 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Entity
-import me.deprilula28.discordproxykt.entities.IPartialEntity
+import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
+import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
 import me.deprilula28.discordproxykt.rest.*
 
-interface PartialPrivateChannel: PartialMessageChannel, IPartialEntity {
+interface PartialPrivateChannel: PartialMessageChannel, PartialEntity {
     companion object {
         fun new(id: Snowflake, bot: DiscordProxyKt): Upgradeable
             = object: Upgradeable,
@@ -35,7 +36,7 @@ interface PartialPrivateChannel: PartialMessageChannel, IPartialEntity {
  * Channel documentation:
  * https://discord.com/developers/docs/resources/channel
  */
-class PrivateChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), MessageChannel {
+class PrivateChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), MessageChannel, PartialPrivateChannel {
     override val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
-    override val lastMessageId: Snowflake by map.delegateJson(JsonElement::asSnowflake, "last_message_id")
+    override val lastMessage: PartialMessage.Upgradeable by map.delegateJson({ fetchMessage(asSnowflake()) }, "last_message_id")
 }

@@ -11,6 +11,7 @@ import me.deprilula28.discordproxykt.cache.Cache
 import me.deprilula28.discordproxykt.cache.MemoryCache
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.*
+import me.deprilula28.discordproxykt.entities.discord.channel.PartialMessageChannel
 import me.deprilula28.discordproxykt.events.EventConsumer
 import me.deprilula28.discordproxykt.rest.RestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint

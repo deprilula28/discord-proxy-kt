@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Entity
-import me.deprilula28.discordproxykt.entities.IPartialEntity
+import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.rest.*
@@ -15,7 +15,7 @@ import java.awt.Color
 import java.util.*
 
 // TODO Other methods
-interface PartialRole: IPartialEntity, Message.Mentionable {
+interface PartialRole: PartialEntity, Message.Mentionable {
     val guild: PartialGuild
     
     companion object {
@@ -88,15 +88,14 @@ class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordProxyK
     override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
     
     /**
-     * Requests that this guild gets edited based on the altered fields.<br>
-     * This object will not be updated to reflect the changes, rather a new Role object is returned from the RestAction.
+     * Requests that this guild gets edited based on the altered fields.
      */
     override fun edit(): IRestAction<Role> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this role, yet `edit()` was called.")
         return guild.assertPermissions(Permissions.MANAGE_ROLES) {
             bot.request(
                 RestEndpoint.MODIFY_GUILD_ROLE.path(guild.snowflake.id, snowflake.id),
-                { Role(guild, this as JsonObject, bot) }
+                { this@Role.apply { map = this@request as JsonObject } },
             ) {
                 val res = Json.encodeToString(changes)
                 changes.clear()

@@ -9,7 +9,7 @@ import me.deprilula28.discordproxykt.rest.*
 import java.util.*
 
 // TODO Other methods
-interface PartialUser: IPartialEntity, Message.Mentionable {
+interface PartialUser: PartialEntity, Message.Mentionable {
     companion object {
         fun new(id: Snowflake, bot: DiscordProxyKt): Upgradeable
             = object: PartialUser.Upgradeable,

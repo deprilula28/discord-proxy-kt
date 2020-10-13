@@ -4,7 +4,6 @@ import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.ChannelType
-import me.deprilula28.discordproxykt.entities.discord.Guild
 import me.deprilula28.discordproxykt.entities.discord.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.PermissionOverwrite
 import me.deprilula28.discordproxykt.rest.*
@@ -15,7 +14,7 @@ import me.deprilula28.discordproxykt.rest.*
  * Channel documentation:
  * https://discord.com/developers/docs/resources/channel
  */
-interface PartialCategory: IPartialEntity, PartialGuildChannel {
+interface PartialCategory: PartialEntity, PartialGuildChannel {
     companion object {
         fun new(guild: PartialGuild, id: Snowflake): Upgradeable
                 = object: Upgradeable,

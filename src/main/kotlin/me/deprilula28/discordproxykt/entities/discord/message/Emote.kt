@@ -8,16 +8,18 @@ import me.deprilula28.discordproxykt.entities.discord.User
 import me.deprilula28.discordproxykt.rest.asBoolean
 import me.deprilula28.discordproxykt.rest.asSnowflake
 import me.deprilula28.discordproxykt.rest.asString
+import java.net.URLEncoder
 
 // https://discord.com/developers/docs/resources/emoji#emoji-object
-interface Emoji
+interface Emoji {
+    fun toUriPart(): String
+}
 
-class ReactionEmoji(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Emoji
-class UnicodeEmoji(private val map: JsonObject): Emoji {
-    /**
-     * emoji name
-     */
-    val name: String by lazy { map["name"]!!.asString() }
+class ReactionEmoji(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Emoji {
+    override fun toUriPart(): String = snowflake.id
+}
+class UnicodeEmoji(private val name: String): Emoji {
+    override fun toUriPart(): String = URLEncoder.encode(name)
 }
 
 class GuildEmoji(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Emoji {
@@ -49,4 +51,6 @@ class GuildEmoji(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Emoji 
      * whether this emoji can be used, may be false due to loss of Server Boosts
      */
     val available: Boolean by lazy { map["available"]!!.asBoolean() }
+    
+    override fun toUriPart(): String = URLEncoder.encode(name)
 }

@@ -4,8 +4,11 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
+import me.deprilula28.discordproxykt.entities.discord.PartialGuild
+import me.deprilula28.discordproxykt.entities.discord.channel.*
 import java.awt.Color
 import java.time.ZonedDateTime
 import java.util.*
@@ -28,6 +31,29 @@ fun JsonElement.asSnowflake() = Snowflake(asString())
 fun JsonElement.asColor() = Color(asInt())
 fun JsonElement.asTimestamp(): Timestamp {
     return Timestamp(Date.from(ZonedDateTime.parse(asString()).toInstant()).time)
+}
+fun JsonElement.asGuildChannel(bot: DiscordProxyKt, guild: PartialGuild): GuildChannel? {
+    val obj = this as JsonObject
+    return when (val type = obj["type"]!!.asInt()) {
+        0 -> TextChannel(guild, obj, bot)
+        2 -> VoiceChannel(obj, bot)
+        4 -> Category(obj, bot)
+        else -> {
+            println("Invalid channel type received: $type")
+            null
+        }
+    }
+}
+fun JsonElement.asMessageChannel(bot: DiscordProxyKt, guild: PartialGuild): MessageChannel? {
+    val obj = this as JsonObject
+    return when (val type = obj["type"]!!.asInt()) {
+        0 -> TextChannel(guild, obj, bot)
+        1 -> PrivateChannel(obj, bot)
+        else -> {
+            println("Invalid channel type received: $type")
+            null
+        }
+    }
 }
 
 inline fun <reified T> getValue(obj: JsonObject, field: String, crossinline func: JsonElement.() -> T): T = func(
@@ -85,4 +111,10 @@ inline fun <reified E: Enum<E>> Long.bitSetToEnumSet(values: Array<E>): EnumSet<
         if ((flag and this@bitSetToEnumSet) == flag) enumSet.add(it)
     }
     return enumSet
+}
+
+fun <E: Enum<E>> EnumSet<E>.toBitSet(): Long {
+    var num = 0L
+    forEach { num = num and (1L shl it.ordinal) }
+    return num
 }

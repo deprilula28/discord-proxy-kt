@@ -56,12 +56,11 @@ class Webhook(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityMan
     }
     
     /**
-     * Requests that this guild gets edited based on the altered fields.<br>
-     * This object will not be updated to reflect the changes, rather a new Webhook object is returned from the RestAction.
+     * Requests that this guild gets edited based on the altered fields.
      */
     override fun edit(): IRestAction<Webhook> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this webhook, yet `edit()` was called.")
-        return bot.request(RestEndpoint.MODIFY_WEBHOOK.path(snowflake.id), { Webhook(this as JsonObject, bot) }) {
+        return bot.request(RestEndpoint.MODIFY_WEBHOOK.path(snowflake.id), { this@Webhook.apply { map = this@request as JsonObject } }) {
             val res = Json.encodeToString(changes)
             changes.clear()
             res
