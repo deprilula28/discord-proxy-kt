@@ -7,7 +7,10 @@ import kotlinx.serialization.json.JsonPrimitive
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
+import me.deprilula28.discordproxykt.entities.discord.MemberOverride
 import me.deprilula28.discordproxykt.entities.discord.PartialGuild
+import me.deprilula28.discordproxykt.entities.discord.PermissionOverwrite
+import me.deprilula28.discordproxykt.entities.discord.RoleOverride
 import me.deprilula28.discordproxykt.entities.discord.channel.*
 import java.awt.Color
 import java.time.ZonedDateTime
@@ -53,6 +56,14 @@ fun JsonElement.asMessageChannel(bot: DiscordProxyKt, guild: PartialGuild): Mess
             println("Invalid channel type received: $type")
             null
         }
+    }
+}
+fun JsonElement.asPermissionOverwrite(channel: GuildChannel, guild: PartialGuild.Upgradeable, bot: DiscordProxyKt): PermissionOverwrite {
+    val obj = this as JsonObject
+    return when (val type = obj["type"]!!.asInt()) {
+        0 -> RoleOverride(guild, channel, obj, bot)
+        1 -> MemberOverride(guild, channel, obj, bot)
+        else -> throw InternalError("Invalid permission overwrite type received: $type")
     }
 }
 

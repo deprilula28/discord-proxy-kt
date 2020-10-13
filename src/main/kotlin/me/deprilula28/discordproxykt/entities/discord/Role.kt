@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.Entity
 import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
@@ -92,7 +93,7 @@ class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordProxyK
      */
     override fun edit(): IRestAction<Role> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this role, yet `edit()` was called.")
-        return guild.assertPermissions(Permissions.MANAGE_ROLES) {
+        return assertPermissions(guild, Permissions.MANAGE_ROLES) {
             bot.request(
                 RestEndpoint.MODIFY_GUILD_ROLE.path(guild.snowflake.id, snowflake.id),
                 { this@Role.apply { map = this@request as JsonObject } },

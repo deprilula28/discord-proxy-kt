@@ -12,7 +12,7 @@ import java.util.*
 
 // TODO File
 class MessageBuilder: MessageConversion {
-    private val map = mutableMapOf<String, JsonElement>()
+    internal val map = mutableMapOf<String, JsonElement>()
     
     fun setContent(text: String): MessageBuilder {
         map["content"] = JsonPrimitive(text)

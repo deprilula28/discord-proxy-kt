@@ -3,6 +3,7 @@ package me.deprilula28.discordproxykt.entities.discord
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.Entity
 import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
@@ -105,7 +106,7 @@ interface PartialGuild: PartialEntity {
     fun fetchRole(role: Snowflake): PartialRole.Upgradeable = PartialRole.new(this, role)
     
     val fetchAuditLogs: IRestAction<List<AuditLogEntry>>
-        get() = assertPermissions(Permissions.VIEW_AUDIT_LOG) {
+        get() = assertPermissions(this, Permissions.VIEW_AUDIT_LOG) {
             PaginatedAction(
                 bot, { AuditLogEntry(this as JsonObject, bot) },
                 RestEndpoint.GET_GUILD_AUDIT_LOGS, snowflake.id,
@@ -113,7 +114,7 @@ interface PartialGuild: PartialEntity {
         }
     
     val fetchInvites: IRestAction<List<ExtendedInvite>>
-        get() = assertPermissions(Permissions.MANAGE_GUILD) {
+        get() = assertPermissions(this, Permissions.MANAGE_GUILD) {
             bot.request(
                 RestEndpoint.GET_GUILD_INVITES.path(snowflake.id),
                 { (this as JsonArray).map { ExtendedInvite(it as JsonObject, bot) } }
@@ -133,7 +134,7 @@ interface PartialGuild: PartialEntity {
         )
     
     val fetchWebhooks: IRestAction<List<Webhook>>
-        get() = assertPermissions(Permissions.MANAGE_WEBHOOKS) {
+        get() = assertPermissions(this, Permissions.MANAGE_WEBHOOKS) {
             bot.request(
                 RestEndpoint.GET_GUILD_AUDIT_LOGS.path(snowflake.id),
                 { (this as JsonArray).map { Webhook(it as JsonObject, bot) } }
@@ -193,15 +194,17 @@ interface PartialGuild: PartialEntity {
     val fetchUserPermissions: IRestAction<EnumSet<Permissions>>
         get() = IRestAction.FuturesRestAction(bot) {
             // In constructed guilds, fetchRoles has no requests needed
-            fetchSelfMember.request().thenCompose { fetchRoles.request() }.thenApply { selfRoles ->
-                var set = 0L
-                selfRoles.forEach { el -> set = set and el.permissionsRaw }
-                set.bitSetToEnumSet(Permissions.values())
+            bot.selfUser.request().thenCompose { fetchMember(it.snowflake).request() }.thenCompose { member ->
+                member.fetchRoles.request().thenApply { selfRoles ->
+                    var set = 0L
+                    selfRoles.forEach { el -> set = set and el.permissionsRaw }
+                    set.bitSetToEnumSet(Permissions.values())
+                }
             }
         }
     
     fun addMember(accessToken: String, user: PartialUser): IRestAction<Member>
-        = assertPermissions(Permissions.CREATE_INSTANT_INVITE) {
+        = assertPermissions(this, Permissions.CREATE_INSTANT_INVITE) {
             bot.request(
                 RestEndpoint.ADD_GUILD_MEMBER.path(snowflake.id, user.snowflake.id),
                 { Member(this@PartialGuild, this as JsonObject, it) },
@@ -213,7 +216,7 @@ interface PartialGuild: PartialEntity {
         }
     
     fun retrievePrunableMemberCount(days: Int): IRestAction<Int>
-        = assertPermissions(Permissions.KICK_MEMBERS) {
+        = assertPermissions(this, Permissions.KICK_MEMBERS) {
             bot.request(
                 RestEndpoint.DELETE_GUILD.path(listOf("days" to days.toString()), snowflake.id),
                 { (this as JsonObject)["pruned"]!!.asInt() }
@@ -221,7 +224,7 @@ interface PartialGuild: PartialEntity {
         }
         
     fun prune(days: Int, vararg role: PartialRole): IRestAction<Unit>
-        = assertPermissions(Permissions.KICK_MEMBERS) {
+        = assertPermissions(this, Permissions.KICK_MEMBERS) {
             bot.request(RestEndpoint.BEGIN_GUILD_PRUNE_COUNT.path(snowflake.id), { Unit }) {
                 Json.encodeToString(mapOf(
                     "days" to JsonPrimitive(days),
@@ -240,22 +243,6 @@ interface PartialGuild: PartialEntity {
     @Deprecated("JDA Compatibility Field", ReplaceWith("false"))
     val loaded: Boolean
         get() = false
-    
-    fun checkPerms(expected: Array<out Permissions>, actual: EnumSet<Permissions>) {
-        if (actual.contains(Permissions.ADMINISTRATOR)) return // Has full bypass
-        val lackingPerms = expected.filter { !actual.contains(it) }
-        if (lackingPerms.isNotEmpty()) throw InsufficientPermissionsException(lackingPerms)
-    }
-    
-    fun <T: Any> assertPermissions(vararg perm: Permissions, then: () -> IRestAction<T>): IRestAction<T> {
-        return fetchUserPermissions.getIfAvailable()?.run {
-            checkPerms(perm, this)
-            then()
-        } ?: fetchUserPermissions.flatMap {
-            checkPerms(perm, it)
-            then().request()
-        }
-    }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("delete()"))
     fun delete(mfa: String) = delete()
@@ -677,7 +664,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
      */
     override fun edit(): IRestAction<Guild> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this guild, yet `edit()` was called.")
-        return assertPermissions(Permissions.MANAGE_GUILD) {
+        return assertPermissions(this, Permissions.MANAGE_GUILD) {
             bot.request(RestEndpoint.MODIFY_GUILD.path(snowflake.id), { this@Guild.apply { map = this@request as JsonObject } }) {
                 val res = Json.encodeToString(changes)
                 changes.clear()

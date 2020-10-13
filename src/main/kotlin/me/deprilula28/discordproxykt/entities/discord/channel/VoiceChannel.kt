@@ -29,7 +29,7 @@ interface PartialVoiceChannel: PartialEntity {
         }
     }
     
-    interface Upgradeable: PartialVoiceChannel, PartialGuildChannel.Upgradeable, IRestAction<VoiceChannel>
+    interface Upgradeable: PartialVoiceChannel, PartialGuildChannel, IRestAction<VoiceChannel>
 }
 
 class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel, PartialVoiceChannel {
@@ -48,10 +48,12 @@ class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Guil
     override val category: PartialCategory.Upgradeable? by map.delegateJsonNullable({ PartialCategory.new(guild, asSnowflake()) }, "parent_id")
     
     override val permissions: List<PermissionOverwrite> by map.delegateJson({
-        (this as JsonArray).map {
-            PermissionOverwrite(it as JsonObject, bot)
-        }
+        (this as JsonArray).map { asPermissionOverwrite(this@VoiceChannel, guild, bot) }
     }, "permission_overwrites")
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("category?.request()?.get()"))
+    val parent: Category?
+        get() = category?.request()?.get()
     
     override val type: ChannelType
         get() = ChannelType.VOICE

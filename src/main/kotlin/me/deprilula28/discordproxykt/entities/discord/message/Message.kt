@@ -30,16 +30,15 @@ interface PartialMessage: PartialEntity {
         
         // Includes permission check for reading the message in the guild
         // TODO make this less of a spaghetti mess
-        fun new(guild: PartialGuild, channel: PartialMessageChannel, id: Snowflake): Upgradeable
+        fun new(channel: PartialGuildChannel, id: Snowflake): Upgradeable
             = object: Upgradeable,
                     IRestAction.FuturesRestAction<Message>(channel.bot, {
-                        guild.fetchUserPermissions.request().thenCompose {
-                            guild.checkPerms(arrayOf(Permissions.READ_MESSAGE_HISTORY), it)
+                        channel.assertPermissions(Permissions.READ_MESSAGE_HISTORY) {
                             RestAction(
                                 channel.bot,
                                 RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id), { Message(this as JsonObject, channel.bot) }
-                            ).request()
-                        }
+                            )
+                        }.request()
                     }) {
                 override val channelRaw: Snowflake = channel.snowflake
                 override val snowflake: Snowflake = id

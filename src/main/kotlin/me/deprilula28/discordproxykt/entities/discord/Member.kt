@@ -3,6 +3,7 @@ package me.deprilula28.discordproxykt.entities.discord
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialVoiceChannel
 import me.deprilula28.discordproxykt.entities.Timestamp
 import me.deprilula28.discordproxykt.rest.*
@@ -17,7 +18,7 @@ interface PartialMember {
     // TODO unclutter this mess
     private inline fun <reified T: Any> assertRolePerms(role: PartialRole, crossinline func: () -> IRestAction<T>): IRestAction<T> {
         return (guild as? Guild)?.run {
-            assertPermissions(Permissions.MANAGE_ROLES) {
+            assertPermissions(this, Permissions.MANAGE_ROLES) {
                 (role as? Role)?.run {
                     IRestAction.FuturesRestAction(bot) {
                         guild.fetchSelfMember.request().thenCompose { member ->
@@ -44,13 +45,13 @@ interface PartialMember {
         }
     
     fun kick(): IRestAction<Unit>
-        = guild.assertPermissions(Permissions.KICK_MEMBERS) {
+        = assertPermissions(guild, Permissions.KICK_MEMBERS) {
             bot.request(RestEndpoint.REMOVE_GUILD_MEMBER.path(guild.snowflake.id, user.snowflake.id), { Unit })
         }
     
     fun ban(days: Int = 7): IRestAction<Unit> {
         if (days !in 0 .. 7) throw InvalidRequestException("Message deletion days on ban must be from 0 to 7")
-        return guild.assertPermissions(Permissions.BAN_MEMBERS) {
+        return assertPermissions(guild, Permissions.BAN_MEMBERS) {
             bot.request(RestEndpoint.CREATE_GUILD_BAN.path(guild.snowflake.id, user.snowflake.id), { Unit }) {
                 Json.encodeToString(mapOf("delete_message_days" to JsonPrimitive(days)))
             }
@@ -58,7 +59,7 @@ interface PartialMember {
     }
     
     fun unban(): IRestAction<Unit>
-            = guild.assertPermissions(Permissions.BAN_MEMBERS) {
+            = assertPermissions(guild, Permissions.BAN_MEMBERS) {
         bot.request(RestEndpoint.REMOVE_GUILD_BAN.path(guild.snowflake.id, user.snowflake.id), { Unit })
     }
     
@@ -142,7 +143,7 @@ class Member(override val guild: PartialGuild, private var map: JsonObject, over
         if (changes.containsKey("deaf")) permissions.add(Permissions.DEAFEN_MEMBERS)
         if (changes.containsKey("channel_id")) permissions.add(Permissions.MOVE_MEMBERS)
         
-        return guild.assertPermissions(*permissions.toTypedArray()) {
+        return assertPermissions(guild, *permissions.toTypedArray()) {
             bot.request(
                 RestEndpoint.MODIFY_GUILD_MEMBER.path(guild.snowflake.id, user.snowflake.id),
                 { this@Member.apply { map = this@request as JsonObject } }

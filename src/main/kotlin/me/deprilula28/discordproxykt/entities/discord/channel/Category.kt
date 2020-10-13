@@ -25,7 +25,7 @@ interface PartialCategory: PartialEntity, PartialGuildChannel {
         }
     }
     
-    interface Upgradeable: PartialCategory, PartialGuildChannel.Upgradeable, IRestAction<Category>
+    interface Upgradeable: PartialCategory, PartialGuildChannel, IRestAction<Category>
 }
 
 
@@ -37,9 +37,7 @@ class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildCha
         get() = this
     
     override val permissions: List<PermissionOverwrite> by map.delegateJson({
-        (this as JsonArray).map {
-            PermissionOverwrite(it as JsonObject, bot)
-        }
+        (this as JsonArray).map { asPermissionOverwrite(this@Category, guild, bot) }
     }, "permission_overwrites")
     
     override val type: ChannelType

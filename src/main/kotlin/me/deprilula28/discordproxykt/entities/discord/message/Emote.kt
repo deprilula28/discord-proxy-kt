@@ -18,7 +18,7 @@ interface Emoji {
 class ReactionEmoji(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Emoji {
     override fun toUriPart(): String = snowflake.id
 }
-class UnicodeEmoji(private val name: String): Emoji {
+class UnicodeEmoji(val name: String): Emoji {
     override fun toUriPart(): String = URLEncoder.encode(name)
 }
 
