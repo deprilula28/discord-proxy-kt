@@ -20,16 +20,21 @@ import me.deprilula28.discordproxykt.rest.*
  */
 interface PartialVoiceChannel: PartialEntity {
     companion object {
-        fun new(guild: PartialGuild, id: Snowflake): Upgradeable
-                = object: Upgradeable,
-            IRestAction.FuturesRestAction<VoiceChannel>(
-                guild.bot,
-                { guild.fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == id } as VoiceChannel } }) {
+        fun new(guild: PartialGuild, id: Snowflake): PartialVoiceChannel
+                = object: PartialVoiceChannel {
             override val snowflake: Snowflake = id
+            override val bot: DiscordProxyKt = guild.bot
+    
+            override fun upgrade(): IRestAction<VoiceChannel> =
+                IRestAction.FuturesRestAction(guild.bot) {
+                    guild.fetchChannels.request().thenApply {
+                        it.find { ch -> ch.snowflake == id } as VoiceChannel
+                    }
+                }
         }
     }
     
-    interface Upgradeable: PartialVoiceChannel, PartialGuildChannel, IRestAction<VoiceChannel>
+    fun upgrade(): IRestAction<VoiceChannel>
 }
 
 class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel, PartialVoiceChannel {
@@ -42,18 +47,20 @@ class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Guil
      */
     val userLimit: Int by map.delegateJson(JsonElement::asInt, "user_limit")
     
-    override val guild: PartialGuild.Upgradeable by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    override val guild: PartialGuild by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     override val position: Int by map.delegateJson(JsonElement::asInt)
     override val name: String by map.delegateJson(JsonElement::asString)
-    override val category: PartialCategory.Upgradeable? by map.delegateJsonNullable({ PartialCategory.new(guild, asSnowflake()) }, "parent_id")
+    override val category: PartialCategory? by map.delegateJsonNullable({ PartialCategory.new(guild, asSnowflake()) }, "parent_id")
     
     override val permissions: List<PermissionOverwrite> by map.delegateJson({
         (this as JsonArray).map { asPermissionOverwrite(this@VoiceChannel, guild, bot) }
     }, "permission_overwrites")
     
-    @Deprecated("JDA Compatibility Field", ReplaceWith("category?.request()?.get()"))
+    override fun upgrade(): IRestAction<VoiceChannel> = IRestAction.ProvidedRestAction(bot, this)
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("category?.upgrade()?.request()?.get()"))
     val parent: Category?
-        get() = category?.request()?.get()
+        get() = category?.upgrade()?.request()?.get()
     
     override val type: ChannelType
         get() = ChannelType.VOICE

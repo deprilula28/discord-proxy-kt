@@ -16,25 +16,30 @@ import me.deprilula28.discordproxykt.rest.*
  */
 interface PartialCategory: PartialEntity, PartialGuildChannel {
     companion object {
-        fun new(guild: PartialGuild, id: Snowflake): Upgradeable
-                = object: Upgradeable,
-            IRestAction.FuturesRestAction<Category>(
-                guild.bot,
-                { guild.fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == id } as Category } }) {
+        fun new(guild: PartialGuild, id: Snowflake): PartialCategory
+                = object: PartialCategory {
             override val snowflake: Snowflake = id
+            override val bot: DiscordProxyKt = guild.bot
+            override fun upgrade(): IRestAction<Category>
+                = IRestAction.FuturesRestAction(guild.bot) {
+                    guild.fetchChannels.request().thenApply {
+                        it.find { ch -> ch.snowflake == id } as Category
+                    }
+                }
         }
     }
     
-    interface Upgradeable: PartialCategory, PartialGuildChannel, IRestAction<Category>
+    fun upgrade(): IRestAction<Category>
 }
 
 
 class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel, PartialCategory {
-    override val guild: PartialGuild.Upgradeable by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    override val guild: PartialGuild by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     override val position: Int by map.delegateJson(JsonElement::asInt)
     override val name: String by map.delegateJson(JsonElement::asString)
     override val category: PartialCategory?
         get() = this
+    override fun upgrade(): IRestAction<Category> = IRestAction.ProvidedRestAction(bot, this)
     
     override val permissions: List<PermissionOverwrite> by map.delegateJson({
         (this as JsonArray).map { asPermissionOverwrite(this@Category, guild, bot) }

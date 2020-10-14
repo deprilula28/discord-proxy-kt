@@ -22,7 +22,7 @@ import me.deprilula28.discordproxykt.rest.*
  * https://discord.com/developers/docs/resources/channel
  */
 interface PartialMessageChannel: PartialEntity {
-    fun fetchMessage(message: Snowflake): PartialMessage.Upgradeable = PartialMessage.new(this, message)
+    fun fetchMessage(message: Snowflake): PartialMessage = PartialMessage.new(this, message)
     
     val fetchPins: RestAction<List<Message>>
         get() = bot.request(RestEndpoint.GET_PINNED_MESSAGES.path(snowflake.id), { (this as JsonArray).map {
@@ -119,7 +119,7 @@ interface MessageChannel {
     /**
      * the id of the last message sent in this channel (may not point to an existing or valid message)
      */
-    val lastMessage: PartialMessage.Upgradeable
+    val lastMessage: PartialMessage
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("lastMessage.snowflake.id"))
     val latestMessageId: String

@@ -39,7 +39,7 @@ interface GuildChannel: PartialGuildChannel {
     /**
      * the id of the guild
      */
-    val guild: PartialGuild.Upgradeable
+    val guild: PartialGuild
     /**
      * the type of channel; only conversion between text and news is supported and only in guilds with the "NEWS" feature
      */

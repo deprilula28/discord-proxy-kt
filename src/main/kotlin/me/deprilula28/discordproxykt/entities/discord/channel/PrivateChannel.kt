@@ -15,19 +15,20 @@ import me.deprilula28.discordproxykt.rest.*
 
 interface PartialPrivateChannel: PartialMessageChannel, PartialEntity {
     companion object {
-        fun new(id: Snowflake, bot: DiscordProxyKt): Upgradeable
-            = object: Upgradeable,
-                    RestAction<PrivateChannel>(bot, RestEndpoint.CREATE_DM.path(),
-                                               { PrivateChannel(this as JsonObject, bot) }, { Json.encodeToString(
-                             "recipient_id" to JsonPrimitive(id.id)
-                         ) }
-                    ) {
+        fun new(id: Snowflake, bot: DiscordProxyKt): PartialPrivateChannel
+            = object: PartialPrivateChannel {
                 override val snowflake: Snowflake = id
                 override val bot: DiscordProxyKt = bot
+    
+            override fun upgrade(): IRestAction<PrivateChannel>
+                = RestAction(bot, RestEndpoint.CREATE_DM.path(), { PrivateChannel(this as JsonObject, bot) }, {
+                    Json.encodeToString("recipient_id" to JsonPrimitive(id.id))
+                }
+            )
         }
     }
     
-    interface Upgradeable: PartialPrivateChannel, PartialMessageChannel.Upgradeable, IRestAction<PrivateChannel>
+    fun upgrade(): IRestAction<PrivateChannel>
 }
 
 /**
@@ -38,5 +39,7 @@ interface PartialPrivateChannel: PartialMessageChannel, PartialEntity {
  */
 class PrivateChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), MessageChannel, PartialPrivateChannel {
     override val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
-    override val lastMessage: PartialMessage.Upgradeable by map.delegateJson({ fetchMessage(asSnowflake()) }, "last_message_id")
+    override val lastMessage: PartialMessage by map.delegateJson({ fetchMessage(asSnowflake()) }, "last_message_id")
+    
+    override fun upgrade(): IRestAction<PrivateChannel> = IRestAction.ProvidedRestAction(bot, this)
 }

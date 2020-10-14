@@ -90,19 +90,20 @@ class ExtendedInvite(map: JsonObject, bot: DiscordProxyKt): Invite(map, bot) {
  */
 interface PartialGuild: PartialEntity {
     companion object {
-        fun new(snowflake: Snowflake, bot: DiscordProxyKt): Upgradeable {
-            return object : Upgradeable,
-                    RestAction<Guild>(
+        fun new(snowflake: Snowflake, bot: DiscordProxyKt): PartialGuild {
+            return object : PartialGuild {
+                override val snowflake: Snowflake = snowflake
+                override val bot: DiscordProxyKt = bot
+                override fun upgrade(): IRestAction<Guild>
+                    = RestAction(
                         bot, RestEndpoint.GET_GUILD.path(snowflake.id),
                         { Guild(this as JsonObject, bot) },
-                    ) {
-                override val snowflake: Snowflake
-                    get() = snowflake
-                override val bot: DiscordProxyKt
-                    get() = bot
+                    )
             }
         }
     }
+    
+    fun upgrade(): IRestAction<Guild>
     
     val fetchRoles: IRestAction<List<Role>>
         get() = PaginatedAction( // This isn't actually paginated, but PaginatedAction supports a list format by default
@@ -110,7 +111,7 @@ interface PartialGuild: PartialEntity {
             RestEndpoint.GET_GUILD_ROLES, snowflake.id,
         )
     
-    fun fetchRole(role: Snowflake): PartialRole.Upgradeable = PartialRole.new(this, role)
+    fun fetchRole(role: Snowflake): PartialRole = PartialRole.new(this, role)
     
     val fetchAuditLogs: IRestAction<List<AuditLogEntry>>
         get() = assertPermissions(this, Permissions.VIEW_AUDIT_LOG) {
@@ -157,14 +158,18 @@ interface PartialGuild: PartialEntity {
             RestEndpoint.LIST_GUILD_MEMBERS, snowflake.id,
         )
     
-    fun fetchMember(user: Snowflake): PartialMember.Upgradeable
-        = object: PartialMember.Upgradeable,
-            RestAction<Member>(bot, RestEndpoint.GET_GUILD_MEMBER.path(snowflake.id, user.id),
-                               { Member(this@PartialGuild, this as JsonObject, bot) }
-            ) {
-                override val guild: PartialGuild = this@PartialGuild
-                override val user: PartialUser by lazy { bot.fetchUser(user) }
-            }
+    fun fetchMember(user: Snowflake): PartialMember
+        = object: PartialMember {
+            override val guild: PartialGuild = this@PartialGuild
+            override val bot: DiscordProxyKt = this@PartialGuild.bot
+            override val user: PartialUser by lazy { bot.fetchUser(user) }
+            
+            override fun upgrade(): IRestAction<Member>
+                = RestAction(
+                    bot, RestEndpoint.GET_GUILD_MEMBER.path(snowflake.id, user.id),
+                    { Member(this@PartialGuild, this as JsonObject, bot) }
+                )
+        }
     
     val fetchEmojis: IRestAction<List<GuildEmoji>>
         get() = bot.request(
@@ -195,13 +200,13 @@ interface PartialGuild: PartialEntity {
     
     val fetchSelfMember: IRestAction<Member>
         get() = IRestAction.FuturesRestAction(bot) {
-            bot.selfUser.request().thenCompose { fetchMember(it.snowflake).request() }
+            bot.selfUser.request().thenCompose { fetchMember(it.snowflake).upgrade().request() }
         }
     
     val fetchUserPermissions: IRestAction<EnumSet<Permissions>>
         get() = IRestAction.FuturesRestAction(bot) {
             // In constructed guilds, fetchRoles has no requests needed
-            bot.selfUser.request().thenCompose { fetchMember(it.snowflake).request() }.thenCompose { member ->
+            bot.selfUser.request().thenCompose { fetchMember(it.snowflake).upgrade().request() }.thenCompose { member ->
                 member.fetchRoles.request().thenApply { selfRoles ->
                     var set = 0L
                     selfRoles.forEach { el -> set = set and el.permissionsRaw }
@@ -244,8 +249,6 @@ interface PartialGuild: PartialEntity {
     fun leave(): IRestAction<Unit> = bot.request(RestEndpoint.LEAVE_GUILD.path(snowflake.id), { Unit })
     
     fun delete(): IRestAction<Unit> = bot.request(RestEndpoint.DELETE_GUILD.path(snowflake.id), { Unit })
-    
-    interface Upgradeable: PartialGuild, IRestAction<Guild>
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("false"))
     val loaded: Boolean
@@ -420,7 +423,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     /**
      * id of owner
      */
-    var owner: PartialMember.Upgradeable by map.delegateJsonMutable(
+    var owner: PartialMember by map.delegateJsonMutable(
         { fetchMember(asSnowflake()) },
         {
             // TODO Check if self is owner
@@ -465,7 +468,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     /**
      * 	the id of the channel where admins and moderators of guilds with the "PUBLIC" feature receive notices from Discord
      */
-    var publicUpdatesChannel: PartialTextChannel.Upgradeable? by map.delegateJsonMutableNullable(
+    var publicUpdatesChannel: PartialTextChannel? by map.delegateJsonMutableNullable(
         ::delegateChannel,
         { Json.encodeToJsonElement(it?.snowflake?.id) },
         "public_updates_channel_id"
@@ -494,7 +497,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     /**
      * id of afk channel
      */
-    var afkChannel: PartialVoiceChannel.Upgradeable? by map.delegateJsonMutableNullable(
+    var afkChannel: PartialVoiceChannel? by map.delegateJsonMutableNullable(
         { PartialVoiceChannel.new(this@Guild, asSnowflake()) },
         { Json.encodeToJsonElement(it?.snowflake?.id) },
         "afk_channel_id",
@@ -516,7 +519,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     /**
      * the channel id that the widget will generate an invite to, or null if set to no invite
      */
-    val widgetChannel: PartialTextChannel.Upgradeable? by map.delegateJsonNullable(::delegateChannel, "widget_channel_id")
+    val widgetChannel: PartialTextChannel? by map.delegateJsonNullable(::delegateChannel, "widget_channel_id")
     
     /**
      * true if the user is the owner of the guild
@@ -647,7 +650,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     /**
      * the id of the channel where guild notices such as welcome messages and boost events are posted
      */
-    val systemChannel: PartialTextChannel.Upgradeable? by map.delegateJsonMutableNullable(
+    val systemChannel: PartialTextChannel? by map.delegateJsonMutableNullable(
         ::delegateChannel,
         { Json.encodeToJsonElement(it?.snowflake?.id) },
         "system_channel_id",
@@ -713,8 +716,10 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
         return this
     }
     
-    private fun delegateChannel(json: JsonElement): PartialTextChannel.Upgradeable
+    private fun delegateChannel(json: JsonElement): PartialTextChannel
         = PartialTextChannel.new(this, json.asSnowflake())
+    
+    override fun upgrade(): IRestAction<Guild> = IRestAction.ProvidedRestAction(bot, this)
     
     /*
         Properties below override PartialGuild to use the additional information this type has available
@@ -763,8 +768,8 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     @Deprecated("JDA Compatibility Field", ReplaceWith("boostTier.emotes"))
     val maxEmotes: Int by boostTier::emotes
     
-    @Deprecated("JDA Compatibility Function", ReplaceWith("bot.guilds[snowflake]"))
-    fun retrieveMetaData(): IRestAction<Guild> = bot.fetchGuild(snowflake)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("bot.fetchGuild(snowflake).upgrade()"))
+    fun retrieveMetaData(): IRestAction<Guild> = bot.fetchGuild(snowflake).upgrade()
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.any { it.user == user } ?: false"))
     fun isMember(user: User): Boolean
@@ -889,7 +894,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
         get() = emojis
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("apply { owner = member }.edit()"))
-    fun transferOwnership(member: PartialMember.Upgradeable): IRestAction<Guild> = apply { owner = member }.edit()
+    fun transferOwnership(member: PartialMember): IRestAction<Guild> = apply { owner = member }.edit()
 }
 
 enum class ChannelType {

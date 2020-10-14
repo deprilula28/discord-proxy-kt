@@ -16,7 +16,7 @@ import java.util.*
  */
 abstract class PermissionOverwrite(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManager<Unit> {
     abstract val channel: GuildChannel
-    abstract val guild: PartialGuild.Upgradeable
+    abstract val guild: PartialGuild
     open val role: PartialRole?
         get() = null
     open val member: PartialMember?
@@ -63,7 +63,7 @@ abstract class PermissionOverwrite(map: JsonObject, bot: DiscordProxyKt): Entity
 }
 
 open class MemberOverride(
-    override val guild: PartialGuild.Upgradeable,
+    override val guild: PartialGuild,
     override val channel: GuildChannel,
     map: JsonObject,
     bot: DiscordProxyKt,
@@ -80,7 +80,7 @@ open class MemberOverride(
 }
 
 open class RoleOverride(
-    override val guild: PartialGuild.Upgradeable,
+    override val guild: PartialGuild,
     override val channel: GuildChannel,
     map: JsonObject,
     bot: DiscordProxyKt,

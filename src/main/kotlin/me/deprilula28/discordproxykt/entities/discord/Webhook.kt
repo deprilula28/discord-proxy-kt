@@ -22,11 +22,11 @@ class Webhook(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityMan
     /**
      * the guild id this webhook is for
      */
-    val guild: PartialGuild.Upgradeable? by map.delegateJsonNullable({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    val guild: PartialGuild? by map.delegateJsonNullable({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     /**
      * the channel id this webhook is for
      */
-    var channel: PartialTextChannel.Upgradeable? by map.delegateJsonMutable(
+    var channel: PartialTextChannel? by map.delegateJsonMutable(
         { PartialTextChannel.new(guild ?: throw UnavailableField(), asSnowflake()) },
         { Json.encodeToJsonElement((it ?: throw InvalidRequestException("Cannot set channel to null")).snowflake.id) },
         "channel_id",

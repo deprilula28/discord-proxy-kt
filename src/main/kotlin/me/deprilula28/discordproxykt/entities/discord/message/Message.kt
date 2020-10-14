@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.builder.MessageBuilder
 import me.deprilula28.discordproxykt.builder.MessageConversion
 import me.deprilula28.discordproxykt.entities.*
@@ -18,32 +19,38 @@ interface PartialMessage: PartialEntity {
     val channelRaw: Snowflake
 
     companion object {
-        fun new(channel: PartialMessageChannel, id: Snowflake): Upgradeable
-                = object: Upgradeable,
-            RestAction<Message>(
-                channel.bot,
-                RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id), { Message(this as JsonObject, channel.bot) }
-            ) {
-            override val channelRaw: Snowflake = channel.snowflake
-            override val snowflake: Snowflake = id
-        }
+        fun new(channel: PartialMessageChannel, id: Snowflake): PartialMessage
+            = object: PartialMessage {
+                override val bot: DiscordProxyKt = channel.bot
+                override val channelRaw: Snowflake = channel.snowflake
+                override val snowflake: Snowflake = id
+        
+                override fun upgrade(): IRestAction<Message>
+                    = RestAction(
+                        channel.bot,
+                        RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id), { Message(this as JsonObject, channel.bot) }
+                    )
+            }
         
         // Includes permission check for reading the message in the guild
         // TODO make this less of a spaghetti mess
-        fun new(channel: PartialGuildChannel, id: Snowflake): Upgradeable
-            = object: Upgradeable,
-                    IRestAction.FuturesRestAction<Message>(channel.bot, {
-                        channel.assertPermissions(Permissions.READ_MESSAGE_HISTORY) {
-                            RestAction(
-                                channel.bot,
-                                RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id), { Message(this as JsonObject, channel.bot) }
-                            )
-                        }.request()
-                    }) {
+        fun new(channel: GuildChannel, id: Snowflake): PartialMessage
+            = object: PartialMessage {
                 override val channelRaw: Snowflake = channel.snowflake
+                override val bot: DiscordProxyKt = channel.bot
                 override val snowflake: Snowflake = id
+    
+                override fun upgrade(): IRestAction<Message>
+                    = IRestAction.FuturesRestAction(channel.bot) {
+                        assertPermissions(channel, Permissions.READ_MESSAGE_HISTORY) {
+                            RestAction(channel.bot, RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id),
+                                       { Message(this as JsonObject, channel.bot) })
+                        }.request()
+                    }
             }
     }
+    
+    fun upgrade(): IRestAction<Message>
     
     fun fetchReactions(emoji: Emoji): PaginatedAction<User>
         = PaginatedAction(bot, { User(this as JsonObject, bot) }, RestEndpoint.GET_REACTIONS, channelRaw.id, snowflake.id, emoji.toUriPart())
@@ -92,8 +99,6 @@ interface PartialMessage: PartialEntity {
     fun getReactionById(id: String) = null
     @Deprecated("JDA Compatibility Function", ReplaceWith("fetchReactions(Snowflake(id.toString()))"))
     fun getReactionById(id: Long) = null
-    
-    interface Upgradeable: PartialMessage, IRestAction<Message>
 }
 
 /**
@@ -107,7 +112,7 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     /**
      * id of the guild the message was sent in
      */
-    val guild: PartialGuild.Upgradeable? by map.delegateJsonNullable({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    val guild: PartialGuild? by map.delegateJsonNullable({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     /**
      * the author of this message (not guaranteed to be a valid user, see below)
      */
@@ -151,7 +156,7 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     /**
      * channels specifically mentioned in this message
      */
-    val mentionChannels: List<PartialTextChannel.Upgradeable>? by map.delegateJsonNullable({
+    val mentionChannels: List<PartialTextChannel>? by map.delegateJsonNullable({
         if (guild == null) null
         else (this as JsonArray?)?.map { PartialTextChannel.new(guild!!, (it as JsonObject)["id"]!!.asSnowflake()) }
     }, "mention_channels")
@@ -190,15 +195,15 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
             = getMentions(*types.ifEmpty { MentionType.values() } as Array<out MentionType>).contains(mentionable)
     
     /**
-     * @returns PartialTextChannel.Upgradeable if this is a text channel.
+     * @returns PartialTextChannel if this is a text channel.
      * @throws UnavailableField if there is no valid guild.
      */
-    val textChannel: PartialTextChannel.Upgradeable? by lazy { PartialTextChannel.new(guild ?: throw UnavailableField(), channelRaw) }
+    val textChannel: PartialTextChannel? by lazy { PartialTextChannel.new(guild ?: throw UnavailableField(), channelRaw) }
     /**
-     * @returns PartialTextChannel.Upgradeable if this is a text channel.
+     * @returns PartialTextChannel if this is a text channel.
      * @throws UnavailableField if there is no valid guild.
      */
-    val privateChannel: PartialPrivateChannel.Upgradeable? by lazy {
+    val privateChannel: PartialPrivateChannel? by lazy {
         if (guild != null) throw UnavailableField()
         PartialPrivateChannel.new(channelRaw, bot)
     }
@@ -261,6 +266,15 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     val jumpUrl: String
         get() = "https://discord.com/channels/${guild?.snowflake?.id ?: "@me"}/${channelRaw.id}/${snowflake.id}"
     
+    override fun upgrade(): IRestAction<Message> = IRestAction.ProvidedRestAction(bot, this)
+    
+    override fun edit(message: MessageConversion)
+            = bot.request(RestEndpoint.EDIT_MESSAGE.path(channelRaw.id, channelRaw.id), {
+        this@Message.apply { map = this@request as JsonObject }
+    }) {
+        message.toMessage().first
+    }
+    
     @Deprecated("JDA Compatibility Field", ReplaceWith("editTimestamp != null"))
     val edited: Boolean
         get() = editTimestamp != null
@@ -273,16 +287,9 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     @Deprecated("JDA Compatibility Field", ReplaceWith("content.replace(Regex(\"(\\\\*)|(__)|(~)|(\\\\|\\\\|)|(^> )\"), \"\")"))
     val contentStripped: String
         get() = content.replace(Regex("(\\*)|(__)|(~)|(\\|\\|)|(^> )"), "")
-    @Deprecated("JDA Compatibility Field", ReplaceWith("textChannel?.request()?.get()?.category?.request()?.get()"))
+    @Deprecated("JDA Compatibility Field", ReplaceWith("textChannel?.upgrade()?.request()?.get()?.category?.upgrade()?.request()?.get()"))
     val category: Category?
-        get() = textChannel?.request()?.get()?.category?.request()?.get()
-    
-    override fun edit(message: MessageConversion)
-        = bot.request(RestEndpoint.EDIT_MESSAGE.path(channelRaw.id, channelRaw.id), {
-            this@Message.apply { map = this@request as JsonObject }
-        }) {
-            message.toMessage().first
-        }
+        get() = textChannel?.upgrade()?.request()?.get()?.category?.upgrade()?.request()?.get()
 }
 object Everyone: Message.Mentionable {
     override val asMention: String = "@everyone"

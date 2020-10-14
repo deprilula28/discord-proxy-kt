@@ -20,25 +20,24 @@ interface PartialRole: PartialEntity, Message.Mentionable {
     val guild: PartialGuild
     
     companion object {
-        fun new(spawnGuild: PartialGuild, id: Snowflake): Upgradeable {
-            return object: Upgradeable,
-                IRestAction.FuturesRestAction<Role>(
-                    spawnGuild.bot,
-                    // Get requests are cached, so this shouldn't run many times if cache is set up properly
-                    { spawnGuild.fetchRoles.request().thenApply { it.find { role -> role.snowflake == id }!! } },
-                ) {
+        fun new(spawnGuild: PartialGuild, id: Snowflake): PartialRole
+            = object: PartialRole {
                 override val guild: PartialGuild = spawnGuild
-                    override val snowflake: Snowflake = id
-                }
-        }
+                override val bot: DiscordProxyKt = spawnGuild.bot
+                override val snowflake: Snowflake = id
+    
+                override fun upgrade(): IRestAction<Role>
+                     = IRestAction.FuturesRestAction(spawnGuild.bot) {
+                        spawnGuild.fetchRoles.request().thenApply { it.find { role -> role.snowflake == id }!! }
+                    }
+            }
     }
     
+    fun upgrade(): IRestAction<Role>
     fun delete(): IRestAction<Unit> = bot.request(RestEndpoint.DELETE_GUILD_ROLE.path(guild.snowflake.id, snowflake.id), { Unit })
     
     override val asMention: String
         get() = "<@&${snowflake.id}>"
-    
-    interface Upgradeable: PartialRole, IRestAction<Role>
 }
 
 /**
@@ -104,6 +103,8 @@ class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordProxyK
             }
         }
     }
+    
+    override fun upgrade(): IRestAction<Role> = IRestAction.ProvidedRestAction(bot, this)
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("color.rgb"))
     val colorRaw: Int

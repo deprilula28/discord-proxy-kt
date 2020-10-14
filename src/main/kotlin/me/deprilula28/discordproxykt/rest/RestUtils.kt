@@ -58,7 +58,7 @@ fun JsonElement.asMessageChannel(bot: DiscordProxyKt, guild: PartialGuild): Mess
         }
     }
 }
-fun JsonElement.asPermissionOverwrite(channel: GuildChannel, guild: PartialGuild.Upgradeable, bot: DiscordProxyKt): PermissionOverwrite {
+fun JsonElement.asPermissionOverwrite(channel: GuildChannel, guild: PartialGuild, bot: DiscordProxyKt): PermissionOverwrite {
     val obj = this as JsonObject
     return when (val type = obj["type"]!!.asInt()) {
         0 -> RoleOverride(guild, channel, obj, bot)

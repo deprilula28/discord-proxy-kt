@@ -15,6 +15,8 @@ interface PartialMember {
     val user: PartialUser
     val bot: DiscordProxyKt
     
+    fun upgrade(): IRestAction<Member>
+    
     // TODO unclutter this mess
     private inline fun <reified T: Any> assertRolePerms(role: PartialRole, crossinline func: () -> IRestAction<T>): IRestAction<T> {
         return (guild as? Guild)?.run {
@@ -67,8 +69,6 @@ interface PartialMember {
     fun ban(days: Int = 7, reason: String?) = ban(days)
     @Deprecated("JDA Compatibility Function", ReplaceWith("kick()"))
     fun kick(member: String) = kick()
-    
-    interface Upgradeable: PartialMember, IRestAction<Member>
 }
 
 // Warning: Provide readyUser for MESSAGE_CREATE and MESSAGE_UPDATE as Discord won't include the field!
@@ -89,7 +89,7 @@ class Member(override val guild: PartialGuild, private var map: JsonObject, over
     /**
      * array of role object ids
      */
-    val roles: List<PartialRole.Upgradeable> by map.delegateJsonMutable(
+    val roles: List<PartialRole> by map.delegateJsonMutable(
         { (this as JsonArray).map { guild.fetchRole(it.asSnowflake()) } },
         { Json.encodeToJsonElement(it.map { sn -> sn.snowflake.id }) }
     )
@@ -119,6 +119,8 @@ class Member(override val guild: PartialGuild, private var map: JsonObject, over
         changes["channel_id"] = Json.encodeToJsonElement(channel?.snowflake?.id)
         return this
     }
+    
+    override fun upgrade(): IRestAction<Member> = IRestAction.ProvidedRestAction(bot, this)
     
     /**
      * The same as fetching all values of `roles`, but more optimized
@@ -181,7 +183,7 @@ class Member(override val guild: PartialGuild, private var map: JsonObject, over
     val owner: Boolean
         get() {
             return if (guild is Guild) guild.owner.user.snowflake == user.snowflake
-            else (guild as PartialGuild.Upgradeable).request().get().owner.user.snowflake == user.snowflake
+            else guild.upgrade().request().get().owner.user.snowflake == user.snowflake
         }
     @Deprecated("JDA Compatibility Field", ReplaceWith("joinedAt.offsetDateTime"))
     val timeJoined: OffsetDateTime

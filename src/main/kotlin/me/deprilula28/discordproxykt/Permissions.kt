@@ -71,7 +71,9 @@ fun checkPerms(expected: Array<out Permissions>, actual: EnumSet<Permissions>) {
 }
 
 inline fun <reified T: Any> useSelfMemberRoles(guild: PartialGuild, crossinline then: (Member, List<Role>) -> CompletableFuture<T>): IRestAction<T> {
-    val future = guild.bot.selfUser.request().thenCompose { guild.fetchMember(it.snowflake).request() }.thenCompose { member ->
+    val future = guild.bot.selfUser.request()
+            .thenCompose { guild.fetchMember(it.snowflake).upgrade().request() }
+            .thenCompose { member ->
         member.fetchRoles.request().thenCompose {
             then(member, it)
         }

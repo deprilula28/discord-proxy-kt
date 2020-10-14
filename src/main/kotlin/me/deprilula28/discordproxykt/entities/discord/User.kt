@@ -11,20 +11,21 @@ import java.util.*
 // TODO Other methods
 interface PartialUser: PartialEntity, Message.Mentionable {
     companion object {
-        fun new(id: Snowflake, bot: DiscordProxyKt): Upgradeable
-            = object: PartialUser.Upgradeable,
-                RestAction<User>(
-                    bot, RestEndpoint.GET_USER.path(id.id),
-                    { User(this as JsonObject, bot) }
-                ) {
+        fun new(id: Snowflake, bot: DiscordProxyKt): PartialUser
+            = object: PartialUser {
                 override val snowflake: Snowflake = id
+                override val bot: DiscordProxyKt = bot
+                override fun upgrade(): IRestAction<User>
+                    = RestAction(
+                        bot, RestEndpoint.GET_USER.path(id.id),
+                        { User(this as JsonObject, bot) }
+                    )
             }
     }
     
+    fun upgrade(): IRestAction<User>
     override val asMention: String
         get() = "<@${snowflake.id}>"
-    
-    interface Upgradeable: PartialUser, IRestAction<User>
 }
 
 /**
@@ -107,6 +108,8 @@ class User(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser 
      * Logged on users through OAuth2 only
      */
     val premiumType: PremiumType? by map.delegateJsonNullable({ PremiumType.values()[asInt()] }, "premium_type")
+    
+    override fun upgrade(): IRestAction<User> = IRestAction.ProvidedRestAction(bot, this)
     
     enum class PremiumType {
         NONE, CLASSIC, NITRO

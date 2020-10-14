@@ -31,15 +31,21 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, Partia
     val internalGuild: PartialGuild
     
     companion object {
-        fun new(guild: PartialGuild, id: Snowflake): Upgradeable
-            = object: Upgradeable,
-                    IRestAction.FuturesRestAction<TextChannel>(
-                        guild.bot,
-                        { guild.fetchChannels.request().thenApply { it.find { ch -> ch.snowflake == id } as TextChannel } }) {
-                override val snowflake: Snowflake = id
-                override val internalGuild: PartialGuild = guild
+        fun new(guild: PartialGuild, id: Snowflake): PartialTextChannel
+                = object: PartialTextChannel {
+            override val snowflake: Snowflake = id
+            override val bot: DiscordProxyKt = guild.bot
+            override val internalGuild: PartialGuild = guild
+            override fun upgrade(): IRestAction<TextChannel>
+                    = IRestAction.FuturesRestAction(guild.bot) {
+                guild.fetchChannels.request().thenApply {
+                    it.find { ch -> ch.snowflake == id } as TextChannel
+                }
             }
+        }
     }
+    
+    fun upgrade(): IRestAction<TextChannel>
     
     fun bulkDelete(messages: Collection<PartialMessage>): IRestAction<Unit>
         = bot.request(RestEndpoint.BULK_DELETE_MESSAGES.path(snowflake.id), { Unit }) {
@@ -64,10 +70,8 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, Partia
     @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDelete(*messages)"))
     fun purgeMessages(vararg messages: PartialMessage) = bulkDelete(*messages)
     
-    override fun fetchMessage(message: Snowflake): PartialMessage.Upgradeable
-        = PartialMessage.new(this as PartialGuildChannel, message)
-    
-    interface Upgradeable: PartialTextChannel, PartialMessageChannel.Upgradeable, IRestAction<TextChannel>
+    override fun fetchMessage(message: Snowflake): PartialMessage
+        = PartialMessage.new(this as PartialMessageChannel, message)
     
     override val asMention: String
         get() = "<#${snowflake.id}>"
@@ -95,12 +99,12 @@ class TextChannel(override val internalGuild: PartialGuild, map: JsonObject, bot
     val rateLimitPerUser: Int? by map.delegateJsonNullable(JsonElement::asInt, "rate_limit_per_user")
     
     override val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
-    override val guild: PartialGuild.Upgradeable by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
-    override val lastMessage: PartialMessage.Upgradeable by map.delegateJson({ fetchMessage(asSnowflake()) }, "last_message_id")
+    override val guild: PartialGuild by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    override val lastMessage: PartialMessage by map.delegateJson({ fetchMessage(asSnowflake()) }, "last_message_id")
     
     override val name: String by map.delegateJson(JsonElement::asString)
     override val position: Int by map.delegateJson(JsonElement::asInt)
-    override val category: PartialCategory.Upgradeable? by map.delegateJsonNullable({ PartialCategory.new(guild, asSnowflake()) }, "parent_id")
+    override val category: PartialCategory? by map.delegateJsonNullable({ PartialCategory.new(guild, asSnowflake()) }, "parent_id")
     override val permissions: List<PermissionOverwrite> by map.delegateJson({
         (this as JsonArray).map { asPermissionOverwrite(this@TextChannel, guild, bot) }
     }, "permission_overwrites")
@@ -120,13 +124,18 @@ class TextChannel(override val internalGuild: PartialGuild, map: JsonObject, bot
             assertPermissions(this, Permissions.SEND_MESSAGES, Permissions.SEND_TTS_MESSAGES) { super.send(message) }
         else assertPermissions(this, Permissions.SEND_MESSAGES) { super.send(message) }
     
-    @Deprecated("JDA Compatibility Field", ReplaceWith("rateLimitPerUser"))
-    val slowmode: Int? by ::rateLimitPerUser
+    override fun upgrade(): IRestAction<TextChannel> = IRestAction.ProvidedRestAction(bot, this)
+    
+    override fun fetchMessage(message: Snowflake): PartialMessage
+        = PartialMessage.new(this as GuildChannel, message)
     
     override val type: ChannelType
         get() = ChannelType.TEXT
     
-    @Deprecated("JDA Compatibility Field", ReplaceWith("category?.request()?.get()"))
+    @Deprecated("JDA Compatibility Field", ReplaceWith("rateLimitPerUser"))
+    val slowmode: Int? by ::rateLimitPerUser
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("category?.upgade()?.request()?.get()"))
     val parent: Category?
-        get() = category?.request()?.get()
+        get() = category?.upgrade()?.request()?.get()
 }
