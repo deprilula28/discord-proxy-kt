@@ -13,6 +13,7 @@ import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialMessageChannel
 import me.deprilula28.discordproxykt.events.EventConsumer
+import me.deprilula28.discordproxykt.events.Events
 import me.deprilula28.discordproxykt.rest.RestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
 import java.net.URI
@@ -21,6 +22,7 @@ import java.time.Duration
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.getOrSet
 
 open class DiscordProxyKt internal constructor(
@@ -32,11 +34,13 @@ open class DiscordProxyKt internal constructor(
     token: String?,
     val cache: Cache,
     val defaultExceptionHandler: (Exception) -> Unit,
+    val deleteQueuesAfter: Boolean,
 ) {
     internal val authorization = "Bot $token"
     private val conn: Connection
     private val amqpChannels = ThreadLocal<Channel>()
     val pool: ExecutorService = Executors.newWorkStealingPool()
+    val handlerSequence = mutableMapOf<Events.Event<*>, AtomicInteger>()
     
     val amqpChannel: Channel
         get() = amqpChannels.getOrSet {
@@ -57,12 +61,18 @@ open class DiscordProxyKt internal constructor(
         conn = factory.newConnection()
     }
     
-    fun subscribe(vararg events: String) {
-        val channel = amqpChannel
-        events.forEach { event ->
-            val queue = channel.queueDeclare("$group:$subgroup:$event", true, false, false, mapOf()).queue
-            channel.queueBind(queue, group, event)
-            channel.basicConsume(queue, false, EventConsumer(this, event, channel))
+    fun <T> on(event: Events.Event<T>, handler: suspend (T) -> Unit) {
+        synchronized(handlerSequence) {
+            val atomic = handlerSequence[event] ?: AtomicInteger(-1).apply { handlerSequence[event] = this }
+            val seq = atomic.addAndGet(1)
+            val channel = amqpChannel
+            val queue = channel.queueDeclare(
+                "$group:$subgroup-$seq:${event.eventName}",
+                true, deleteQueuesAfter,
+                deleteQueuesAfter, mapOf()
+            ).queue
+            channel.queueBind(queue, group, event.eventName)
+            channel.basicConsume(queue, false, EventConsumer(this, event, handler, channel))
         }
     }
     
@@ -70,6 +80,25 @@ open class DiscordProxyKt internal constructor(
         = RestAction(this, path, constructor, postData)
     
     companion object {
+        /**
+         * Call [build] on this type to construct a [DiscordProxyKt] instance.
+         *
+         * # Required Parameters
+         *
+         * @param group - AMQP group defined for Spectacles
+         * @param subgroup - The unique identifier for this worker, must be different for each instance you run
+         * @param broker - URI used to connect to the AMQP broker (RabbitMQ)
+         * @param token - The token used in requests to Discord
+         *
+         * # Optional Parameters
+         *
+         * [coroutineScope] - The coroutine scope that should be used for suspend actions. By default, [GlobalScope].
+         * [httpClient] - The HTTP Client that should be used for Rest Actions.
+         * [cache] - The cache solution. By default, [MemoryCache].
+         * [defaultExceptionHandler] - The handler for failed rest actions and event handles.
+         * [deleteQueuesAfter] - Whether to remove the AMQP queues after this process closes.<br>
+         * Notice that this just informs the connection of its preference, instead of actually performing the removal.
+         */
         class Builder(var group: String, var subgroup: String, var broker: URI, var token: String?) {
             var coroutineScope: CoroutineScope = GlobalScope
             var httpClient: HttpClient = HttpClient.newBuilder()
@@ -78,9 +107,10 @@ open class DiscordProxyKt internal constructor(
                 .build()
             var cache: Cache = MemoryCache(coroutineScope, 5L to TimeUnit.MINUTES)
             var defaultExceptionHandler: (Exception) -> Unit = { it.printStackTrace() }
+            var deleteQueuesAfter: Boolean = false
             
             fun build(): DiscordProxyKt = DiscordProxyKt(group, subgroup, broker, coroutineScope, httpClient, token,
-                                                         cache, defaultExceptionHandler)
+                                                         cache, defaultExceptionHandler, deleteQueuesAfter)
         }
     }
 }
