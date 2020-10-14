@@ -14,7 +14,6 @@ import me.deprilula28.discordproxykt.rest.*
 import java.time.OffsetDateTime
 import java.util.*
 
-// TODO This
 interface PartialMessage: PartialEntity {
     val channelRaw: Snowflake
 
@@ -152,7 +151,9 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     /**
      * roles specifically mentioned in this message
      */
-    val mentionRoles: List<PartialRole> = listOf()//TODO by map.delegateJson({ (this as JsonArray).map { it.asSnowflake() } }, "mention_roles")
+    val mentionRoles: List<PartialRole> by map.delegateJson({
+        guild?.run { (this@delegateJson as JsonArray).map { PartialRole.new(this, it.asSnowflake()) } } ?: listOf()
+    }, "mention_roles")
     /**
      * channels specifically mentioned in this message
      */
@@ -224,13 +225,12 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     @Deprecated("JDA Compatibility Function", ReplaceWith("mentionEveryone"))
     fun mentionsEveryone() = mentionEveryone
     
-    //TODO Fetch these
-    //    @Deprecated("JDA Compatibility Field", ReplaceWith("mentionChannels"))
-    //    val mentionedChannels: List<MessageChannel>
-    //        get() = mentionChannels
-    //    @Deprecated("JDA Compatibility Field", ReplaceWith("mentionRoles"))
-    //    val mentionedRoles: List<Role>
-    //        get() = mentionRoles
+    @Deprecated("JDA Compatibility Field", ReplaceWith("mentionChannels"))
+    val mentionedChannels: List<MessageChannel>
+        get() = mentionChannels?.map { it.upgrade().request().get() } ?: listOf()
+    @Deprecated("JDA Compatibility Field", ReplaceWith("mentionRoles"))
+    val mentionedRoles: List<Role>
+        get() = mentionRoles.map { it.upgrade().request().get() }
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("editTimestamp.offsetDateTime"))
     val timeEdited: OffsetDateTime?

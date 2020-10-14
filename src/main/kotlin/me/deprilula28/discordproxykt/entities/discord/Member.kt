@@ -17,7 +17,6 @@ interface PartialMember {
     
     fun upgrade(): IRestAction<Member>
     
-    // TODO unclutter this mess
     private inline fun <reified T: Any> assertRolePerms(role: PartialRole, crossinline func: () -> IRestAction<T>): IRestAction<T> {
         return (guild as? Guild)?.run {
             assertPermissions(this, Permissions.MANAGE_ROLES) {

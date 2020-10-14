@@ -425,10 +425,7 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
      */
     var owner: PartialMember by map.delegateJsonMutable(
         { fetchMember(asSnowflake()) },
-        {
-            // TODO Check if self is owner
-            Json.encodeToJsonElement(it.user.snowflake.id)
-        },
+        { Json.encodeToJsonElement(it.user.snowflake.id) },
         "owner_id"
     )
     /**

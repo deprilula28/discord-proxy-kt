@@ -15,7 +15,6 @@ import me.deprilula28.discordproxykt.rest.*
 import java.awt.Color
 import java.util.*
 
-// TODO Other methods
 interface PartialRole: PartialEntity, Message.Mentionable {
     val guild: PartialGuild
     
