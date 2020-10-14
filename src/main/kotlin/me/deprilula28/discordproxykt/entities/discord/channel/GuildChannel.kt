@@ -1,17 +1,12 @@
 package me.deprilula28.discordproxykt.entities.discord.channel
 
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.rest.IRestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
-import me.deprilula28.discordproxykt.rest.toBitSet
-import java.util.*
 
 /**
  * WARNING:<br>
@@ -29,6 +24,9 @@ interface PartialGuildChannel: PartialEntity {
         )
     
     fun delete(): IRestAction<Unit> = bot.request(RestEndpoint.DELETE_CHANNEL.path(snowflake.id), { Unit })
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchInvites"))
+    fun retrieveInvites() = fetchInvites
 }
 
 /**
@@ -77,6 +75,25 @@ interface GuildChannel: PartialGuildChannel {
         get() = permissions.filterIsInstance(MemberOverride::class.java)
     val rolePermissionOverrides: List<RoleOverride>
         get() = permissions.filterIsInstance(RoleOverride::class.java)
+    
+    fun memberOverrideBuilder(): MemberOverrideBuilder = MemberOverrideBuilder(guild, this, bot)
+    fun roleOverrideBuilder(): RoleOverrideBuilder = RoleOverrideBuilder(guild, this, bot)
+    fun inviteBuilder(): InviteBuilder = InviteBuilder(this, bot)
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith("memberOverrideBuilder().setMember(member)"))
+    fun createPermissionOverride(member: PartialMember) = memberOverrideBuilder().setMember(member)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("roleOverrideBuilder().setRole(role)"))
+    fun createPermissionOverride(role: PartialRole) = roleOverrideBuilder().setRole(role)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("memberOverrideBuilder().setMember(member)"))
+    fun putPermissionOverride(member: PartialMember) = memberOverrideBuilder().setMember(member)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("roleOverrideBuilder().setRole(role)"))
+    fun putPermissionOverride(role: PartialRole) = roleOverrideBuilder().setRole(role)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("memberOverrideBuilder().setMember(member)"))
+    fun upsertPermissionOverride(member: PartialMember) = memberOverrideBuilder().setMember(member)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("roleOverrideBuilder().setRole(role)"))
+    fun upsertPermissionOverride(role: PartialRole) = roleOverrideBuilder().setRole(role)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("inviteBuilder()"))
+    fun createInvite() = inviteBuilder()
     
     @Deprecated("JDA Compatibility Function", ReplaceWith(""))
     val manager

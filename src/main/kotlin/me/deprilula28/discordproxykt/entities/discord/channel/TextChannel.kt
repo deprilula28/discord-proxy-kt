@@ -1,10 +1,7 @@
 package me.deprilula28.discordproxykt.entities.discord.channel
 
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.builder.MessageBuilder
@@ -13,10 +10,8 @@ import me.deprilula28.discordproxykt.entities.Entity
 import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
-import me.deprilula28.discordproxykt.entities.discord.ChannelType
-import me.deprilula28.discordproxykt.entities.discord.PartialGuild
-import me.deprilula28.discordproxykt.entities.discord.PermissionOverwrite
-import me.deprilula28.discordproxykt.entities.discord.Permissions
+import me.deprilula28.discordproxykt.entities.discord.*
+import me.deprilula28.discordproxykt.entities.discord.message.Emoji
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
 import me.deprilula28.discordproxykt.rest.*
@@ -69,6 +64,18 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, Partia
     fun purgeMessages(messages: Collection<PartialMessage>) = bulkDelete(messages)
     @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDelete(*messages)"))
     fun purgeMessages(vararg messages: PartialMessage) = bulkDelete(*messages)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMessage(Snowflake(message)).clearReactions()"))
+    fun clearReactionsById(message: String) = fetchMessage(Snowflake(message)).clearReactions()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMessage(Snowflake(message.toString())).clearReactions()"))
+    fun clearReactionsById(message: Long) = fetchMessage(Snowflake(message.toString())).clearReactions()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMessage(Snowflake(message)).clearReactions(emote)"))
+    fun clearReactionsById(message: String, emote: String) = fetchMessage(Snowflake(message)).clearReactions(emote)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMessage(Snowflake(message)).clearReactions(emote)"))
+    fun clearReactionsById(message: String, emote: Emoji) = fetchMessage(Snowflake(message)).clearReactions(emote)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMessage(Snowflake(message.toString())).clearReactions(emote)"))
+    fun clearReactionsById(message: Long, emote: String) = fetchMessage(Snowflake(message.toString())).clearReactions(emote)
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMessage(Snowflake(message.toString())).clearReactions(emote)"))
+    fun clearReactionsById(message: Long, emote: Emoji) = fetchMessage(Snowflake(message.toString())).clearReactions(emote)
     
     override fun fetchMessage(message: Snowflake): PartialMessage
         = PartialMessage.new(this as PartialMessageChannel, message)
@@ -82,8 +89,8 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, Partia
  * Channel documentation:
  * https://discord.com/developers/docs/resources/channel
  */
-class TextChannel(override val internalGuild: PartialGuild, map: JsonObject, bot: DiscordProxyKt):
-    Entity(map, bot), MessageChannel, GuildChannel, PartialTextChannel
+open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject, bot: DiscordProxyKt):
+    Entity(map, bot), MessageChannel, GuildChannel, PartialTextChannel, EntityManager<TextChannel>
 {
     /**
      * the channel topic (0-1024 characters)
@@ -109,6 +116,14 @@ class TextChannel(override val internalGuild: PartialGuild, map: JsonObject, bot
         (this as JsonArray).map { asPermissionOverwrite(this@TextChannel, guild, bot) }
     }, "permission_overwrites")
     
+    val fetchWebhooks: IRestAction<List<Webhook>>
+        get() = assertPermissions(this, Permissions.MANAGE_WEBHOOKS) {
+            bot.request(
+                RestEndpoint.GET_CHANNEL_WEBHOOKS.path(snowflake.id),
+                { (this as JsonArray).map { Webhook(it as JsonObject, bot) } }
+            )
+        }
+    
     @Deprecated("JDA Compatibility Function", ReplaceWith("nsfw"))
     fun isNSFW(): Boolean = nsfw
     
@@ -132,10 +147,63 @@ class TextChannel(override val internalGuild: PartialGuild, map: JsonObject, bot
     override val type: ChannelType
         get() = ChannelType.TEXT
     
+    override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
+    
+    /**
+     * Requests that this guild gets edited based on the altered fields.
+     */
+    override fun edit(): IRestAction<TextChannel> {
+        if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this channel, yet `edit()` was called.")
+        return assertPermissions(this, Permissions.MANAGE_CHANNELS) {
+            bot.request(RestEndpoint.MODIFY_CHANNEL.path(snowflake.id), { this@TextChannel.apply { map = this@request as JsonObject } }) {
+                val res = Json.encodeToString(changes)
+                changes.clear()
+                res
+            }
+        }
+    }
+    
+    fun createCopy(guild: PartialGuild) = TextChannelBuilder(guild, bot).apply {
+        // TODO fill this with copying fields
+    }
+    fun createCopy() = createCopy(guild)
+    
+    fun webhookBuilder(): WebhookBuilder = WebhookBuilder(this, bot)
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("webhookBuilder().apply { this@apply.name = name }"))
+    fun createWebhook(name: String) = webhookBuilder().apply { this@apply.name = name }
+    @Deprecated("JDA Compatibility Field", ReplaceWith("fetchWebhooks"))
+    fun retrieveWebhooks() = fetchWebhooks
+    
+    // TODO canTalk(), canTalk(Member) and also some permission checking stuff
+    
     @Deprecated("JDA Compatibility Field", ReplaceWith("rateLimitPerUser"))
     val slowmode: Int? by ::rateLimitPerUser
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("category?.upgade()?.request()?.get()"))
     val parent: Category?
         get() = category?.upgrade()?.request()?.get()
+}
+
+class TextChannelBuilder(guild: PartialGuild, bot: DiscordProxyKt):
+    TextChannel(guild, JsonObject(MapNotReady()), bot), EntityBuilder<TextChannel>
+{
+    /**
+     * Creates a text channel based on altered fields and returns it as a rest action.<br>
+     * The values of the fields in the builder itself will be updated, making it usable as a TextChannel.
+     */
+    override fun create(): IRestAction<TextChannel> {
+        if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
+        changes["type"] = JsonPrimitive(0)
+        return assertPermissions(this, Permissions.MANAGE_GUILD) {
+            bot.request(
+                RestEndpoint.CREATE_GUILD_CHANNEL.path(internalGuild.snowflake.id),
+                { this@TextChannelBuilder.apply { map = this@request as JsonObject } },
+            ) {
+                val res = Json.encodeToString(changes)
+                changes.clear()
+                res
+            }
+        }
+    }
 }

@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
+import me.deprilula28.discordproxykt.entities.UnavailableField
 import me.deprilula28.discordproxykt.entities.discord.MemberOverride
 import me.deprilula28.discordproxykt.entities.discord.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.PermissionOverwrite
@@ -24,6 +25,10 @@ interface EntityManager<T> {
     fun edit(): IRestAction<T>
     
     fun resetChanges() = changes.clear()
+}
+
+interface EntityBuilder<T> {
+    fun create(): IRestAction<T>
 }
 
 fun JsonElement.asString() = (this as JsonPrimitive).content
@@ -128,4 +133,20 @@ fun <E: Enum<E>> EnumSet<E>.toBitSet(): Long {
     var num = 0L
     forEach { num = num and (1L shl it.ordinal) }
     return num
+}
+
+class MapNotReady<K, V>: Map<K, V> {
+    override val entries: Set<Map.Entry<K, V>>
+        get() = throw UnavailableField()
+    override val keys: Set<K>
+        get() = throw UnavailableField()
+    override val size: Int
+        get() = throw UnavailableField()
+    override val values: Collection<V>
+        get() = throw UnavailableField()
+    
+    override fun containsKey(key: K): Boolean = throw UnavailableField()
+    override fun containsValue(value: V): Boolean = throw UnavailableField()
+    override fun get(key: K): V? = throw UnavailableField()
+    override fun isEmpty(): Boolean = throw UnavailableField()
 }

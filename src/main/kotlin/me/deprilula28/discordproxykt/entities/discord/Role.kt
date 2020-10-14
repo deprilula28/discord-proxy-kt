@@ -40,14 +40,14 @@ interface PartialRole: PartialEntity, Message.Mentionable {
 }
 
 /**
- * Roles represent a set of permissions attached to a group of users. Roles have unique names, colors, a
- * nd can be "pinned" to the side bar, causing their members to be listed separately. Roles are unique per guild,
+ * Roles represent a set of permissions attached to a group of users. Roles have unique names, colors, and
+ * can be "pinned" to the side bar, causing their members to be listed separately. Roles are unique per guild,
  * and can have separate permission profiles for the global context (guild) and channel context. The @everyone role has
  * the same ID as the guild it belongs to.
  * <br>
  * https://discord.com/developers/docs/topics/permissions#role-object-role-structure
  */
-class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialRole, EntityManager<Role> {
+open class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialRole, EntityManager<Role> {
     /**
      * role name
      */
@@ -115,4 +115,22 @@ class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordProxyK
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("position > role.position"))
     fun canInteract(role: Role) = position > role.position
+}
+
+class RoleBuilder(guild: PartialGuild, bot: DiscordProxyKt):
+    Role(guild, JsonObject(MapNotReady()), bot), EntityBuilder<Role>
+{
+    /**
+     * Creates a Role based on altered fields and returns it as a rest action.<br>
+     * The values of the fields in the builder itself will be updated, making it usable as a Role.
+     */
+    override fun create(): IRestAction<Role> {
+        return assertPermissions(guild, Permissions.MANAGE_ROLES) {
+            bot.request(RestEndpoint.CREATE_GUILD_ROLE.path(guild.snowflake.id), { this@RoleBuilder.apply { map = this@request as JsonObject } }) {
+                val res = Json.encodeToString(changes)
+                changes.clear()
+                res
+            }
+        }
+    }
 }

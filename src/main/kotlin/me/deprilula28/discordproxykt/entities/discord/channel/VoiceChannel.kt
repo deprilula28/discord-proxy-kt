@@ -1,15 +1,16 @@
 package me.deprilula28.discordproxykt.entities.discord.channel
 
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.Entity
 import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.ChannelType
 import me.deprilula28.discordproxykt.entities.discord.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.PermissionOverwrite
+import me.deprilula28.discordproxykt.entities.discord.Permissions
 import me.deprilula28.discordproxykt.rest.*
 
 /**
@@ -37,7 +38,7 @@ interface PartialVoiceChannel: PartialEntity {
     fun upgrade(): IRestAction<VoiceChannel>
 }
 
-class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel, PartialVoiceChannel {
+open class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel, PartialVoiceChannel, EntityManager<VoiceChannel> {
     /**
      * the bitrate (in bits) of the voice channel
      */
@@ -56,6 +57,27 @@ class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Guil
         (this as JsonArray).map { asPermissionOverwrite(this@VoiceChannel, guild, bot) }
     }, "permission_overwrites")
     
+    override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
+    
+    /**
+     * Requests that this guild gets edited based on the altered fields.
+     */
+    override fun edit(): IRestAction<VoiceChannel> {
+        if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this channel, yet `edit()` was called.")
+        return assertPermissions(this, Permissions.MANAGE_CHANNELS) {
+            bot.request(RestEndpoint.MODIFY_CHANNEL.path(snowflake.id), { this@VoiceChannel.apply { map = this@request as JsonObject } }) {
+                val res = Json.encodeToString(changes)
+                changes.clear()
+                res
+            }
+        }
+    }
+    
+    fun createCopy(guild: PartialGuild) = VoiceChannelBuilder(guild, bot).apply {
+        // TODO fill this with copying fields
+    }
+    fun createCopy() = createCopy(guild)
+    
     override fun upgrade(): IRestAction<VoiceChannel> = IRestAction.ProvidedRestAction(bot, this)
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("category?.upgrade()?.request()?.get()"))
@@ -64,4 +86,27 @@ class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Guil
     
     override val type: ChannelType
         get() = ChannelType.VOICE
+}
+
+class VoiceChannelBuilder(private val internalGuild: PartialGuild, bot: DiscordProxyKt):
+    VoiceChannel(JsonObject(MapNotReady()), bot), EntityBuilder<VoiceChannel>
+{
+    /**
+     * Creates a voice channel based on altered fields and returns it as a rest action.<br>
+     * The values of the fields in the builder itself will be updated, making it usable as a VoiceChannel.
+     */
+    override fun create(): IRestAction<VoiceChannel> {
+        if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
+        changes["type"] = JsonPrimitive(2)
+        return assertPermissions(this, Permissions.MANAGE_GUILD) {
+            bot.request(
+                RestEndpoint.CREATE_GUILD_CHANNEL.path(internalGuild.snowflake.id),
+                { this@VoiceChannelBuilder.apply { map = this@request as JsonObject } },
+            ) {
+                val res = Json.encodeToString(changes)
+                changes.clear()
+                res
+            }
+        }
+    }
 }

@@ -54,7 +54,7 @@ data class Ban(private val map: JsonObject, private val bot: DiscordProxyKt) {
 /**
  * https://discord.com/developers/docs/resources/invite#invite-object
  */
-open class Invite(private val map: JsonObject, private val bot: DiscordProxyKt) {
+open class Invite(var map: JsonObject, val bot: DiscordProxyKt) {
     val code: String by map.delegateJson(JsonElement::asString)
     val guild: Guild? by map.delegateJsonNullable({ Guild(this as JsonObject, bot) })
     val channel: TextChannel? by map.delegateJson({ guild?.run { TextChannel(this, this@delegateJson as JsonObject, bot) } })
@@ -72,6 +72,31 @@ open class Invite(private val map: JsonObject, private val bot: DiscordProxyKt) 
     fun expand(): IRestAction<ExtendedInvite>
         = (channel ?: throw UnavailableField()).fetchInvites
             .map { invs -> invs.find { it.code == this.code } ?: throw UnavailableField() }
+}
+
+class InviteBuilder(private val internalChannel: GuildChannel, bot: DiscordProxyKt):
+    Invite(JsonObject(MapNotReady()), bot), EntityBuilder<Invite>
+{
+    val changes = mutableMapOf<String, JsonElement>()
+    
+    /**
+     * Creates an invite based on altered fields and returns it as a rest action.<br>
+     * The values of the fields in the builder itself will be updated, making it usable as a Invite.
+     */
+    override fun create(): IRestAction<Invite> {
+        if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
+        changes["type"] = JsonPrimitive(0)
+        return assertPermissions(internalChannel, Permissions.CREATE_INSTANT_INVITE) {
+            bot.request(
+                RestEndpoint.CREATE_GUILD_CHANNEL.path(internalChannel.snowflake.id),
+                { this@InviteBuilder.apply { map = this@request as JsonObject } },
+            ) {
+                val res = Json.encodeToString(changes)
+                changes.clear()
+                res
+            }
+        }
+    }
 }
 
 class ExtendedInvite(map: JsonObject, bot: DiscordProxyKt): Invite(map, bot) {
@@ -250,6 +275,11 @@ interface PartialGuild: PartialEntity {
     
     fun delete(): IRestAction<Unit> = bot.request(RestEndpoint.DELETE_GUILD.path(snowflake.id), { Unit })
     
+    fun textChannelBuilder(): TextChannelBuilder = TextChannelBuilder(this, bot)
+    fun voiceChannelBuilder(): VoiceChannelBuilder = VoiceChannelBuilder(this, bot)
+    fun categoryBuilder(): CategoryBuilder = CategoryBuilder(this, bot)
+    fun roleBuilder(): RoleBuilder = RoleBuilder(this, bot)
+    
     @Deprecated("JDA Compatibility Field", ReplaceWith("false"))
     val loaded: Boolean
         get() = false
@@ -278,6 +308,15 @@ interface PartialGuild: PartialEntity {
     fun unban(member: String) = fetchMember(Snowflake(member)).unban()
     @Deprecated("JDA Compatibility Function", ReplaceWith("unban(fetchMember(Snowflake(member)))"))
     fun unban(member: PartialMember) = member.unban()
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("textChannelBuilder().apply { this@apply.name = name }"))
+    fun createTextChannel(name: String) = textChannelBuilder().apply { /* TODO set name here */ }
+    @Deprecated("JDA Compatibility Field", ReplaceWith("voiceChannelBuilder().apply { this@apply.name = name }"))
+    fun createVoiceChannel(name: String) = voiceChannelBuilder().apply { /* TODO set name here */ }
+    @Deprecated("JDA Compatibility Field", ReplaceWith("categoryBuilder().apply { this@apply.name = name }"))
+    fun createCategory(name: String) = categoryBuilder().apply { /* TODO set name here */ }
+    @Deprecated("JDA Compatibility Field", ReplaceWith("roleBuilder()"))
+    fun createRole() = roleBuilder()
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("member.add(role)"))
     fun addRoleToMember(member: PartialMember, role: PartialRole) = member.add(role)
@@ -415,7 +454,7 @@ interface PartialGuild: PartialEntity {
 /**
  * Guilds in Discord represent an isolated collection of users and channels, and are often referred to as "servers" in the UI.
  */
-class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManager<Guild>, PartialGuild {
+open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManager<Guild>, PartialGuild {
     /**
      * guild name (2-100 characters, excluding trailing and leading whitespace)
      */
@@ -892,6 +931,25 @@ class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManag
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("apply { owner = member }.edit()"))
     fun transferOwnership(member: PartialMember): IRestAction<Guild> = apply { owner = member }.edit()
+}
+
+class GuildBuilder(bot: DiscordProxyKt):
+    Guild(JsonObject(MapNotReady()), bot), EntityBuilder<Guild>
+{
+    /**
+     * Creates a guild based on altered fields and returns it as a rest action.<br>
+     * The values of the fields in the builder itself will be updated, making it usable as a Guild.
+     */
+    override fun create(): IRestAction<Guild> {
+        if (!changes.containsKey("name")) throw InvalidRequestException("Guilds require at least a name.")
+        return assertPermissions(this, Permissions.MANAGE_GUILD) {
+            bot.request(RestEndpoint.CREATE_GUILD.path(), { this@GuildBuilder.apply { map = this@request as JsonObject } }) {
+                val res = Json.encodeToString(changes)
+                changes.clear()
+                res
+            }
+        }
+    }
 }
 
 enum class ChannelType {
