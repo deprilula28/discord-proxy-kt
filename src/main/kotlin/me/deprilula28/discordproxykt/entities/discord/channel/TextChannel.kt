@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.builder.MessageBuilder
 import me.deprilula28.discordproxykt.builder.MessageConversion
 import me.deprilula28.discordproxykt.entities.Entity
@@ -40,25 +41,15 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, Partia
             }
     }
     
-    fun bulkDelete(messages: Collection<PartialMessage>)
-        = assertPermissions(Permissions.MANAGE_MESSAGES) {
-            bot.request(RestEndpoint.BULK_DELETE_MESSAGES.path(snowflake.id), { Unit }) {
-                Json.encodeToString(messages.map { it.snowflake.id })
-            }
+    fun bulkDelete(messages: Collection<PartialMessage>): IRestAction<Unit>
+        = bot.request(RestEndpoint.BULK_DELETE_MESSAGES.path(snowflake.id), { Unit }) {
+            Json.encodeToString(messages.map { it.snowflake.id })
         }
     
-    fun bulkDelete(vararg messages: PartialMessage)
-        = assertPermissions(Permissions.MANAGE_MESSAGES) {
-        bot.request(RestEndpoint.BULK_DELETE_MESSAGES.path(snowflake.id), { Unit }) {
-                Json.encodeToString(messages.map { it.snowflake.id })
-            }
+    fun bulkDelete(vararg messages: PartialMessage): IRestAction<Unit>
+        = bot.request(RestEndpoint.BULK_DELETE_MESSAGES.path(snowflake.id), { Unit }) {
+            Json.encodeToString(messages.map { it.snowflake.id })
         }
-    
-    // Permission checking
-    override fun send(message: MessageConversion): IRestAction<Message>
-        = if (message is MessageBuilder && message.map["tts"]?.asBoolean() == true)
-            assertPermissions(Permissions.SEND_MESSAGES, Permissions.SEND_TTS_MESSAGES) { super.send(message) }
-        else assertPermissions(Permissions.SEND_MESSAGES) { super.send(message) }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("bulkDelete(messages)"))
     fun deleteMessages(messages: Collection<PartialMessage>) = bulkDelete(messages)
@@ -103,20 +94,31 @@ class TextChannel(override val internalGuild: PartialGuild, map: JsonObject, bot
      */
     val rateLimitPerUser: Int? by map.delegateJsonNullable(JsonElement::asInt, "rate_limit_per_user")
     
-    override val name: String by map.delegateJson(JsonElement::asString)
     override val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
+    override val guild: PartialGuild.Upgradeable by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     override val lastMessage: PartialMessage.Upgradeable by map.delegateJson({ fetchMessage(asSnowflake()) }, "last_message_id")
     
-    override val guild: PartialGuild.Upgradeable by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    override val name: String by map.delegateJson(JsonElement::asString)
     override val position: Int by map.delegateJson(JsonElement::asInt)
     override val category: PartialCategory.Upgradeable? by map.delegateJsonNullable({ PartialCategory.new(guild, asSnowflake()) }, "parent_id")
-    
     override val permissions: List<PermissionOverwrite> by map.delegateJson({
         (this as JsonArray).map { asPermissionOverwrite(this@TextChannel, guild, bot) }
     }, "permission_overwrites")
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("nsfw"))
     fun isNSFW(): Boolean = nsfw
+    
+    // Permission checking
+    override fun bulkDelete(messages: Collection<PartialMessage>)
+        = assertPermissions(this, Permissions.MANAGE_MESSAGES) { super.bulkDelete(messages) }
+    
+    override fun bulkDelete(vararg messages: PartialMessage)
+        = assertPermissions(this, Permissions.MANAGE_MESSAGES) { super.bulkDelete(*messages) }
+    
+    override fun send(message: MessageConversion): IRestAction<Message>
+        = if (message is MessageBuilder && message.map["tts"]?.asBoolean() == true)
+            assertPermissions(this, Permissions.SEND_MESSAGES, Permissions.SEND_TTS_MESSAGES) { super.send(message) }
+        else assertPermissions(this, Permissions.SEND_MESSAGES) { super.send(message) }
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("rateLimitPerUser"))
     val slowmode: Int? by ::rateLimitPerUser

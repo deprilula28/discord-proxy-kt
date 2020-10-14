@@ -4,10 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.assertPermissions
-import me.deprilula28.discordproxykt.entities.Entity
-import me.deprilula28.discordproxykt.entities.PartialEntity
-import me.deprilula28.discordproxykt.entities.Snowflake
-import me.deprilula28.discordproxykt.entities.Timestamp
+import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.channel.*
 import me.deprilula28.discordproxykt.entities.discord.message.GuildEmoji
 import me.deprilula28.discordproxykt.rest.*
@@ -60,11 +57,21 @@ data class Ban(private val map: JsonObject, private val bot: DiscordProxyKt) {
 open class Invite(private val map: JsonObject, private val bot: DiscordProxyKt) {
     val code: String by map.delegateJson(JsonElement::asString)
     val guild: Guild? by map.delegateJsonNullable({ Guild(this as JsonObject, bot) })
-    val channel: TextChannel by map.delegateJson({ TextChannel(guild!!, this as JsonObject, bot) })
+    val channel: TextChannel? by map.delegateJson({ guild?.run { TextChannel(this, this@delegateJson as JsonObject, bot) } })
     val inviter: User? by map.delegateJsonNullable({ User(this as JsonObject, bot) })
     val targetUser: User? by map.delegateJsonNullable({ User(this as JsonObject, bot) }, "target_user")
     val approxPresenceCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_presence_count")
     val approxMemberCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_member_count")
+    
+    fun delete(): IRestAction<Unit> {
+        // TODO Check for MANAGE_CHANNELS on channel if the guild check fails
+        return if (guild != null) assertPermissions(guild!!, Permissions.MANAGE_GUILD) { bot.request(RestEndpoint.DELETE_INVITE.path(code), { Unit }) }
+        else bot.request(RestEndpoint.DELETE_INVITE.path(code), { Unit })
+    }
+    
+    fun expand(): IRestAction<ExtendedInvite>
+        = (channel ?: throw UnavailableField()).fetchInvites
+            .map { invs -> invs.find { it.code == this.code } ?: throw UnavailableField() }
 }
 
 class ExtendedInvite(map: JsonObject, bot: DiscordProxyKt): Invite(map, bot) {

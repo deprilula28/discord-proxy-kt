@@ -1,6 +1,10 @@
 package me.deprilula28.discordproxykt.entities.discord
 
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.channel.GuildChannel
@@ -10,7 +14,7 @@ import java.util.*
 /**
  * https://discord.com/developers/docs/resources/channel#overwrite-object
  */
-abstract class PermissionOverwrite(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot) {
+abstract class PermissionOverwrite(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManager<Unit> {
     abstract val channel: GuildChannel
     abstract val guild: PartialGuild.Upgradeable
     open val role: PartialRole?
@@ -21,11 +25,17 @@ abstract class PermissionOverwrite(map: JsonObject, bot: DiscordProxyKt): Entity
     /**
      * permission bit set
      */
-    val allow: EnumSet<Permissions> by map.delegateJson({ asLong().bitSetToEnumSet(Permissions.values()) })
+    var allow: EnumSet<Permissions> by map.delegateJsonMutable(
+        { asLong().bitSetToEnumSet(Permissions.values()) },
+        { JsonPrimitive(it.toBitSet()) },
+    )
     /**
      * permission bit set
      */
-    val deny: EnumSet<Permissions> by map.delegateJson({ asLong().bitSetToEnumSet(Permissions.values()) })
+    var deny: EnumSet<Permissions> by map.delegateJsonMutable(
+        { asLong().bitSetToEnumSet(Permissions.values()) },
+        { JsonPrimitive(it.toBitSet()) },
+    )
     
     val inherit: EnumSet<Permissions> by lazy {
         // Perform AND of complements
@@ -48,6 +58,8 @@ abstract class PermissionOverwrite(map: JsonObject, bot: DiscordProxyKt): Entity
     open fun isMemberOverride() = false
     @Deprecated("JDA Compatibility Field", ReplaceWith("is RoleOverride"))
     open fun isRoleOverride() = false
+    
+    override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
 }
 
 open class MemberOverride(
@@ -60,6 +72,11 @@ open class MemberOverride(
     override val member: PartialMember by lazy { guild.fetchMember(snowflake) }
     
     override fun isMemberOverride(): Boolean = true
+    
+    override fun edit(): IRestAction<Unit> {
+        if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this overwrite, yet `edit()` was called.")
+        return bot.request(RestEndpoint.EDIT_CHANNEL_PERMISSIONS.path(snowflake.id, member.user.snowflake.id), { Json.encodeToString(changes) })
+    }
 }
 
 open class RoleOverride(
@@ -71,4 +88,9 @@ open class RoleOverride(
     override val role: PartialRole by lazy { guild.fetchRole(snowflake) }
     
     override fun isRoleOverride(): Boolean = true
+    
+    override fun edit(): IRestAction<Unit> {
+        if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this overwrite, yet `edit()` was called.")
+        return bot.request(RestEndpoint.EDIT_CHANNEL_PERMISSIONS.path(snowflake.id, role.snowflake.id), { Json.encodeToString(changes) })
+    }
 }

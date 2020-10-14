@@ -1,12 +1,17 @@
 package me.deprilula28.discordproxykt.entities.discord.channel
 
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.rest.IRestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
+import me.deprilula28.discordproxykt.rest.toBitSet
+import java.util.*
 
 /**
  * WARNING:<br>
@@ -17,10 +22,10 @@ import me.deprilula28.discordproxykt.rest.RestEndpoint
  * You can use the RestAction this type implements to get a full type, with permission checking.
  */
 interface PartialGuildChannel: PartialEntity {
-    val fetchInvites: IRestAction<List<Invite>>
+    val fetchInvites: IRestAction<List<ExtendedInvite>>
         get() = bot.request(
             RestEndpoint.GET_CHANNEL_INVITES.path(snowflake.id),
-            { (this as JsonArray).map { Invite(it as JsonObject, bot) } },
+            { (this as JsonArray).map { ExtendedInvite(it as JsonObject, bot) } },
         )
     
     fun delete(): IRestAction<Unit> = bot.request(RestEndpoint.DELETE_CHANNEL.path(snowflake.id), { Unit })
@@ -35,6 +40,10 @@ interface GuildChannel: PartialGuildChannel {
      * the id of the guild
      */
     val guild: PartialGuild.Upgradeable
+    /**
+     * the type of channel; only conversion between text and news is supported and only in guilds with the "NEWS" feature
+     */
+    val type: ChannelType
     /**
      * sorting position of the channel<br>
      * Note: Discord does not assure this will be continuous. There may be two channels under the same position value,
@@ -53,22 +62,11 @@ interface GuildChannel: PartialGuildChannel {
      * id of the parent category for a channel (each parent category can contain up to 50 channels)
      */
     val category: PartialCategory?
-    /**
-     * Channel Type, should be constant
-     */
-    val type: ChannelType
     
-    override val fetchInvites: IRestAction<List<Invite>>
-        get() = assertPermissions(this, Permissions.MANAGE_CHANNELS) {
-            bot.request(
-                RestEndpoint.GET_CHANNEL_INVITES.path(snowflake.id),
-                { (this as JsonArray).map { Invite(it as JsonObject, bot) } },
-            )
-        }
+    override val fetchInvites: IRestAction<List<ExtendedInvite>>
+        get() = assertPermissions(this, Permissions.MANAGE_CHANNELS) { super.fetchInvites }
     
-    override fun delete() = assertPermissions(this, Permissions.MANAGE_CHANNELS) {
-        bot.request(RestEndpoint.DELETE_CHANNEL.path(snowflake.id), { Unit })
-    }
+    override fun delete() = assertPermissions(this, Permissions.MANAGE_CHANNELS) { super.delete() }
     
     fun getPermissionOverride(member: PartialMember)
         = permissions.find { it.snowflake == member.user.snowflake } as MemberOverride?
@@ -86,4 +84,7 @@ interface GuildChannel: PartialGuildChannel {
     @Deprecated("JDA Compatibility Field", ReplaceWith("position"))
     val positionRaw: Int
         get() = position
+    @Deprecated("JDA Compatibility Field", ReplaceWith("listOf()"))
+    val members: List<Member>
+        get() = listOf()
 }
