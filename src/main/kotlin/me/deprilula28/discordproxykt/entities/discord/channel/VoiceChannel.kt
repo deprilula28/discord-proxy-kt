@@ -7,7 +7,6 @@ import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.Entity
 import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
-import me.deprilula28.discordproxykt.entities.discord.ChannelType
 import me.deprilula28.discordproxykt.entities.discord.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.PermissionOverwrite
 import me.deprilula28.discordproxykt.entities.discord.Permissions
@@ -19,21 +18,24 @@ import me.deprilula28.discordproxykt.rest.*
  * Channel documentation:
  * https://discord.com/developers/docs/resources/channel
  */
-interface PartialVoiceChannel: PartialEntity {
+interface PartialVoiceChannel: PartialGuildChannel, PartialEntity {
     companion object {
         fun new(guild: PartialGuild, id: Snowflake): PartialVoiceChannel
-                = object: PartialVoiceChannel {
-            override val snowflake: Snowflake = id
-            override val bot: DiscordProxyKt = guild.bot
-    
-            override fun upgrade(): IRestAction<VoiceChannel> =
-                IRestAction.FuturesRestAction(guild.bot) {
-                    guild.fetchChannels.request().thenApply {
-                        it.find { ch -> ch.snowflake == id } as VoiceChannel
+            = object: PartialVoiceChannel {
+                override val snowflake: Snowflake = id
+                override val bot: DiscordProxyKt = guild.bot
+        
+                override fun upgrade(): IRestAction<VoiceChannel> =
+                    IRestAction.FuturesRestAction(guild.bot) {
+                        guild.fetchChannels.request().thenApply {
+                            it.find { ch -> ch.snowflake == id } as VoiceChannel
+                        }
                     }
-                }
-        }
+            }
     }
+    
+    override val type: ChannelType
+        get() = ChannelType.VOICE
     
     fun upgrade(): IRestAction<VoiceChannel>
 }
@@ -83,9 +85,6 @@ open class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot),
     @Deprecated("JDA Compatibility Field", ReplaceWith("category?.upgrade()?.request()?.get()"))
     val parent: Category?
         get() = category?.upgrade()?.request()?.get()
-    
-    override val type: ChannelType
-        get() = ChannelType.VOICE
 }
 
 class VoiceChannelBuilder(private val internalGuild: PartialGuild, bot: DiscordProxyKt):

@@ -1,4 +1,4 @@
-import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.DpkBuilder
 import me.deprilula28.discordproxykt.events.Events
 import org.junit.jupiter.api.TestInstance
 import java.net.URI
@@ -8,11 +8,12 @@ import kotlin.test.Test
     @Test fun test() {
         if (System.getenv("token") == null) return
         
-        val bot = DiscordProxyKt.Companion.Builder(
+        val bot = DpkBuilder(
             "stable-gateway",
             "stable",
             URI.create("amqp://localhost"),
-            System.getenv("token")
+            System.getenv("token"),
+            deleteQueuesAfter = true,
         ).build()
         bot.on(Events.MESSAGE_CREATE) {
             println(it)

@@ -57,11 +57,23 @@ data class Ban(private val map: JsonObject, private val bot: DiscordProxyKt) {
 open class Invite(var map: JsonObject, val bot: DiscordProxyKt) {
     val code: String by map.delegateJson(JsonElement::asString)
     val guild: Guild? by map.delegateJsonNullable({ Guild(this as JsonObject, bot) })
-    val channel: TextChannel? by map.delegateJson({ guild?.run { TextChannel(this, this@delegateJson as JsonObject, bot) } })
     val inviter: User? by map.delegateJsonNullable({ User(this as JsonObject, bot) })
     val targetUser: User? by map.delegateJsonNullable({ User(this as JsonObject, bot) }, "target_user")
     val approxPresenceCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_presence_count")
     val approxMemberCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_member_count")
+    
+    /**
+     * @throws [UnavailableField] If this invite object was from an event
+     */
+    val channel: TextChannel by map.delegateJson({
+         (guild?: throw UnavailableField()).run {
+             TextChannel(this, this@delegateJson as JsonObject, bot)
+         }
+    })
+    /**
+     * @throws [UnavailableField] If this invite object was fetched, rather than from an event
+     */
+    val channelRaw: Snowflake by map.delegateJson(JsonElement::asSnowflake, "channel_id")
     
     fun delete(): IRestAction<Unit> {
         // TODO Check for MANAGE_CHANNELS on channel if the guild check fails
@@ -70,7 +82,7 @@ open class Invite(var map: JsonObject, val bot: DiscordProxyKt) {
     }
     
     fun expand(): IRestAction<ExtendedInvite>
-        = (channel ?: throw UnavailableField()).fetchInvites
+        = channel.fetchInvites
             .map { invs -> invs.find { it.code == this.code } ?: throw UnavailableField() }
 }
 
@@ -165,6 +177,10 @@ interface PartialGuild: PartialEntity {
             RestEndpoint.GET_GUILD_CHANNELS.path(snowflake.id),
             { (this as JsonArray).mapNotNull { asGuildChannel(bot, this@PartialGuild) }  }
         )
+    
+    fun fetchTextChannel(snowflake: Snowflake) = PartialTextChannel.new(this, snowflake)
+    fun fetchVoiceChannel(snowflake: Snowflake) = PartialVoiceChannel.new(this, snowflake)
+    fun fetchCategory(snowflake: Snowflake) = PartialCategory.new(this, snowflake)
     
     val fetchWebhooks: IRestAction<List<Webhook>>
         get() = assertPermissions(this, Permissions.MANAGE_WEBHOOKS) {
@@ -950,15 +966,6 @@ class GuildBuilder(bot: DiscordProxyKt):
             }
         }
     }
-}
-
-enum class ChannelType {
-    TEXT,
-    PRIVATE,
-    VOICE,
-    GROUP,
-    CATEGORY,
-    STORE,
 }
 
 enum class Region {

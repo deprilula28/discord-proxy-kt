@@ -5,7 +5,6 @@ import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.*
-import me.deprilula28.discordproxykt.entities.discord.ChannelType
 import me.deprilula28.discordproxykt.entities.discord.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.PermissionOverwrite
 import me.deprilula28.discordproxykt.entities.discord.Permissions
@@ -31,6 +30,9 @@ interface PartialCategory: PartialEntity, PartialGuildChannel {
                 }
         }
     }
+    
+    override val type: ChannelType
+        get() = ChannelType.CATEGORY
     
     fun upgrade(): IRestAction<Category>
 }

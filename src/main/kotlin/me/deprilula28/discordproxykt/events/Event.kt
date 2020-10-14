@@ -2,7 +2,7 @@ package me.deprilula28.discordproxykt.events
 
 import me.deprilula28.discordproxykt.DiscordProxyKt
 
-interface GenericEvent {
+interface Event {
     val bot: DiscordProxyKt
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("bot"))

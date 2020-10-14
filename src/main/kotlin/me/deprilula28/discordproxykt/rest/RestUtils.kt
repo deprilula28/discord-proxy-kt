@@ -72,8 +72,7 @@ fun JsonElement.asPermissionOverwrite(channel: GuildChannel, guild: PartialGuild
     }
 }
 
-inline fun <reified T> getValue(obj: JsonObject, field: String, crossinline func: JsonElement.() -> T): T = func(
-    obj[field]!!)
+inline fun <reified T> getValue(obj: JsonObject, field: String, crossinline func: JsonElement.() -> T): T = func(obj[field]!!)
 
 inline fun <reified T> getValueNullable(obj: JsonObject, field: String, crossinline func: JsonElement.() -> T): T? {
     val prop = obj[field]

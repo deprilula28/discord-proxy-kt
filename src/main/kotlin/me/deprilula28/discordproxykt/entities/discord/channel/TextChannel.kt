@@ -27,18 +27,21 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, Partia
     
     companion object {
         fun new(guild: PartialGuild, id: Snowflake): PartialTextChannel
-                = object: PartialTextChannel {
-            override val snowflake: Snowflake = id
-            override val bot: DiscordProxyKt = guild.bot
-            override val internalGuild: PartialGuild = guild
-            override fun upgrade(): IRestAction<TextChannel>
-                    = IRestAction.FuturesRestAction(guild.bot) {
-                guild.fetchChannels.request().thenApply {
-                    it.find { ch -> ch.snowflake == id } as TextChannel
+            = object: PartialTextChannel {
+                override val snowflake: Snowflake = id
+                override val bot: DiscordProxyKt = guild.bot
+                override val internalGuild: PartialGuild = guild
+                override fun upgrade(): IRestAction<TextChannel>
+                        = IRestAction.FuturesRestAction(guild.bot) {
+                    guild.fetchChannels.request().thenApply {
+                        it.find { ch -> ch.snowflake == id } as TextChannel
+                    }
                 }
             }
-        }
     }
+    
+    override val type: ChannelType
+        get() = ChannelType.TEXT
     
     fun upgrade(): IRestAction<TextChannel>
     
@@ -143,9 +146,6 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
     
     override fun fetchMessage(message: Snowflake): PartialMessage
         = PartialMessage.new(this as GuildChannel, message)
-    
-    override val type: ChannelType
-        get() = ChannelType.TEXT
     
     override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
     

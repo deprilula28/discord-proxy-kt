@@ -2,8 +2,11 @@ package me.deprilula28.discordproxykt.entities.discord.channel
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.PartialEntity
+import me.deprilula28.discordproxykt.entities.Snowflake
+import me.deprilula28.discordproxykt.entities.UnavailableField
 import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.rest.IRestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
@@ -16,7 +19,7 @@ import me.deprilula28.discordproxykt.rest.RestEndpoint
  * isn't more specific than that)<br>
  * You can use the RestAction this type implements to get a full type, with permission checking.
  */
-interface PartialGuildChannel: PartialEntity {
+interface PartialGuildChannel: PartialEntity, Channel {
     val fetchInvites: IRestAction<List<ExtendedInvite>>
         get() = bot.request(
             RestEndpoint.GET_CHANNEL_INVITES.path(snowflake.id),
@@ -38,10 +41,6 @@ interface GuildChannel: PartialGuildChannel {
      * the id of the guild
      */
     val guild: PartialGuild
-    /**
-     * the type of channel; only conversion between text and news is supported and only in guilds with the "NEWS" feature
-     */
-    val type: ChannelType
     /**
      * sorting position of the channel<br>
      * Note: Discord does not assure this will be continuous. There may be two channels under the same position value,

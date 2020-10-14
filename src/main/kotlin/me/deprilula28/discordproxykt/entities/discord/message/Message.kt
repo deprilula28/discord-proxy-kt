@@ -219,23 +219,6 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
         CHANNEL({ mentionChannels ?: listOf() }),
     }
     
-    @Deprecated("JDA Compatibility Field", ReplaceWith("mentions"))
-    val mentionedUsers: List<User> by ::mentions
-    
-    @Deprecated("JDA Compatibility Function", ReplaceWith("mentionEveryone"))
-    fun mentionsEveryone() = mentionEveryone
-    
-    @Deprecated("JDA Compatibility Field", ReplaceWith("mentionChannels"))
-    val mentionedChannels: List<MessageChannel>
-        get() = mentionChannels?.map { it.upgrade().request().get() } ?: listOf()
-    @Deprecated("JDA Compatibility Field", ReplaceWith("mentionRoles"))
-    val mentionedRoles: List<Role>
-        get() = mentionRoles.map { it.upgrade().request().get() }
-    
-    @Deprecated("JDA Compatibility Field", ReplaceWith("editTimestamp.offsetDateTime"))
-    val timeEdited: OffsetDateTime?
-        get() = editTimestamp?.offsetDateTime
-    
     enum class Flags {
         CROSSPOSTED, IS_CROSSPOST, SUPPRESS_EMBEDS, SOURCE_MESSAGE_DELETED, URGENT,
     }
@@ -275,6 +258,19 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
         message.toMessage().first
     }
     
+    @Deprecated("JDA Compatibility Field", ReplaceWith("mentions"))
+    val mentionedUsers: List<User> by ::mentions
+    @Deprecated("JDA Compatibility Function", ReplaceWith("mentionEveryone"))
+    fun mentionsEveryone() = mentionEveryone
+    @Deprecated("JDA Compatibility Field", ReplaceWith("mentionChannels"))
+    val mentionedChannels: List<MessageChannel>
+        get() = mentionChannels?.map { it.upgrade().request().get() } ?: listOf()
+    @Deprecated("JDA Compatibility Field", ReplaceWith("mentionRoles"))
+    val mentionedRoles: List<Role>
+        get() = mentionRoles.map { it.upgrade().request().get() }
+    @Deprecated("JDA Compatibility Field", ReplaceWith("editTimestamp.offsetDateTime"))
+    val timeEdited: OffsetDateTime?
+        get() = editTimestamp?.offsetDateTime
     @Deprecated("JDA Compatibility Field", ReplaceWith("editTimestamp != null"))
     val edited: Boolean
         get() = editTimestamp != null

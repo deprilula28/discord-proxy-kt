@@ -12,6 +12,7 @@ import me.deprilula28.discordproxykt.cache.MemoryCache
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialMessageChannel
+import me.deprilula28.discordproxykt.entities.discord.channel.PartialPrivateChannel
 import me.deprilula28.discordproxykt.events.EventConsumer
 import me.deprilula28.discordproxykt.events.Events
 import me.deprilula28.discordproxykt.rest.RestAction
@@ -54,6 +55,7 @@ open class DiscordProxyKt internal constructor(
     
     fun fetchGuild(snowflake: Snowflake) = PartialGuild.new(snowflake, this)
     fun fetchUser(snowflake: Snowflake) = PartialUser.new(snowflake, this)
+    fun fetchPrivateChannel(snowflake: Snowflake) = PartialPrivateChannel.new(snowflake, this)
     
     init {
         val factory = ConnectionFactory()
@@ -78,39 +80,4 @@ open class DiscordProxyKt internal constructor(
     
     fun <T: Any> request(path: RestEndpoint.Path, constructor: JsonElement.(DiscordProxyKt) -> T, postData: (() -> String)? = null)
         = RestAction(this, path, constructor, postData)
-    
-    companion object {
-        /**
-         * Call [build] on this type to construct a [DiscordProxyKt] instance.
-         *
-         * # Required Parameters
-         *
-         * @param group - AMQP group defined for Spectacles
-         * @param subgroup - The unique identifier for this worker, must be different for each instance you run
-         * @param broker - URI used to connect to the AMQP broker (RabbitMQ)
-         * @param token - The token used in requests to Discord
-         *
-         * # Optional Parameters
-         *
-         * [coroutineScope] - The coroutine scope that should be used for suspend actions. By default, [GlobalScope].
-         * [httpClient] - The HTTP Client that should be used for Rest Actions.
-         * [cache] - The cache solution. By default, [MemoryCache].
-         * [defaultExceptionHandler] - The handler for failed rest actions and event handles.
-         * [deleteQueuesAfter] - Whether to remove the AMQP queues after this process closes.<br>
-         * Notice that this just informs the connection of its preference, instead of actually performing the removal.
-         */
-        class Builder(var group: String, var subgroup: String, var broker: URI, var token: String?) {
-            var coroutineScope: CoroutineScope = GlobalScope
-            var httpClient: HttpClient = HttpClient.newBuilder()
-                .version(HttpClient.Version.HTTP_2)
-                .connectTimeout(Duration.ofSeconds(30L))
-                .build()
-            var cache: Cache = MemoryCache(coroutineScope, 5L to TimeUnit.MINUTES)
-            var defaultExceptionHandler: (Exception) -> Unit = { it.printStackTrace() }
-            var deleteQueuesAfter: Boolean = false
-            
-            fun build(): DiscordProxyKt = DiscordProxyKt(group, subgroup, broker, coroutineScope, httpClient, token,
-                                                         cache, defaultExceptionHandler, deleteQueuesAfter)
-        }
-    }
 }

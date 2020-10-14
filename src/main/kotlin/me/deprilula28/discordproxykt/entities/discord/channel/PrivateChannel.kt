@@ -20,13 +20,16 @@ interface PartialPrivateChannel: PartialMessageChannel, PartialEntity {
                 override val snowflake: Snowflake = id
                 override val bot: DiscordProxyKt = bot
     
-            override fun upgrade(): IRestAction<PrivateChannel>
-                = RestAction(bot, RestEndpoint.CREATE_DM.path(), { PrivateChannel(this as JsonObject, bot) }, {
-                    Json.encodeToString("recipient_id" to JsonPrimitive(id.id))
-                }
-            )
-        }
+                override fun upgrade(): IRestAction<PrivateChannel>
+                    = RestAction(bot, RestEndpoint.CREATE_DM.path(), { PrivateChannel(this as JsonObject, bot) }, {
+                        Json.encodeToString("recipient_id" to JsonPrimitive(id.id))
+                    }
+                )
+            }
     }
+    
+    override val type: ChannelType
+        get() = ChannelType.PRIVATE
     
     fun upgrade(): IRestAction<PrivateChannel>
 }

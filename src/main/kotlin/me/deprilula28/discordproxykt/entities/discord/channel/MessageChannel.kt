@@ -1,27 +1,25 @@
 package me.deprilula28.discordproxykt.entities.discord.channel
 
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import me.deprilula28.discordproxykt.DiscordProxyKt
-import me.deprilula28.discordproxykt.builder.EmbedBuilder
+import me.deprilula28.discordproxykt.builder.MessageBuilder
 import me.deprilula28.discordproxykt.builder.MessageConversion
 import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
+import me.deprilula28.discordproxykt.entities.discord.message.Emoji
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
-import me.deprilula28.discordproxykt.builder.MessageBuilder
-import me.deprilula28.discordproxykt.entities.discord.Guild
-import me.deprilula28.discordproxykt.entities.discord.PartialGuild
-import me.deprilula28.discordproxykt.entities.discord.message.Emoji
-import me.deprilula28.discordproxykt.rest.*
+import me.deprilula28.discordproxykt.rest.IRestAction
+import me.deprilula28.discordproxykt.rest.PaginatedAction
+import me.deprilula28.discordproxykt.rest.RestAction
+import me.deprilula28.discordproxykt.rest.RestEndpoint
 
 /**
  * Channel documentation:
  * https://discord.com/developers/docs/resources/channel
  */
-interface PartialMessageChannel: PartialEntity {
+interface PartialMessageChannel: PartialEntity, Channel {
     fun fetchMessage(message: Snowflake): PartialMessage = PartialMessage.new(this, message)
     
     val fetchPins: RestAction<List<Message>>
@@ -106,8 +104,6 @@ interface PartialMessageChannel: PartialEntity {
     fun retrieveReactionUsersById(message: Long, emote: Emoji) = fetchMessage(Snowflake(message.toString())).fetchReactions(emote)
     @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMessage(Snowflake(message.toString())).fetchReactions(emote)"))
     fun retrieveReactionUsersById(message: Long, emote: String) = fetchMessage(Snowflake(message.toString())).fetchReactions(emote)
-    
-    interface Upgradeable: PartialMessageChannel
 }
 
 interface MessageChannel {
