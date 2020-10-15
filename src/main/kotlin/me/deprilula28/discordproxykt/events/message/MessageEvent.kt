@@ -6,7 +6,7 @@ import me.deprilula28.discordproxykt.entities.discord.channel.*
 import me.deprilula28.discordproxykt.events.Event
 
 interface MessageEvent: Event {
-    val snowflake: Snowflake
+    val messageSnowflake: Snowflake
     val channel: PartialMessageChannel
     
     val channelType: ChannelType
@@ -29,8 +29,8 @@ interface MessageEvent: Event {
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("snowflake.id"))
     val messageId: String
-        get() = snowflake.id
+        get() = messageSnowflake.id
     @Deprecated("JDA Compatibility Field", ReplaceWith("snowflake.idLong"))
     val messageIdLong: Long
-        get() = snowflake.idLong
+        get() = messageSnowflake.idLong
 }

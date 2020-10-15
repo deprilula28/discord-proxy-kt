@@ -12,7 +12,7 @@ import me.deprilula28.discordproxykt.rest.delegateJson
 class MessageUpdateEvent(map: JsonObject, override val bot: DiscordProxyKt): MessageEvent {
     val message: Message = Message(map, bot)
     
-    override val snowflake: Snowflake by message::snowflake
+    override val messageSnowflake: Snowflake by message::snowflake
     override val channel: PartialMessageChannel
         get() = if (message.guild == null) message.privateChannel as PartialMessageChannel
         else message.textChannel as PartialMessageChannel

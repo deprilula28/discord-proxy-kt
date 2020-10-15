@@ -11,7 +11,7 @@ import me.deprilula28.discordproxykt.rest.delegateJson
 import me.deprilula28.discordproxykt.rest.delegateJsonNullable
 
 class MessageDeleteEvent(map: JsonObject, override val bot: DiscordProxyKt): MessageEvent {
-    override val snowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "id")
+    override val messageSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "id")
     val guild: PartialGuild? by map.delegateJsonNullable({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     val channelRaw: Snowflake by map.delegateJson(JsonElement::asSnowflake, "channel_id")
     

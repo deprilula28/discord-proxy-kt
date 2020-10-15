@@ -14,7 +14,7 @@ import me.deprilula28.discordproxykt.rest.delegateJson
 
 class GuildMemberLeaveEvent(map: JsonObject, override val bot: DiscordProxyKt): GuildEvent {
     val user: User by map.delegateJson({ User(this as JsonObject, bot) })
-    override val snowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
+    override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("null"))
     val member: Member? = null

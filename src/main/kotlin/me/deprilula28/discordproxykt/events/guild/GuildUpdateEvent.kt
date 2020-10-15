@@ -8,5 +8,5 @@ import me.deprilula28.discordproxykt.entities.discord.Guild
 class GuildUpdateEvent(map: JsonObject, override val bot: DiscordProxyKt): GuildEvent {
     override val guild: Guild = Guild(map, bot)
     
-    override val snowflake: Snowflake by guild::snowflake
+    override val guildSnowflake: Snowflake by guild::snowflake
 }

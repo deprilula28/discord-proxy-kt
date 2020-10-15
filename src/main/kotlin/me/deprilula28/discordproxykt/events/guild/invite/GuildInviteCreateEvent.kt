@@ -10,7 +10,7 @@ import me.deprilula28.discordproxykt.rest.asSnowflake
 import me.deprilula28.discordproxykt.rest.delegateJson
 
 class GuildInviteCreateEvent(map: JsonObject, override val bot: DiscordProxyKt): GuildInviteEvent {
-    override val snowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
+    override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
     val invite: ExtendedInvite = ExtendedInvite(map, bot, guild)
     
     override val code: String by invite::code

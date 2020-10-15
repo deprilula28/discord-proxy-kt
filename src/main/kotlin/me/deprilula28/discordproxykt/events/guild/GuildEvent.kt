@@ -5,14 +5,14 @@ import me.deprilula28.discordproxykt.entities.discord.PartialGuild
 import me.deprilula28.discordproxykt.events.Event
 
 interface GuildEvent: Event {
-    val snowflake: Snowflake
+    val guildSnowflake: Snowflake
     val guild: PartialGuild
-        get() = bot.fetchGuild(snowflake)
+        get() = bot.fetchGuild(guildSnowflake)
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("snowflake.id"))
     val guildId: String
-        get() = snowflake.id
+        get() = guildSnowflake.id
     @Deprecated("JDA Compatibility Field", ReplaceWith("snowflake.idLong"))
     val guildIdLong: Long
-        get() = snowflake.idLong
+        get() = guildSnowflake.idLong
 }

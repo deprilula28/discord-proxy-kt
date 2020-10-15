@@ -14,7 +14,7 @@ class GuildInviteDeleteEvent(map: JsonObject, override val bot: DiscordProxyKt):
     /**
      * @throws [UnavailableField] If this wasn't done in a guild
      */
-    override val snowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
+    override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
     override val channel: PartialGuildChannel by map.delegateJson({ PartialGuildChannel.new(guild, asSnowflake()) }, "channel_id")
     override val code: String by map.delegateJson(JsonElement::asString, "code")
 }

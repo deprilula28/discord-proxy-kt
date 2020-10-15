@@ -13,5 +13,5 @@ import me.deprilula28.discordproxykt.rest.delegateJson
 
 class GuildMemberJoinEvent(map: JsonObject, override val bot: DiscordProxyKt): GuildMemberEvent {
     override val member: Member = Member(guild, map, bot)
-    override val snowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
+    override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
 }

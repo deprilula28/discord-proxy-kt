@@ -13,6 +13,6 @@ class GuildMemberUpdateEvent(map: JsonObject, override val bot: DiscordProxyKt):
     /**
      * @throws [UnavailableField] When you call [Member.mute] and [Member.deaf] under the member.
      */
-    override val snowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
+    override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
     override val member: Member = Member(guild, map, bot)
 }

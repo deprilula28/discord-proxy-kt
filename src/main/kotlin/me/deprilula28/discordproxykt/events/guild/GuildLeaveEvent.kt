@@ -9,5 +9,5 @@ import me.deprilula28.discordproxykt.rest.asSnowflake
 import me.deprilula28.discordproxykt.rest.delegateJson
 
 class GuildLeaveEvent(map: JsonObject, override val bot: DiscordProxyKt): GuildEvent {
-    override val snowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "id")
+    override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "id")
 }

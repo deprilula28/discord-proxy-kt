@@ -219,7 +219,7 @@ import kotlin.test.assertEquals
         val event = MessageDeleteEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                        Mockito.mock(DiscordProxyKt::class.java))
         
-        assertEquals(event.snowflake, Snowflake("766110601217966103"))
+        assertEquals(event.messageSnowflake, Snowflake("766110601217966103"))
         assertEquals(event.guild!!.snowflake, Snowflake("345259986303057930"))
         assertEquals(event.channel.snowflake, Snowflake("629123234473836545"))
     }
@@ -282,7 +282,7 @@ import kotlin.test.assertEquals
         val event = RoleCreateEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                     Mockito.mock(DiscordProxyKt::class.java))
         
-        assertEquals(event.snowflake, Snowflake("345259986303057930"))
+        assertEquals(event.guildSnowflake, Snowflake("345259986303057930"))
         
         val role = event.role
         assertEquals(role.position, 1)
@@ -316,7 +316,7 @@ import kotlin.test.assertEquals
         
         val event = RoleDeleteEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                     Mockito.mock(DiscordProxyKt::class.java))
-        assertEquals(event.snowflake, Snowflake("345259986303057930"))
+        assertEquals(event.guildSnowflake, Snowflake("345259986303057930"))
         assertEquals(event.role.snowflake, Snowflake("766340218541703228"))
     }
     
@@ -343,7 +343,7 @@ import kotlin.test.assertEquals
         val event = RoleUpdateEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                          Mockito.mock(DiscordProxyKt::class.java))
         
-        assertEquals(event.snowflake, Snowflake("345259986303057930"))
+        assertEquals(event.guildSnowflake, Snowflake("345259986303057930"))
         assertEquals(event.role.snowflake, Snowflake("766115747633954856"))
     }
     
@@ -380,7 +380,7 @@ import kotlin.test.assertEquals
         
         val event = MessageReactionAddEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                                  Mockito.mock(DiscordProxyKt::class.java))
-        assertEquals(event.snowflake, Snowflake("766306614247555082"))
+        assertEquals(event.messageSnowflake, Snowflake("766306614247555082"))
         assertEquals(event.user.snowflake, Snowflake("197448151064379393"))
         assertEquals(event.channel.snowflake, Snowflake("484530691107717131"))
         assertEquals(event.guild!!.snowflake, Snowflake("345259986303057930"))
@@ -432,7 +432,7 @@ import kotlin.test.assertEquals
         
         val event = MessageReactionRemoveEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                                Mockito.mock(DiscordProxyKt::class.java))
-        assertEquals(event.snowflake, Snowflake("766306617045549126"))
+        assertEquals(event.messageSnowflake, Snowflake("766306617045549126"))
         assertEquals(event.user.snowflake, Snowflake("197448151064379393"))
         assertEquals(event.guild!!.snowflake, Snowflake("345259986303057930"))
         assertEquals(event.channel.snowflake, Snowflake("484530691107717131"))
@@ -450,7 +450,7 @@ import kotlin.test.assertEquals
         
         val event = MessageReactionRemoveAllEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                                        Mockito.mock(DiscordProxyKt::class.java))
-        assertEquals(event.snowflake, Snowflake("766306611215335425"))
+        assertEquals(event.messageSnowflake, Snowflake("766306611215335425"))
         assertEquals(event.channel.snowflake, Snowflake("484530691107717131"))
         assertEquals(event.guild!!.snowflake, Snowflake("345259986303057930"))
     }
@@ -684,7 +684,7 @@ import kotlin.test.assertEquals
         
         val event = GuildLeaveEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                          Mockito.mock(DiscordProxyKt::class.java))
-        assertEquals(event.snowflake, Snowflake("505164341725757480"))
+        assertEquals(event.guildSnowflake, Snowflake("505164341725757480"))
     }
     
     @Test fun guildBanAdd() {
@@ -703,7 +703,7 @@ import kotlin.test.assertEquals
         
         val event = GuildBanEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                   Mockito.mock(DiscordProxyKt::class.java))
-        assertEquals(event.snowflake, Snowflake("505161921784315938"))
+        assertEquals(event.guildSnowflake, Snowflake("505161921784315938"))
         
         val user = event.user
         assertEquals(user.username, "Pixal Aqua")
@@ -729,7 +729,7 @@ import kotlin.test.assertEquals
         
         val event = GuildUnbanEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                     Mockito.mock(DiscordProxyKt::class.java))
-        assertEquals(event.snowflake, Snowflake("505161921784315938"))
+        assertEquals(event.guildSnowflake, Snowflake("505161921784315938"))
         
         val user = event.user
         assertEquals(user.username, "Pixal Aqua")
@@ -763,7 +763,7 @@ import kotlin.test.assertEquals
         
         val event = GuildMemberUpdateEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                                 Mockito.mock(DiscordProxyKt::class.java))
-        assertEquals(event.snowflake, Snowflake("505164341725757480"))
+        assertEquals(event.guildSnowflake, Snowflake("505164341725757480"))
         
         val member = event.member
         assertEquals(member.nick, null)
@@ -815,7 +815,7 @@ import kotlin.test.assertEquals
         
         val event = GuildUpdateEmojisEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                                 Mockito.mock(DiscordProxyKt::class.java))
-        assertEquals(event.snowflake, Snowflake("706912653829996626"))
+        assertEquals(event.guildSnowflake, Snowflake("706912653829996626"))
         
         val emojis = event.emojis
         assertEquals(emojis.size, 1)
@@ -852,7 +852,7 @@ import kotlin.test.assertEquals
         
         val event = GuildInviteCreateEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                                 Mockito.mock(DiscordProxyKt::class.java))
-        assertEquals(event.snowflake, Snowflake("505161921784315938"))
+        assertEquals(event.guildSnowflake, Snowflake("505161921784315938"))
         assertEquals(event.channel.snowflake, Snowflake("505175551850315796"))
         assertEquals(event.code, "6JY6CR")
         
@@ -885,7 +885,7 @@ import kotlin.test.assertEquals
         
         val event = GuildInviteDeleteEvent(Json.decodeFromString(JsonObject.serializer(), text),
                                            Mockito.mock(DiscordProxyKt::class.java))
-        assertEquals(event.snowflake, Snowflake("505161921784315938"))
+        assertEquals(event.guildSnowflake, Snowflake("505161921784315938"))
         assertEquals(event.code, "3xcUk4")
         assertEquals(event.channel.snowflake, Snowflake("505175551850315796"))
     }
