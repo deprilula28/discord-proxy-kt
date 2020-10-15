@@ -79,5 +79,5 @@ inline fun <reified T: Any> useSelfMemberRoles(guild: PartialGuild, crossinline 
         }
     }
     val resNow = future.getNow(null)
-    return resNow?.run { IRestAction.ProvidedRestAction(guild.bot, this) } ?: IRestAction.FuturesRestAction(guild.bot) { future }
+    return resNow?.run { IRestAction.ProvidedRestAction(guild.bot, this) } ?: IRestAction.future(guild.bot, future)
 }

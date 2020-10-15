@@ -1,11 +1,7 @@
 package me.deprilula28.discordproxykt.events
 
-import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.entities.Parse
 
-interface Event {
-    val bot: DiscordProxyKt
-    
-    @Deprecated("JDA Compatibility Field", ReplaceWith("bot"))
-    val jda: DiscordProxyKt
-        get() = bot
+interface Event: Parse {
+    fun handle() {}
 }

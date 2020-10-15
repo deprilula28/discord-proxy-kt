@@ -40,7 +40,7 @@ interface PartialMessage: PartialEntity {
                 override val snowflake: Snowflake = id
     
                 override fun upgrade(): IRestAction<Message>
-                    = IRestAction.FuturesRestAction(channel.bot) {
+                    = IRestAction.LazyFutureAction(channel.bot) {
                         assertPermissions(channel, Permissions.READ_MESSAGE_HISTORY) {
                             RestAction(channel.bot, RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id),
                                        { Message(this as JsonObject, channel.bot) })
@@ -107,88 +107,97 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     /**
      * id of the channel the message was sent in
      */
-    override val channelRaw: Snowflake by map.delegateJson(JsonElement::asSnowflake, "channel_id")
+    override val channelRaw: Snowflake by parsing(JsonElement::asSnowflake, "channel_id")
     /**
      * id of the guild the message was sent in
      */
-    val guild: PartialGuild? by map.delegateJsonNullable({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    val guild: PartialGuild? by parsingOpt({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     /**
      * the author of this message (not guaranteed to be a valid user, see below)
      */
-    val author: User by map.delegateJson({ User(this as JsonObject, bot) })
+    val author: User by parsing({ User(this as JsonObject, bot) })
     /**
      * member properties for this message's author
      */
-    val member: Member? by map.delegateJsonNullable({ if (guild != null) Member(guild ?: throw UnavailableField(), this as JsonObject, bot, author) else null })
+    val member: Member? by parsingOpt(
+        { if (guild != null) Member(guild ?: throw UnavailableField(), this as JsonObject, bot, author) else null })
     /**
      * contents of the message
      */
-    val content: String by map.delegateJson(JsonElement::asString)
+    val content: String by parsing(JsonElement::asString)
     /**
      * used for validating a message was sent
      */
-    val nonce: String? by map.delegateJsonNullable(JsonElement::asString)
+    val nonce: String? by parsingOpt(JsonElement::asString)
     /**
      * when this message was sent
      */
-    val timestamp: Timestamp by map.delegateJson(JsonElement::asTimestamp)
+    val timestamp: Timestamp by parsing(JsonElement::asTimestamp)
     /**
      * when this message was edited (or null if never)
      */
-    val editTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "edited_timestamp")
+    val editTimestamp: Timestamp? by parsingOpt(JsonElement::asTimestamp, "edited_timestamp")
     /**
      * whether this was a TTS message
      */
-    val tts: Boolean by map.delegateJson(JsonElement::asBoolean)
+    val tts: Boolean by parsing(JsonElement::asBoolean)
     /**
      * whether this message mentions everyone
      */
-    val mentionEveryone: Boolean by map.delegateJson(JsonElement::asBoolean, "mention_everyone")
+    val mentionEveryone: Boolean by parsing(JsonElement::asBoolean, "mention_everyone")
     /**
      * users specifically mentioned in the message
      */
-    val mentions: List<User> by map.delegateJson({ (this as JsonArray).map { User(it as JsonObject, bot) } })
+    val mentions: List<User> by parsing({ (this as JsonArray).map { User(it as JsonObject, bot) } })
     /**
      * roles specifically mentioned in this message
      */
-    val mentionRoles: List<PartialRole> by map.delegateJson({
-        guild?.run { (this@delegateJson as JsonArray).map { PartialRole.new(this, it.asSnowflake()) } } ?: listOf()
+    val mentionRoles: List<PartialRole> by parsing({
+        guild?.run {
+            (this@parsing as JsonArray).map {
+                PartialRole.new(this, it.asSnowflake())
+            }
+        } ?: listOf()
     }, "mention_roles")
     /**
      * channels specifically mentioned in this message
      */
-    val mentionChannels: List<PartialTextChannel>? by map.delegateJsonNullable({
+    val mentionChannels: List<PartialTextChannel>? by parsingOpt({
         if (guild == null) null
-        else (this as JsonArray?)?.map { PartialTextChannel.new(guild!!, (it as JsonObject)["id"]!!.asSnowflake()) }
+        else (this as JsonArray?)?.map {
+            PartialTextChannel.new(guild!!,
+                                   (it as JsonObject)["id"]!!.asSnowflake())
+        }
     }, "mention_channels")
     /**
      * any attached files
      */
-    val attachments: List<Attachment> by map.delegateJson({ (this as JsonArray).map { Attachment(it as JsonObject, bot) } })
+    val attachments: List<Attachment> by parsing({ (this as JsonArray).map { Attachment(it as JsonObject, bot) } })
     /**
      * any embedded content
      */
-    val embeds: List<Embed> by map.delegateJson({ (this as JsonArray).map { Embed(it as JsonObject, bot) } })
+    val embeds: List<Embed> by parsing({ (this as JsonArray).map { Embed(it as JsonObject, bot) } })
     /**
      * reactions to the message
      */
-    val reactions: List<Reaction>? by map.delegateJsonNullable({ (this as JsonArray).map { Reaction(it as JsonObject, bot) } })
+    val reactions: List<Reaction>? by parsingOpt(
+        { (this as JsonArray).map { Reaction(it as JsonObject, bot) } })
     /**
      * whether this message is pinned
      */
-    val pinned: Boolean by map.delegateJson(JsonElement::asBoolean)
+    val pinned: Boolean by parsing(JsonElement::asBoolean)
     /**
      * if the message is generated by a webhook, this is the webhook's id
      */
-    val webhookId: Snowflake? by map.delegateJsonNullable(JsonElement::asSnowflake)
+    val webhookId: Snowflake? by parsingOpt(JsonElement::asSnowflake)
     /**
      * type of message
      */
-    val type: Type by map.delegateJson({ Type.values()[asInt()] })
+    val type: Type by parsing({ Type.values()[asInt()] })
     /**
      * message flags ORd together, describes extra features of the message
      */
-    val flags: EnumSet<Flags> by map.delegateJson({ asLong().bitSetToEnumSet(Flags.values()) })
+    val flags: EnumSet<Flags> by parsing({ asLong().bitSetToEnumSet(Flags.values()) })
     
     // JDA Compatibility
     fun getMentions(vararg types: MentionType): List<Mentionable> = types.flatMap { it.method(this@Message) }

@@ -23,57 +23,61 @@ class VoiceRegion(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot) {
     /**
      * name of the region
      */
-    val name: String by map.delegateJson(JsonElement::asString)
+    val name: String by parsing(JsonElement::asString)
     /**
      * true if this is a vip-only server
      * <br>
      * "VIP" regions are now known as 368kbps regions for boosted servers
      */
-    val vip: Boolean by map.delegateJson(JsonElement::asBoolean)
+    val vip: Boolean by parsing(JsonElement::asBoolean)
     /**
      * true for a single server that is closest to the current user's client
      */
-    val optimal: Boolean by map.delegateJson(JsonElement::asBoolean)
+    val optimal: Boolean by parsing(JsonElement::asBoolean)
     /**
      * whether this is a deprecated voice region (avoid switching to these)
      */
-    val deprecated: Boolean by map.delegateJson(JsonElement::asBoolean)
+    val deprecated: Boolean by parsing(JsonElement::asBoolean)
     /**
      * whether this is a custom voice region (used for events/etc)
      */
-    val custom: Boolean by map.delegateJson(JsonElement::asBoolean)
+    val custom: Boolean by parsing(JsonElement::asBoolean)
 }
 
 /**
  * https://discord.com/developers/docs/resources/guild#ban-object
  */
-data class Ban(private val map: JsonObject, private val bot: DiscordProxyKt) {
-    val user: User by map.delegateJson({ User(this as JsonObject, bot) })
-    val reason: String by map.delegateJson(JsonElement::asString)
+data class Ban(override val map: JsonObject, override val bot: DiscordProxyKt): Parse {
+    val user: User by parsing({ User(this as JsonObject, bot) })
+    val reason: String by parsing(JsonElement::asString)
 }
 
 /**
  * https://discord.com/developers/docs/resources/invite#invite-object
  */
-open class Invite(var map: JsonObject, val bot: DiscordProxyKt, private val internalGuild: PartialGuild? = null) {
-    val code: String by map.delegateJson(JsonElement::asString)
-    val guild: Guild? by map.delegateJsonNullable({ Guild(this as JsonObject, bot) })
-    val inviter: User? by map.delegateJsonNullable({ User(this as JsonObject, bot) })
-    val targetUser: User? by map.delegateJsonNullable({ User(this as JsonObject, bot) }, "target_user")
-    val approxPresenceCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_presence_count")
-    val approxMemberCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_member_count")
+open class Invite(override var map: JsonObject, override val bot: DiscordProxyKt, private val internalGuild: PartialGuild? = null): Parse {
+    val code: String by parsing(JsonElement::asString)
+    val guild: Guild? by parsingOpt({ Guild(this as JsonObject, bot) })
+    val inviter: User? by parsingOpt({ User(this as JsonObject, bot) })
+    val targetUser: User? by parsingOpt({ User(this as JsonObject, bot) }, "target_user")
+    val approxPresenceCount: Int? by parsingOpt(JsonElement::asInt, "approximate_presence_count")
+    val approxMemberCount: Int? by parsingOpt(JsonElement::asInt, "approximate_member_count")
     
     /**
      * This is present under fetched invites
      */
-    val cachedChannel: GuildChannel? by map.delegateJsonNullable({
-         (guild ?: internalGuild)?.run { this@delegateJsonNullable.asGuildChannel(bot, this) }
+    val cachedChannel: GuildChannel? by parsingOpt({
+        (guild ?: internalGuild)?.run {
+            this@parsingOpt.asGuildChannel(bot, this)
+        }
     }, "channel")
     /**
      * This is present under invite events [GuildInviteCreateEvent] and [GuildInviteDeleteEvent]
      */
-    val partialChannel: PartialGuildChannel? by map.delegateJsonNullable({
-         (guild ?: internalGuild)?.run { PartialGuildChannel.new(this, asSnowflake()) }
+    val partialChannel: PartialGuildChannel? by parsingOpt({
+        (guild ?: internalGuild)?.run {
+            PartialGuildChannel.new(this, asSnowflake())
+        }
     }, "channel_id")
     
     /**
@@ -124,11 +128,11 @@ class InviteBuilder(private val internalChannel: GuildChannel, bot: DiscordProxy
 class ExtendedInvite(map: JsonObject, bot: DiscordProxyKt, internalGuild: PartialGuild? = null):
     Invite(map, bot, internalGuild)
 {
-    val uses: Int by map.delegateJson(JsonElement::asInt, "uses")
-    val maxUses: Int by map.delegateJson(JsonElement::asInt, "max_uses")
-    val maxAge: Int by map.delegateJson(JsonElement::asInt, "max_age")
-    val temporary: Boolean by map.delegateJson(JsonElement::asBoolean)
-    val createdAt: Timestamp by map.delegateJson(JsonElement::asTimestamp, "created_at")
+    val uses: Int by parsing(JsonElement::asInt, "uses")
+    val maxUses: Int by parsing(JsonElement::asInt, "max_uses")
+    val maxAge: Int by parsing(JsonElement::asInt, "max_age")
+    val temporary: Boolean by parsing(JsonElement::asBoolean)
+    val createdAt: Timestamp by parsing(JsonElement::asTimestamp, "created_at")
 }
 
 /**
@@ -252,12 +256,11 @@ interface PartialGuild: PartialEntity {
         )
     
     val fetchSelfMember: IRestAction<Member>
-        get() = IRestAction.FuturesRestAction(bot) {
-            bot.selfUser.request().thenCompose { fetchMember(it.snowflake).upgrade().request() }
-        }
+        get() = IRestAction.future(bot, bot.selfUser.request().thenCompose { fetchMember(it.snowflake).upgrade().request() })
     
     val fetchUserPermissions: IRestAction<EnumSet<Permissions>>
-        get() = IRestAction.FuturesRestAction(bot) {
+        get() = IRestAction.future(
+            bot,
             // In constructed guilds, fetchRoles has no requests needed
             bot.selfUser.request().thenCompose { fetchMember(it.snowflake).upgrade().request() }.thenCompose { member ->
                 member.fetchRoles.request().thenApply { selfRoles ->
@@ -265,8 +268,8 @@ interface PartialGuild: PartialEntity {
                     selfRoles.forEach { el -> set = set and el.permissionsRaw }
                     set.bitSetToEnumSet(Permissions.values())
                 }
-            }
-        }
+            },
+        )
     
     fun addMember(accessToken: String, user: PartialUser): IRestAction<Member>
         = assertPermissions(this, Permissions.CREATE_INSTANT_INVITE) {
@@ -486,82 +489,78 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     /**
      * guild name (2-100 characters, excluding trailing and leading whitespace)
      */
-    var name: String by map.delegateJsonMutable(JsonElement::asString, Json::encodeToJsonElement)
+    var name: String by parsing(JsonElement::asString, Json::encodeToJsonElement)
     /**
      * id of owner
      */
-    var owner: PartialMember by map.delegateJsonMutable(
-        { fetchMember(asSnowflake()) },
-        { Json.encodeToJsonElement(it.user.snowflake.id) },
-        "owner_id"
-    )
+    var owner: PartialMember by parsing({ fetchMember(asSnowflake()) },
+                                                                           { Json.encodeToJsonElement(it.user.snowflake.id) }, "owner_id")
     /**
      * application id of the guild creator if it is bot-created
      */
-    val applicationSnowflake: Snowflake? by map.delegateJsonNullable(JsonElement::asSnowflake, "application_id")
+    val applicationSnowflake: Snowflake? by parsingOpt(JsonElement::asSnowflake, "application_id")
     
     /**
      * roles in the guild
      */
-    val cachedRoles: List<Role> by map.delegateJson({ (this as JsonArray).map { Role(this@Guild, it as JsonObject, bot) } }, "roles")
+    val cachedRoles: List<Role> by parsing({ (this as JsonArray).map { Role(this@Guild, it as JsonObject, bot) } },
+                                                                              "roles")
     /**
      * custom guild emojis
      */
-    val emojis: List<GuildEmoji> by map.delegateJson({ (this as JsonArray).map { GuildEmoji(it as JsonObject, bot) } })
+    val emojis: List<GuildEmoji> by parsing({ (this as JsonArray).map { GuildEmoji(it as JsonObject, bot) } })
     
     /**
      * the description for the guild, if the guild is discoverable
      */
-    val description: String? by map.delegateJsonNullable(JsonElement::asString)
+    val description: String? by parsingOpt(JsonElement::asString)
     /**
      * discovery splash hash; only present for guilds with the "DISCOVERABLE" feature
      */
-    val discoverableSplash: String? by map.delegateJsonNullable(JsonElement::asString, "discovery_splash")
+    val discoverableSplash: String? by parsingOpt(JsonElement::asString, "discovery_splash")
     /**
      * banner hash
      */
-    val banner: String? by map.delegateJsonNullable(JsonElement::asString)
+    val banner: String? by parsingOpt(JsonElement::asString)
     /**
      * the id of the channel where guilds with the "PUBLIC" feature can display rules and/or guidelines
      */
-    val rulesChannelSnowflake: Snowflake? by map.delegateJsonNullable(JsonElement::asSnowflake, "rules_channel_id")
+    val rulesChannelSnowflake: Snowflake? by parsingOpt(JsonElement::asSnowflake, "rules_channel_id")
     /**
      * 	the preferred locale of a guild with the "PUBLIC" feature; used in server discovery and notices from Discord; defaults to "en-US"
      */
-    var locale: String by map.delegateJsonMutable(JsonElement::asString, Json::encodeToJsonElement, "preferred_locale")
+    var locale: String by parsing(JsonElement::asString, Json::encodeToJsonElement, "preferred_locale")
     /**
      * 	the id of the channel where admins and moderators of guilds with the "PUBLIC" feature receive notices from Discord
      */
-    var publicUpdatesChannel: PartialTextChannel? by map.delegateJsonMutableNullable(
-        ::delegateChannel,
-        { Json.encodeToJsonElement(it?.snowflake?.id) },
-        "public_updates_channel_id"
-    )
+    var publicUpdatesChannel: PartialTextChannel? by parsingOpt(::delegateChannel, {
+        Json.encodeToJsonElement(it?.snowflake?.id)
+    }, "public_updates_channel_id")
     
     /**
      * icon hash
      */
-    val icon: String? by map.delegateJsonNullable(JsonElement::asString)
+    val icon: String? by parsingOpt(JsonElement::asString)
     /**
      * splash hash
      */
-    val iconSplash: String? by map.delegateJsonNullable(JsonElement::asString, "splash")
+    val iconSplash: String? by parsingOpt(JsonElement::asString, "splash")
     
     /**
      * voice region for the guild
      */
-    var region: Region by map.delegateJsonMutable(
+    var region: Region by parsing(
         { Region.valueOf(asString().toUpperCase().replace("-", "_")) },
         { Json.encodeToJsonElement(it.toString()) },
     )
     /**
      * voice region for the guild
      */
-    val regionRaw: String by map.delegateJson(JsonElement::asString, "region")
+    val regionRaw: String by parsing(JsonElement::asString, "region")
     /**
      * id of afk channel
      */
-    var afkChannel: PartialVoiceChannel? by map.delegateJsonMutableNullable(
+    var afkChannel: PartialVoiceChannel? by parsingOpt(
         { PartialVoiceChannel.new(this@Guild, asSnowflake()) },
         { Json.encodeToJsonElement(it?.snowflake?.id) },
         "afk_channel_id",
@@ -570,7 +569,7 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     /**
      * afk timeout in seconds
      */
-    var afkTimeout: Timeout by map.delegateJsonMutable(
+    var afkTimeout: Timeout by parsing(
         { Timeout.valueOf("SECONDS_${asInt()}") },
         { Json.encodeToJsonElement(it.ordinal) },
         "afk_timeout",
@@ -579,91 +578,92 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     /**
      * true if the server widget is enabled
      */
-    val widgetEnabled: Boolean? by map.delegateJsonNullable(JsonElement::asBoolean, "widget_enabled")
+    val widgetEnabled: Boolean? by parsingOpt(JsonElement::asBoolean, "widget_enabled")
     /**
      * the channel id that the widget will generate an invite to, or null if set to no invite
      */
-    val widgetChannel: PartialTextChannel? by map.delegateJsonNullable(::delegateChannel, "widget_channel_id")
+    val widgetChannel: PartialTextChannel? by parsingOpt(::delegateChannel, "widget_channel_id")
     
     /**
      * true if the user is the owner of the guild
      * <br>
      * Only sent under "GET Current User Guilds" endpoint, relative to current user
      */
-    val userIsOwner: Boolean? by map.delegateJsonNullable(JsonElement::asBoolean, "owner")
+    val userIsOwner: Boolean? by parsingOpt(JsonElement::asBoolean, "owner")
     /**
      * total permissions for the user in the guild (excludes overrides)
      * <br>
      * Only sent under "GET Current User Guilds" endpoint, relative to current user
      */
-    val cachedUserPermissions: EnumSet<Permissions>? by map.delegateJsonNullable({ asLong().bitSetToEnumSet(Permissions.values()) }, "permissions")
+    val cachedUserPermissions: EnumSet<Permissions>? by parsingOpt({ asLong().bitSetToEnumSet(Permissions.values()) }, "permissions")
     
     /**
      * when this guild was joined at
      * <br>
      * Only sent when under the event where the guild becomes available to the bot
      */
-    val joinedAt: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "joined_at")
+    val joinedAt: Timestamp? by parsingOpt(JsonElement::asTimestamp, "joined_at")
     /**
      * true if this is considered a large guild
      * <br>
      * Only sent when under the event where the guild becomes available to the bot
      */
-    val large: Boolean? by map.delegateJsonNullable(JsonElement::asBoolean)
+    val large: Boolean? by parsingOpt(JsonElement::asBoolean)
     /**
      * true if this guild is unavailable due to an outage
      * <br>
      * Only sent when under the event where the guild becomes available to the bot
      */
-    val unavailable: Boolean? by map.delegateJsonNullable(JsonElement::asBoolean)
+    val unavailable: Boolean? by parsingOpt(JsonElement::asBoolean)
     /**
      * total number of members in this guild
      * <br>
      * Only sent when under the event where the guild becomes available to the bot
      */
-    val instantMemberCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "member_count")
+    val instantMemberCount: Int? by parsingOpt(JsonElement::asInt, "member_count")
     /**
      * 	approximate number of members in this guild
      */
-    val approxMemberCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_member_count")
+    val approxMemberCount: Int? by parsingOpt(JsonElement::asInt, "approximate_member_count")
     /**
      * 	approximate number of non-offline members in this guild
      */
-    val approxPresenceCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_presence_count")
+    val approxPresenceCount: Int? by parsingOpt(JsonElement::asInt, "approximate_presence_count")
     /**
      * users in the guild <br>
      * Only sent when under the event where the guild becomes available to the bot <br>
      * Requires the GUILD_MEMBERS privileged intent
      */
-    val cachedMembers: List<Member>? by map.delegateJsonNullable({ (this as JsonArray).map { Member(this@Guild, it as JsonObject, bot) } }, "members")
+    val cachedMembers: List<Member>? by parsingOpt(
+        { (this as JsonArray).map { Member(this@Guild, it as JsonObject, bot) } }, "members")
     /**
      * channels in the guild <br>
      * Only sent when under the event where the guild becomes available to the bot
      */
-    val cachedChannels: List<GuildChannel>? by map.delegateJsonNullable(
+    val cachedChannels: List<GuildChannel>? by parsingOpt(
         { (this as JsonArray).mapNotNull { it.asGuildChannel(bot, this@Guild) } }, "channels")
     
     /**
      * the maximum number of presences for the guild (the default value, currently 25000, is in effect when null is returned)
      */
-    val maxPresences: Int? by map.delegateJsonNullable(JsonElement::asInt, "max_presences")
+    val maxPresences: Int? by parsingOpt(JsonElement::asInt, "max_presences")
     /**
      * the maximum number of members for the guild
      */
-    val maxMembers: Int? by map.delegateJsonNullable(JsonElement::asInt, "max_members")
+    val maxMembers: Int? by parsingOpt(JsonElement::asInt, "max_members")
     /**
      * the maximum amount of users in a video channel
      */
-    val maxVideoChannelUsers: Int? by map.delegateJsonNullable(JsonElement::asInt, "max_video_channel_users")
+    val maxVideoChannelUsers: Int? by parsingOpt(JsonElement::asInt, "max_video_channel_users")
     /**
      * the vanity url code for the guild
      */
-    val vanityCode: String? by map.delegateJsonNullable(JsonElement::asString, "vanity_url_code")
+    val vanityCode: String? by parsingOpt(JsonElement::asString, "vanity_url_code")
     
     /**
      * verification level required for the guild
      */
-    var verificationLevel: VerificationLevel by map.delegateJsonMutable(
+    var verificationLevel: VerificationLevel by parsing(
         { VerificationLevel.values()[asInt()] },
         { Json.encodeToJsonElement(it.ordinal) },
         "verification_level",
@@ -672,7 +672,7 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     /**
      * default message notifications level
      */
-    var defaultNotificationLevel: NotificationLevel by map.delegateJsonMutable(
+    var defaultNotificationLevel: NotificationLevel by parsing(
         { NotificationLevel.values()[asInt()] },
         { Json.encodeToJsonElement(it.ordinal) },
         "default_message_notifications",
@@ -681,7 +681,7 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     /**
      * explicit content filter level
      */
-    var explicitContentLevel: ExplicitContentFilterLevel by map.delegateJsonMutable(
+    var explicitContentLevel: ExplicitContentFilterLevel by parsing(
         { ExplicitContentFilterLevel.values()[asInt()] },
         { Json.encodeToJsonElement(it.ordinal) },
         "explicit_content_filter",
@@ -691,30 +691,32 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     /**
      * enabled guild features
      */
-    val features: EnumSet<Features> by map.delegateJson({
-        val set = EnumSet.noneOf(Features::class.java)
-        (this as JsonArray).forEach { set.add(Features.valueOf(it.asString())) }
-        set
-    })
+    val features: EnumSet<Features> by parsing({
+                                                                                      val set = EnumSet.noneOf(Features::class.java)
+                                                                                      (this as JsonArray).forEach {
+                                                                                          set.add(Features.valueOf(it.asString()))
+                                                                                      }
+                                                                                      set
+                                                                                  })
     
     /**
      * required MFA level for the guild
      */
-    val requiredMFALevel: MFALevel by map.delegateJson({ MFALevel.values()[asInt()] }, "mfa_level")
+    val requiredMFALevel: MFALevel by parsing({ MFALevel.values()[asInt()] }, "mfa_level")
     
     /**
      * premium tier (Server Boost level)
      */
-    val boostTier: BoostTier by map.delegateJson({ BoostTier.values()[asInt()] }, "premium_tier")
+    val boostTier: BoostTier by parsing({ BoostTier.values()[asInt()] }, "premium_tier")
     /**
      * the number of boosts this guild currently has
      */
-    val boosters: Int? by map.delegateJsonNullable(JsonElement::asInt, "premium_subscription_count")
+    val boosters: Int? by parsingOpt(JsonElement::asInt, "premium_subscription_count")
     
     /**
      * the id of the channel where guild notices such as welcome messages and boost events are posted
      */
-    val systemChannel: PartialTextChannel? by map.delegateJsonMutableNullable(
+    val systemChannel: PartialTextChannel? by parsingOpt(
         ::delegateChannel,
         { Json.encodeToJsonElement(it?.snowflake?.id) },
         "system_channel_id",
@@ -723,7 +725,7 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     /**
      * system channel flags
      */
-    val systemChannelFlags: EnumSet<SystemChannelFlags> by map.delegateJson({ asLong().bitSetToEnumSet(SystemChannelFlags.values()) }, "system_channel_flags")
+    val systemChannelFlags: EnumSet<SystemChannelFlags> by parsing({ asLong().bitSetToEnumSet(SystemChannelFlags.values()) }, "system_channel_flags")
     
     val memberCount: Int by lazy { instantMemberCount ?: approxMemberCount ?: -1 }
     val iconUrl: String? by lazy {
@@ -864,10 +866,10 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
             = cachedMembers?.filter { it.nick?.equals(tag, ignoreCase) ?: it.user.username.equals(tag, ignoreCase) } ?: listOf()
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it.snowflake) } } ?: listOf()"))
     fun getMembersWithRoles(vararg roles: Role)
-            = cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it.snowflake) } } ?: listOf()
+            = cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it) } } ?: listOf()
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it.snowflake) } } ?: listOf()"))
     fun getMembersWithRoles(roles: Collection<Role>)
-            = cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it.snowflake) } } ?: listOf()
+            = cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it) } } ?: listOf()
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.find { it.snowflake.id == id }"))
     fun getGuildChannelById(id: String)

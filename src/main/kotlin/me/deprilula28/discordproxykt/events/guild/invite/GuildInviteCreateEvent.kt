@@ -7,10 +7,10 @@ import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.ExtendedInvite
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialGuildChannel
 import me.deprilula28.discordproxykt.rest.asSnowflake
-import me.deprilula28.discordproxykt.rest.delegateJson
+import me.deprilula28.discordproxykt.rest.parsing
 
-class GuildInviteCreateEvent(map: JsonObject, override val bot: DiscordProxyKt): GuildInviteEvent {
-    override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
+class GuildInviteCreateEvent(override val map: JsonObject, override val bot: DiscordProxyKt): GuildInviteEvent {
+    override val guildSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "guild_id")
     val invite: ExtendedInvite = ExtendedInvite(map, bot, guild)
     
     override val code: String by invite::code

@@ -26,7 +26,7 @@ interface PartialVoiceChannel: PartialGuildChannel, PartialEntity {
                 override val bot: DiscordProxyKt = guild.bot
         
                 override fun upgrade(): IRestAction<VoiceChannel> =
-                    IRestAction.FuturesRestAction(guild.bot) {
+                    IRestAction.LazyFutureAction(guild.bot) {
                         guild.fetchChannels.request().thenApply {
                             it.find { ch -> ch.snowflake == id } as VoiceChannel
                         }
@@ -44,20 +44,24 @@ open class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot),
     /**
      * the bitrate (in bits) of the voice channel
      */
-    val bitrate: Int by map.delegateJson(JsonElement::asInt)
+    val bitrate: Int by parsing(JsonElement::asInt)
     /**
      * the user limit of the voice channel
      */
-    val userLimit: Int by map.delegateJson(JsonElement::asInt, "user_limit")
+    val userLimit: Int by parsing(JsonElement::asInt, "user_limit")
     
-    override val guild: PartialGuild by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
-    override val position: Int by map.delegateJson(JsonElement::asInt)
-    override val name: String by map.delegateJson(JsonElement::asString)
-    override val category: PartialCategory? by map.delegateJsonNullable({ PartialCategory.new(guild, asSnowflake()) }, "parent_id")
+    override val guild: PartialGuild by parsing({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    override val position: Int by parsing(JsonElement::asInt)
+    override val name: String by parsing(JsonElement::asString)
+    override val category: PartialCategory? by parsingOpt({ PartialCategory.new(guild, asSnowflake()) },
+                                                                                             "parent_id")
     
-    override val permissions: List<PermissionOverwrite> by map.delegateJson({
-        (this as JsonArray).map { asPermissionOverwrite(this@VoiceChannel, guild, bot) }
-    }, "permission_overwrites")
+    override val permissions: List<PermissionOverwrite> by parsing({
+                                                                                                          (this as JsonArray).map {
+                                                                                                              asPermissionOverwrite(this@VoiceChannel,
+                                                                                                                                    guild, bot)
+                                                                                                          }
+                                                                                                      }, "permission_overwrites")
     
     override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
     

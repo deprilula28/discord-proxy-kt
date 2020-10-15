@@ -7,13 +7,13 @@ import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialMessageChannel
 import me.deprilula28.discordproxykt.rest.asSnowflake
-import me.deprilula28.discordproxykt.rest.delegateJson
-import me.deprilula28.discordproxykt.rest.delegateJsonNullable
+import me.deprilula28.discordproxykt.rest.parsing
+import me.deprilula28.discordproxykt.rest.parsingOpt
 
-class MessageDeleteEvent(map: JsonObject, override val bot: DiscordProxyKt): MessageEvent {
-    override val messageSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "id")
-    val guild: PartialGuild? by map.delegateJsonNullable({ bot.fetchGuild(asSnowflake()) }, "guild_id")
-    val channelRaw: Snowflake by map.delegateJson(JsonElement::asSnowflake, "channel_id")
+class MessageDeleteEvent(override val map: JsonObject, override val bot: DiscordProxyKt): MessageEvent {
+    override val messageSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "id")
+    val guild: PartialGuild? by parsingOpt({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    val channelRaw: Snowflake by parsing(JsonElement::asSnowflake, "channel_id")
     
     override val channel: PartialMessageChannel
         get() = guild?.run { fetchTextChannel(channelRaw) } ?: bot.fetchPrivateChannel(channelRaw)

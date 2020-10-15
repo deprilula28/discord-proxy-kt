@@ -4,15 +4,23 @@ import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletionStage
 
 interface IRestAction<T> {
     val bot: DiscordProxyKt
     
+    companion object {
+        fun <T> future(bot: DiscordProxyKt, func: CompletableFuture<T>): IRestAction<T>
+            = object: IRestAction<T> {
+                override val bot: DiscordProxyKt = bot
+                override fun request(): CompletableFuture<T> = func
+                override fun getIfAvailable(): T? = func.getNow(null)
+            }
+    }
+    
     fun request(): CompletableFuture<T>
     fun getIfAvailable(): T?
     
-    open class FuturesRestAction<T>(override val bot: DiscordProxyKt, futureProvider: () -> CompletableFuture<T>): IRestAction<T> {
+    open class LazyFutureAction<T>(override val bot: DiscordProxyKt, futureProvider: () -> CompletableFuture<T>): IRestAction<T> {
         private val lazyFuture = lazy(futureProvider)
         override fun request() = lazyFuture.value
         override fun getIfAvailable(): T? = if (lazyFuture.isInitialized()) lazyFuture.value.getNow(null) else null
@@ -25,8 +33,8 @@ interface IRestAction<T> {
     }
     
     // TODO Find a way to optimize these
-    fun <V: Any> map(func: (T) -> V): IRestAction<V> = FuturesRestAction(bot) { this@IRestAction.request().thenApply(func) }
-    fun <V: Any> flatMap(func: (T) -> CompletableFuture<V>): IRestAction<V> = FuturesRestAction(bot) { this@IRestAction.request().thenCompose(func) }
+    fun <V: Any> map(func: (T) -> V): IRestAction<V> = LazyFutureAction(bot) { this@IRestAction.request().thenApply(func) }
+    fun <V: Any> flatMap(func: (T) -> CompletableFuture<V>): IRestAction<V> = LazyFutureAction(bot) { this@IRestAction.request().thenCompose(func) }
     
     /// Kotlin coroutine await function
     suspend fun await(): T = request().await()

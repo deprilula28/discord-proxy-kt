@@ -13,23 +13,23 @@ import me.deprilula28.discordproxykt.entities.discord.channel.PartialMessageChan
 import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
 import me.deprilula28.discordproxykt.entities.discord.message.ReactionEmoji
 import me.deprilula28.discordproxykt.rest.asSnowflake
-import me.deprilula28.discordproxykt.rest.delegateJson
-import me.deprilula28.discordproxykt.rest.delegateJsonNullable
+import me.deprilula28.discordproxykt.rest.parsing
+import me.deprilula28.discordproxykt.rest.parsingOpt
 
-class MessageReactionRemoveEvent(map: JsonObject, override val bot: DiscordProxyKt): MessageReactionEvent {
-    override val user: PartialUser by map.delegateJson({ bot.fetchUser(asSnowflake()) }, "user_id")
-    override val guild: PartialGuild? by map.delegateJsonNullable({ bot.fetchGuild(asSnowflake()) }, "guild_id")
-    val channelRaw: Snowflake by map.delegateJson(JsonElement::asSnowflake, "channel_id")
+class MessageReactionRemoveEvent(override val map: JsonObject, override val bot: DiscordProxyKt): MessageReactionEvent {
+    override val user: PartialUser by parsing({ bot.fetchUser(asSnowflake()) }, "user_id")
+    override val guild: PartialGuild? by parsingOpt({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    val channelRaw: Snowflake by parsing(JsonElement::asSnowflake, "channel_id")
     override val channel: PartialMessageChannel
         get() = guild?.run { fetchTextChannel(channelRaw) } ?: bot.fetchPrivateChannel(channelRaw)
-    override val messageSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "message_id")
-    override val message: PartialMessage by map.delegateJson({ channel.fetchMessage(messageSnowflake) }, "message_id")
+    override val messageSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "message_id")
+    override val message: PartialMessage by parsing({ channel.fetchMessage(messageSnowflake) }, "message_id")
     override val member: Member? = null
-    override val emoji: ReactionEmoji? by map.delegateJsonNullable({
-        val obj = this as JsonObject
-        if (obj["id"] == null || obj["id"] is JsonNull) null
-        else ReactionEmoji(obj, bot)
-    })
+    override val emoji: ReactionEmoji? by parsingOpt({
+                                                                   val obj = this as JsonObject
+                                                                   if (obj["id"] == null || obj["id"] is JsonNull) null
+                                                                   else ReactionEmoji(obj, bot)
+                                                               })
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("(guild ?: throw UnavailableField()).upgrade().map { it.fetchMember(user.snowflake) }"))
     fun retrieveMember() = (guild ?: throw UnavailableField()).upgrade().map { it.fetchMember(user.snowflake) }

@@ -29,15 +29,15 @@ While the library is written in Kotlin, and uses some of its language native fea
 
 ## Delegated Properties
 
-When the library parses the JSON for a type, it doesn't parse all of the entity fields at once ahead of time, instead keeping a map of all the keys to their unparsed values as the only data each entity keeps.
+When the library parses the JSON for a type, it doesn't parse all the entity fields at once ahead of time, instead keeping a map of all the keys to their unparsed values as the only data each entity keeps.
 
-The fields under each entity will use `map.delegateJson`, that will create a getter method lazily delegating to the entity's map.
+The fields under each entity will use `parse` or `parseOpt`, that will create a getter method lazily delegating to the entity's map.
 
 ## Entity Mutability
 
 If an entity has a respective "Modify" endpoint, it will be set to inherit `EntityManager<T>` where T is itself. This will save a mutable map of `changes` done to the entity.
 
-The mutable (in the API sense) fields in the entity will have `map.delegateJsonMutable` instead of delegateJson, and the `var` assignment instead of `val`. This won't actually make it a mutable field (there is no underlying field), it merely makes a setter to alter the changes map.
+The mutable (in the API sense) fields in the entity will have a `var` assignment instead of `val`, and a serialization parameter. This won't actually make it a mutable field (there is no underlying field), it merely makes a setter function that alters the changes map.
 
 When all the changes are applied, the `EntityManager#edit` function is called returning an action that updates the entity. Once Discord returns the edited entity map, the delegated map is changed to match it.
 
@@ -49,4 +49,4 @@ The partial entities can be upgraded through an API request for the final entity
 
 # Contributing
 
-Feel free to contribute! We are looking to cover [the entire Discord API](https://discord.com/developers/docs/), as well as all of the JDA backwards support.
+Feel free to contribute! We don't have any restrictions as of yet, just make sure your contribution falls under the scope of the project.

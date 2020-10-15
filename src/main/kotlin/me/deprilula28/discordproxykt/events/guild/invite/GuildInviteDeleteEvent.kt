@@ -8,13 +8,14 @@ import me.deprilula28.discordproxykt.entities.UnavailableField
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialGuildChannel
 import me.deprilula28.discordproxykt.rest.asSnowflake
 import me.deprilula28.discordproxykt.rest.asString
-import me.deprilula28.discordproxykt.rest.delegateJson
+import me.deprilula28.discordproxykt.rest.parsing
 
-class GuildInviteDeleteEvent(map: JsonObject, override val bot: DiscordProxyKt): GuildInviteEvent {
+class GuildInviteDeleteEvent(override val map: JsonObject, override val bot: DiscordProxyKt): GuildInviteEvent {
     /**
      * @throws [UnavailableField] If this wasn't done in a guild
      */
-    override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
-    override val channel: PartialGuildChannel by map.delegateJson({ PartialGuildChannel.new(guild, asSnowflake()) }, "channel_id")
-    override val code: String by map.delegateJson(JsonElement::asString, "code")
+    override val guildSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "guild_id")
+    override val channel: PartialGuildChannel by parsing({ PartialGuildChannel.new(guild, asSnowflake()) },
+                                                         "channel_id")
+    override val code: String by parsing(JsonElement::asString, "code")
 }

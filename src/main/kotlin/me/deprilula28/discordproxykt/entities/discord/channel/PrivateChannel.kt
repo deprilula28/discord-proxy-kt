@@ -41,8 +41,8 @@ interface PartialPrivateChannel: PartialMessageChannel, PartialEntity {
  * https://discord.com/developers/docs/resources/channel
  */
 class PrivateChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), MessageChannel, PartialPrivateChannel {
-    override val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
-    override val lastMessage: PartialMessage by map.delegateJson({ fetchMessage(asSnowflake()) }, "last_message_id")
+    override val lastPinTimestamp: Timestamp? by parsingOpt(JsonElement::asTimestamp, "last_pin_timestamp")
+    override val lastMessage: PartialMessage by parsing({ fetchMessage(asSnowflake()) }, "last_message_id")
     
     override fun upgrade(): IRestAction<PrivateChannel> = IRestAction.ProvidedRestAction(bot, this)
 }

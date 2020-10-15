@@ -9,7 +9,7 @@ import me.deprilula28.discordproxykt.entities.discord.User
 import me.deprilula28.discordproxykt.rest.asBoolean
 import me.deprilula28.discordproxykt.rest.asSnowflake
 import me.deprilula28.discordproxykt.rest.asString
-import me.deprilula28.discordproxykt.rest.delegateJsonNullable
+import me.deprilula28.discordproxykt.rest.parsingOpt
 import java.net.URLEncoder
 
 // https://discord.com/developers/docs/resources/emoji#emoji-object
@@ -19,7 +19,7 @@ interface Emoji {
 
 class ReactionEmoji(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Emoji {
     override fun toUriPart(): String = snowflake.id
-    val name: String? by map.delegateJsonNullable(JsonElement::asString)
+    val name: String? by parsingOpt(JsonElement::asString)
 }
 class UnicodeEmoji(val name: String): Emoji {
     override fun toUriPart(): String = URLEncoder.encode(name)

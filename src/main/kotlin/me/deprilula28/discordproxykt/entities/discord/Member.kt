@@ -21,15 +21,16 @@ interface PartialMember {
         return (guild as? Guild)?.run {
             assertPermissions(this, Permissions.MANAGE_ROLES) {
                 (role as? Role)?.run {
-                    IRestAction.FuturesRestAction(bot) {
+                    IRestAction.future(
+                        bot,
                         guild.fetchSelfMember.request().thenCompose { member ->
                             member.fetchRoles.request().thenCompose { roles ->
                                 val highest = roles.maxByOrNull { it.position }
                                 if (highest == null || this.position > highest.position) throw PermissionHierarchyException(this, highest)
                                 func().request()
                             }
-                        }
-                    }
+                        },
+                    )
                 } ?: func()
             }
         } ?: func()
@@ -76,38 +77,39 @@ interface PartialMember {
  * <br>
  * https://discord.com/developers/docs/resources/guild#guild-member-object
  */
-class Member(override val guild: PartialGuild, private var map: JsonObject, override val bot: DiscordProxyKt, readyUser: User? = null): PartialMember, EntityManager<Member> {
+class Member(override val guild: PartialGuild, override var map: JsonObject, override val bot: DiscordProxyKt, private val readyUser: User? = null): PartialMember, EntityManager<Member> {
     /**
      * the user this guild member represents
      */
-    override val user: User by lazy { readyUser ?: User(map["user"] as JsonObject, bot) }
+    override val user: User
+        get() = readyUser ?: User(map["user"] as JsonObject, bot)
     /**
      * this users guild nickname
      */
-    var nick: String? by map.delegateJsonMutableNullable(JsonElement::asString, Json::encodeToJsonElement)
+    var nick: String? by parsingOpt(JsonElement::asString, Json::encodeToJsonElement)
     /**
      * array of role object ids
      */
-    val roles: List<PartialRole> by map.delegateJsonMutable(
+    val roles: List<PartialRole> by parsing(
         { (this as JsonArray).map { guild.fetchRole(it.asSnowflake()) } },
         { Json.encodeToJsonElement(it.map { sn -> sn.snowflake.id }) }
     )
     /**
      * when the user joined the guild
      */
-    val joinedAt: Timestamp by map.delegateJson(JsonElement::asTimestamp, "joined_at")
+    val joinedAt: Timestamp by parsing(JsonElement::asTimestamp, "joined_at")
     /**
      * when the user started boosting the guild
      */
-    val premiumSince: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "premium_since")
+    val premiumSince: Timestamp? by parsingOpt(JsonElement::asTimestamp, "premium_since")
     /**
      * whether the user is deafened in voice channels
      */
-    var deaf: Boolean by map.delegateJsonMutable(JsonElement::asBoolean, Json::encodeToJsonElement)
+    var deaf: Boolean by parsing(JsonElement::asBoolean, Json::encodeToJsonElement)
     /**
      * whether the user is muted in voice channels
      */
-    var mute: Boolean by map.delegateJsonMutable(JsonElement::asBoolean, Json::encodeToJsonElement)
+    var mute: Boolean by parsing(JsonElement::asBoolean, Json::encodeToJsonElement)
     
     override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
     
@@ -162,13 +164,13 @@ class Member(override val guild: PartialGuild, private var map: JsonObject, over
     }
     
     fun hasAuthorityOver(other: Member): IRestAction<Boolean>
-            = IRestAction.FuturesRestAction(bot) {
-                fetchRoles.request().thenCompose { selfRoles ->
-                    other.fetchRoles.request().thenApply { otherRoles ->
-                        (selfRoles.maxByOrNull { it.position }?.position ?: 0) > (otherRoles.maxByOrNull { it.position }?.position ?: 0)
-                    }
+        = IRestAction.future(bot,
+            fetchRoles.request().thenCompose { selfRoles ->
+                other.fetchRoles.request().thenApply { otherRoles ->
+                    (selfRoles.maxByOrNull { it.position }?.position ?: 0) > (otherRoles.maxByOrNull { it.position }?.position ?: 0)
                 }
-            }
+            },
+        )
     
     fun hasAuthorityOver(role: Role): IRestAction<Boolean>
             = fetchRoles.map { roles -> roles.maxByOrNull { it.position }?.position ?: 0 > role.position }

@@ -23,7 +23,7 @@ interface PartialCategory: PartialEntity, PartialGuildChannel {
             override val snowflake: Snowflake = id
             override val bot: DiscordProxyKt = guild.bot
             override fun upgrade(): IRestAction<Category>
-                = IRestAction.FuturesRestAction(guild.bot) {
+                = IRestAction.LazyFutureAction(guild.bot) {
                     guild.fetchChannels.request().thenApply {
                         it.find { ch -> ch.snowflake == id } as Category
                     }
@@ -39,16 +39,19 @@ interface PartialCategory: PartialEntity, PartialGuildChannel {
 
 
 open class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel, PartialCategory, EntityManager<Category> {
-    override val guild: PartialGuild by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
-    override val position: Int by map.delegateJson(JsonElement::asInt)
-    override val name: String by map.delegateJson(JsonElement::asString)
+    override val guild: PartialGuild by parsing({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    override val position: Int by parsing(JsonElement::asInt)
+    override val name: String by parsing(JsonElement::asString)
     override val category: PartialCategory?
         get() = this
     override fun upgrade(): IRestAction<Category> = IRestAction.ProvidedRestAction(bot, this)
     
-    override val permissions: List<PermissionOverwrite> by map.delegateJson({
-        (this as JsonArray).map { asPermissionOverwrite(this@Category, guild, bot) }
-    }, "permission_overwrites")
+    override val permissions: List<PermissionOverwrite> by parsing({
+                                                                                                          (this as JsonArray).map {
+                                                                                                              asPermissionOverwrite(this@Category,
+                                                                                                                                    guild, bot)
+                                                                                                          }
+                                                                                                      }, "permission_overwrites")
     
     override val type: ChannelType
         get() = ChannelType.CATEGORY

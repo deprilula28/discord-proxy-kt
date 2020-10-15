@@ -28,7 +28,7 @@ interface PartialGuildChannel: PartialEntity, Channel {
                 override val type: ChannelType
                     get() = throw UnavailableField()
                 override fun upgrade(): IRestAction<GuildChannel>
-                        = IRestAction.FuturesRestAction(guild.bot) {
+                        = IRestAction.LazyFutureAction(guild.bot) {
                     guild.fetchChannels.request().thenApply {
                         it.find { ch -> ch.snowflake == id }!!
                     }

@@ -32,7 +32,7 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, Partia
                 override val bot: DiscordProxyKt = guild.bot
                 override val internalGuild: PartialGuild = guild
                 override fun upgrade(): IRestAction<TextChannel>
-                        = IRestAction.FuturesRestAction(guild.bot) {
+                        = IRestAction.LazyFutureAction(guild.bot) {
                     guild.fetchChannels.request().thenApply {
                         it.find { ch -> ch.snowflake == id } as TextChannel
                     }
@@ -98,26 +98,30 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
     /**
      * the channel topic (0-1024 characters)
      */
-    val topic: String by map.delegateJson(JsonElement::asString)
+    val topic: String by parsing(JsonElement::asString)
     /**
      * whether the channel is nsfw
      */
-    val nsfw: Boolean by map.delegateJson(JsonElement::asBoolean)
+    val nsfw: Boolean by parsing(JsonElement::asBoolean)
     /**
      * amount of seconds a user has to wait before sending another message (0-21600); bots, as well as users with the permission manage_messages or manage_channel, are unaffected
      */
-    val rateLimitPerUser: Int? by map.delegateJsonNullable(JsonElement::asInt, "rate_limit_per_user")
+    val rateLimitPerUser: Int? by parsingOpt(JsonElement::asInt, "rate_limit_per_user")
     
-    override val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
+    override val lastPinTimestamp: Timestamp? by parsingOpt(JsonElement::asTimestamp, "last_pin_timestamp")
     override val guild: PartialGuild by ::internalGuild
-    override val lastMessage: PartialMessage by map.delegateJson({ fetchMessage(asSnowflake()) }, "last_message_id")
+    override val lastMessage: PartialMessage by parsing({ fetchMessage(asSnowflake()) }, "last_message_id")
     
-    override val name: String by map.delegateJson(JsonElement::asString)
-    override val position: Int by map.delegateJson(JsonElement::asInt)
-    override val category: PartialCategory? by map.delegateJsonNullable({ PartialCategory.new(guild, asSnowflake()) }, "parent_id")
-    override val permissions: List<PermissionOverwrite> by map.delegateJson({
-        (this as JsonArray).map { it.asPermissionOverwrite(this@TextChannel, guild, bot) }
-    }, "permission_overwrites")
+    override val name: String by parsing(JsonElement::asString)
+    override val position: Int by parsing(JsonElement::asInt)
+    override val category: PartialCategory? by parsingOpt({ PartialCategory.new(guild, asSnowflake()) },
+                                                                                             "parent_id")
+    override val permissions: List<PermissionOverwrite> by parsing({
+                                                                                                          (this as JsonArray).map {
+                                                                                                              it.asPermissionOverwrite(
+                                                                                                                  this@TextChannel, guild, bot)
+                                                                                                          }
+                                                                                                      }, "permission_overwrites")
     
     val fetchWebhooks: IRestAction<List<Webhook>>
         get() = assertPermissions(this, Permissions.MANAGE_WEBHOOKS) {

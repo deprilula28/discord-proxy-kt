@@ -26,7 +26,7 @@ interface PartialRole: PartialEntity, Message.Mentionable {
                 override val snowflake: Snowflake = id
     
                 override fun upgrade(): IRestAction<Role>
-                     = IRestAction.FuturesRestAction(spawnGuild.bot) {
+                     = IRestAction.LazyFutureAction(spawnGuild.bot) {
                         spawnGuild.fetchRoles.request().thenApply { it.find { role -> role.snowflake == id }!! }
                     }
             }
@@ -51,19 +51,19 @@ open class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordP
     /**
      * role name
      */
-    var name: String by map.delegateJsonMutable(JsonElement::asString, Json::encodeToJsonElement)
+    var name: String by parsing(JsonElement::asString, Json::encodeToJsonElement)
     /**
      * integer representation of hexadecimal color code
      */
-    var color: Color by map.delegateJsonMutable(JsonElement::asColor, { Json.encodeToJsonElement(it.rgb) })
+    var color: Color by parsing(JsonElement::asColor, { Json.encodeToJsonElement(it.rgb) })
     /**
      * if this role is pinned in the user listing
      */
-    var hoisted: Boolean by map.delegateJsonMutable(JsonElement::asBoolean, Json::encodeToJsonElement, "hoist")
+    var hoisted: Boolean by parsing(JsonElement::asBoolean, Json::encodeToJsonElement, "hoist")
     /**
      * position of this role
      */
-    val position: Int by map.delegateJson(JsonElement::asInt)
+    val position: Int by parsing(JsonElement::asInt)
     /**
      * permission bit set
      */
@@ -71,15 +71,15 @@ open class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordP
     /**
      * permission bit set
      */
-    var permissionsRaw: Long by map.delegateJsonMutable(JsonElement::asLong, Json::encodeToJsonElement, "permissions")
+    var permissionsRaw: Long by parsing(JsonElement::asLong, Json::encodeToJsonElement, "permissions")
     /**
      * whether this role is managed by an integration
      */
-    val managed: Boolean by map.delegateJson(JsonElement::asBoolean)
+    val managed: Boolean by parsing(JsonElement::asBoolean)
     /**
      * whether this role is mentionable
      */
-    var mentionable: Boolean by map.delegateJsonMutable(JsonElement::asBoolean, Json::encodeToJsonElement)
+    var mentionable: Boolean by parsing(JsonElement::asBoolean, Json::encodeToJsonElement)
     
     val publicRole: Boolean
         get() = position == -1

@@ -11,135 +11,133 @@ import java.awt.Color
 /**
  * https://discord.com/developers/docs/resources/channel#embed-object
  */
-class Embed(private val map: JsonObject, val bot: DiscordProxyKt) {
-    @Deprecated("JDA Compatibility Field", ReplaceWith("bot")) val jda: DiscordProxyKt by ::bot
-    
+class Embed(override val map: JsonObject, override val bot: DiscordProxyKt): Parse {
     /**
      * title of embed
      */
-    val title: String? by map.delegateJsonNullable(JsonElement::asString)
+    val title: String? by parsingOpt(JsonElement::asString)
     /**
      * type of embed (always "rich" for webhook embeds)
      */
-    val type: Type? by map.delegateJsonNullable({ asString().run { Type.valueOf(this.toUpperCase()) } })
+    val type: Type? by parsingOpt({ asString().run { Type.valueOf(toUpperCase()) } })
     /**
      * description of embed
      */
-    val description: String? by map.delegateJsonNullable(JsonElement::asString)
+    val description: String? by parsingOpt(JsonElement::asString)
     /**
      * url of embed
      */
-    val url: String? by map.delegateJsonNullable(JsonElement::asString)
+    val url: String? by parsingOpt(JsonElement::asString)
     /**
      * timestamp of embed content
      */
-    val timestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp)
+    val timestamp: Timestamp? by parsingOpt(JsonElement::asTimestamp)
     /**
      * color code of the embed
      */
-    val color: Color? by map.delegateJsonNullable(JsonElement::asColor)
+    val color: Color? by parsingOpt(JsonElement::asColor)
     /**
      * fields information
      */
-    val fields: List<Field>? by map.delegateJsonNullable({ (this as JsonArray).map { Field(it as JsonObject, bot) } })
+    val fields: List<Field>? by parsingOpt({ (this as JsonArray).map { Field(it as JsonObject, bot) } })
     
-    class Field(private val map: JsonObject, val bot: DiscordProxyKt) {
+    class Field(override val map: JsonObject, override val bot: DiscordProxyKt): Parse {
         /**
          * name of the field
          */
-        val name: String by map.delegateJson(JsonElement::asString)
+        val name: String by parsing(JsonElement::asString)
         /**
          * value of the field
          */
-        val value: String by map.delegateJson(JsonElement::asString)
+        val value: String by parsing(JsonElement::asString)
         /**
          * whether or not this field should display inline
          */
-        val inline: Boolean by map.delegateJson(JsonElement::asBoolean)
+        val inline: Boolean by parsing(JsonElement::asBoolean)
     }
     
     /**
      * footer information
      */
-    val footer: Footer? by map.delegateJsonNullable({ Footer(this as JsonObject, bot) })
+    val footer: Footer? by parsingOpt({ Footer(this as JsonObject, bot) })
     
-    class Footer(private val map: JsonObject, val bot: DiscordProxyKt) {
+    class Footer(override val map: JsonObject, override val bot: DiscordProxyKt): Parse {
         /**
          * footer text
          */
-        val text: String by map.delegateJson(JsonElement::asString)
+        val text: String by parsing(JsonElement::asString)
         /**
          * url of footer icon (only supports http(s) and attachments)
          */
-        val sourceIconUrl: String? by map.delegateJsonNullable(JsonElement::asString, "icon_url")
+        val sourceIconUrl: String? by parsingOpt(JsonElement::asString, "icon_url")
         /**
          * a proxied url of footer icon
          */
-        val proxyIconUrl: String? by map.delegateJsonNullable(JsonElement::asString, "proxy_icon_url")
+        val proxyIconUrl: String? by parsingOpt(JsonElement::asString, "proxy_icon_url")
     }
     
     /**
      * image information
      */
-    val image: Image? by map.delegateJsonNullable({ Image(this as JsonObject, bot) })
+    val image: Image? by parsingOpt({ Image(this as JsonObject, bot) })
     
-    class Image(private val map: JsonObject, val bot: DiscordProxyKt) {
+    class Image(override val map: JsonObject, override val bot: DiscordProxyKt): Parse {
         /**
          * source url of image (only supports http(s) and attachments)
          */
-        val sourceUrl: String? by map.delegateJsonNullable(JsonElement::asString, "url")
+        val sourceUrl: String? by parsingOpt(JsonElement::asString, "url")
         /**
          * a proxied url of the image
          */
-        val proxyUrl: String? by map.delegateJsonNullable(JsonElement::asString, "proxy_url")
+        val proxyUrl: String? by parsingOpt(JsonElement::asString, "proxy_url")
         /**
          * width of image
          */
-        val width: Int? by map.delegateJsonNullable({ asInt() })
+        val width: Int? by parsingOpt({ asInt() })
         /**
          * height of image
          */
-        val height: Int? by map.delegateJsonNullable({ asInt() })
+        val height: Int? by parsingOpt({ asInt() })
     }
     
     /**
      * provider information
      */
-    val provider: Provider? by map.delegateJsonNullable({ Provider(this as JsonObject, bot) })
+    val provider: Provider? by parsingOpt({ Provider(this as JsonObject, bot) })
     
-    class Provider(private val map: JsonObject, val bot: DiscordProxyKt) {
+    class Provider(override val map: JsonObject, override val bot: DiscordProxyKt): Parse {
         /**
          * name of provider
          */
-        val name: String? by map.delegateJsonNullable(JsonElement::asString)
+        val name: String? by parsingOpt(JsonElement::asString)
         /**
          * url of provider
          */
-        val url: String? by map.delegateJsonNullable(JsonElement::asString)
+        val url: String? by parsingOpt(JsonElement::asString)
     }
     
     /**
      * author information
      */
-    val author: Author? by map.delegateJsonNullable({ Author(this as JsonObject, bot) })
+    val author: Author? by parsingOpt({ Author(this as JsonObject, bot) })
     
-    class Author(private val map: JsonObject, val bot: DiscordProxyKt) {
+    class Author(override val map: JsonObject, override val bot: DiscordProxyKt): Parse {
         /**
          * name of author
          */
-        val name: String? by map.delegateJsonNullable(JsonElement::asString)
+        val name: String? by parsingOpt(JsonElement::asString)
         /**
          * url of author
          */
-        val url: String? by map.delegateJsonNullable(JsonElement::asString)
+        val url: String? by parsingOpt(JsonElement::asString)
         /**
          * url of author icon (only supports http(s) and attachments)
          */
-        val sourceIconUrl: String? by map.delegateJsonNullable(JsonElement::asString, "url")
+        val sourceIconUrl: String? by parsingOpt(JsonElement::asString, "url")
         /**
          * a proxied url of author icon
          */
-        val proxyIconUrl: String? by map.delegateJsonNullable(JsonElement::asString, "proxy_url")
+        val proxyIconUrl: String? by parsingOpt(JsonElement::asString, "proxy_url")
     }
     
     enum class Type {

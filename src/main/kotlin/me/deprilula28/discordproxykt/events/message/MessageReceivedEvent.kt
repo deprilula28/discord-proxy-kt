@@ -7,7 +7,7 @@ import me.deprilula28.discordproxykt.entities.discord.Guild
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialMessageChannel
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 
-class MessageReceivedEvent(map: JsonObject, override val bot: DiscordProxyKt): MessageEvent {
+class MessageReceivedEvent(override val map: JsonObject, override val bot: DiscordProxyKt): MessageEvent {
     val message: Message = Message(map, bot)
     
     override val messageSnowflake: Snowflake by message::snowflake

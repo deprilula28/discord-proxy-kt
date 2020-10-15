@@ -26,14 +26,14 @@ abstract class PermissionOverwrite(map: JsonObject, bot: DiscordProxyKt): Entity
     /**
      * permission bit set
      */
-    var allow: EnumSet<Permissions> by map.delegateJsonMutable(
+    var allow: EnumSet<Permissions> by parsing(
         { asLong().bitSetToEnumSet(Permissions.values()) },
         { JsonPrimitive(it.toBitSet()) },
     )
     /**
      * permission bit set
      */
-    var deny: EnumSet<Permissions> by map.delegateJsonMutable(
+    var deny: EnumSet<Permissions> by parsing(
         { asLong().bitSetToEnumSet(Permissions.values()) },
         { JsonPrimitive(it.toBitSet()) },
     )
@@ -46,8 +46,8 @@ abstract class PermissionOverwrite(map: JsonObject, bot: DiscordProxyKt): Entity
         set
     }
     
-    val allowRaw: Long by map.delegateJson(JsonElement::asLong, "allow")
-    val denyRaw: Long by map.delegateJson(JsonElement::asLong, "deny")
+    val allowRaw: Long by parsing(JsonElement::asLong, "allow")
+    val denyRaw: Long by parsing(JsonElement::asLong, "deny")
     
     val inheritRaw: Long
         get() = inherit.toBitSet()

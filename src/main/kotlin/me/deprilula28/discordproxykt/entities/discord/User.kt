@@ -3,7 +3,9 @@ package me.deprilula28.discordproxykt.entities.discord
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
-import me.deprilula28.discordproxykt.entities.*
+import me.deprilula28.discordproxykt.entities.Entity
+import me.deprilula28.discordproxykt.entities.PartialEntity
+import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.rest.*
 import java.util.*
@@ -49,11 +51,11 @@ class User(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser 
      * <br>
      * 
      */
-    val username: String by map.delegateJson(JsonElement::asString)
+    val username: String by parsing(JsonElement::asString)
     /**
      * the user's 4-digit discord-tag
      */
-    val discriminator: String by map.delegateJson(JsonElement::asString)
+    val discriminator: String by parsing(JsonElement::asString)
     /**
      * whether the user belongs to an OAuth2 application
      */
@@ -66,7 +68,7 @@ class User(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser 
     /**
      * the user's avatar hash
      */
-    val avatarHash: String? by map.delegateJsonNullable(JsonElement::asString, "avatar")
+    val avatarHash: String? by parsingOpt(JsonElement::asString, "avatar")
     /**
      * the public flags on a user's account
      */
@@ -77,37 +79,37 @@ class User(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser 
      * <br>
      * Logged on users through OAuth2 only
      */
-    val flags: EnumSet<Flags>? by map.delegateJsonNullable({ asLong().bitSetToEnumSet(Flags.values()) })
+    val flags: EnumSet<Flags>? by parsingOpt({ asLong().bitSetToEnumSet(Flags.values()) })
     /**
      * the user's chosen language option
      * <br>
      * Logged on users through OAuth2 only
      */
-    val locale: String? by map.delegateJsonNullable(JsonElement::asString)
+    val locale: String? by parsingOpt(JsonElement::asString)
     /**
      * whether the email on this account has been verified
      * <br>
      * Logged on users through OAuth2 only with `email` intent
      */
-    val verified: Boolean? by map.delegateJsonNullable(JsonElement::asBoolean)
+    val verified: Boolean? by parsingOpt(JsonElement::asBoolean)
     /**
      * the user's email
      * <br>
      * Logged on users through OAuth2 only with `email` intent
      */
-    val email: String? by map.delegateJsonNullable(JsonElement::asString)
+    val email: String? by parsingOpt(JsonElement::asString)
     /**
      * whether the user has two factor enabled on their account
      * <br>
      * Logged on users through OAuth2 only
      */
-    val multipleFactor: Boolean? by map.delegateJsonNullable(JsonElement::asBoolean, "mfa")
+    val multipleFactor: Boolean? by parsingOpt(JsonElement::asBoolean, "mfa")
     /**
      * the type of Nitro subscription on a user's account
      * <br>
      * Logged on users through OAuth2 only
      */
-    val premiumType: PremiumType? by map.delegateJsonNullable({ PremiumType.values()[asInt()] }, "premium_type")
+    val premiumType: PremiumType? by parsingOpt({ PremiumType.values()[asInt()] }, "premium_type")
     
     override fun upgrade(): IRestAction<User> = IRestAction.ProvidedRestAction(bot, this)
     

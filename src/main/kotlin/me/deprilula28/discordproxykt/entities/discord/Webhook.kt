@@ -20,15 +20,15 @@ open class Webhook(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Enti
      * @return true (Channel Follower Webhook) Channel Follower Webhooks are internal webhooks used with
      * Channel Following to post new messages into channels
      */
-    val following: Boolean by map.delegateJson({ asInt() == 2 }, "type")
+    val following: Boolean by parsing({ asInt() == 2 }, "type")
     /**
      * the guild id this webhook is for
      */
-    val guild: PartialGuild? by map.delegateJsonNullable({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    val guild: PartialGuild? by parsingOpt({ bot.fetchGuild(asSnowflake()) }, "guild_id")
     /**
      * the channel id this webhook is for
      */
-    var channel: PartialTextChannel? by map.delegateJsonMutable(
+    var channel: PartialTextChannel? by parsing(
         { PartialTextChannel.new(guild ?: throw UnavailableField(), asSnowflake()) },
         { Json.encodeToJsonElement((it ?: throw InvalidRequestException("Cannot set channel to null")).snowflake.id) },
         "channel_id",
@@ -36,9 +36,9 @@ open class Webhook(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Enti
     /**
      * 	the user this webhook was created by (not returned when getting a webhook with its token)
      */
-    val user: User? by map.delegateJsonNullable({ User(this as JsonObject, bot) })
+    val user: User? by parsingOpt({ User(this as JsonObject, bot) })
     
-    var name: String by map.delegateJsonMutable(
+    var name: String by parsing(
         { throw InvalidRequestException("Write-only field") },
         Json::encodeToJsonElement,
     )

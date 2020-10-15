@@ -10,19 +10,19 @@ import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
 import me.deprilula28.discordproxykt.entities.discord.message.ReactionEmoji
 import me.deprilula28.discordproxykt.events.message.MessageEvent
 import me.deprilula28.discordproxykt.rest.asSnowflake
-import me.deprilula28.discordproxykt.rest.delegateJson
-import me.deprilula28.discordproxykt.rest.delegateJsonNullable
+import me.deprilula28.discordproxykt.rest.parsing
+import me.deprilula28.discordproxykt.rest.parsingOpt
 
-class MessageReactionRemoveEmojiEvent(map: JsonObject, override val bot: DiscordProxyKt): MessageEvent {
-    val channelRaw: Snowflake by map.delegateJson(JsonElement::asSnowflake, "channel_id")
+class MessageReactionRemoveEmojiEvent(override val map: JsonObject, override val bot: DiscordProxyKt): MessageEvent {
+    val channelRaw: Snowflake by parsing(JsonElement::asSnowflake, "channel_id")
     override val channel: PartialMessageChannel
         get() = guild?.run { fetchTextChannel(channelRaw) } ?: bot.fetchPrivateChannel(channelRaw)
-    override val messageSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "message_id")
+    override val messageSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "message_id")
     
-    val guild: PartialGuild? by map.delegateJsonNullable({ bot.fetchGuild(asSnowflake()) }, "guild_id")
-    val message: PartialMessage by map.delegateJson({ channel.fetchMessage(messageSnowflake) }, "message_id")
+    val guild: PartialGuild? by parsingOpt({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    val message: PartialMessage by parsing({ channel.fetchMessage(messageSnowflake) }, "message_id")
     
-    val emoji: ReactionEmoji by map.delegateJson({ ReactionEmoji(this as JsonObject, bot) })
+    val emoji: ReactionEmoji by parsing({ ReactionEmoji(this as JsonObject, bot) })
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("this"))
     val reaction: MessageReactionRemoveEmojiEvent

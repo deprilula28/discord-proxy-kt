@@ -6,9 +6,9 @@ import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.rest.asSnowflake
-import me.deprilula28.discordproxykt.rest.delegateJson
+import me.deprilula28.discordproxykt.rest.parsing
 
-class RoleDeleteEvent(map: JsonObject, override val bot: DiscordProxyKt): GuildRoleEvent {
-    override val guildSnowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "guild_id")
-    override val role: PartialRole by map.delegateJson({ guild.fetchRole(asSnowflake()) }, "role_id")
+class RoleDeleteEvent(override val map: JsonObject, override val bot: DiscordProxyKt): GuildRoleEvent {
+    override val guildSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "guild_id")
+    override val role: PartialRole by parsing({ guild.fetchRole(asSnowflake()) }, "role_id")
 }
