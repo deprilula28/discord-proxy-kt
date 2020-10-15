@@ -1,6 +1,7 @@
 package me.deprilula28.discordproxykt.events.message.reaction
 
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Snowflake
@@ -25,7 +26,11 @@ class MessageReactionRemoveEvent(map: JsonObject, override val bot: DiscordProxy
     override val snowflake: Snowflake by map.delegateJson(JsonElement::asSnowflake, "message_id")
     override val message: PartialMessage by map.delegateJson({ channel.fetchMessage(snowflake) }, "message_id")
     override val member: Member? = null
-    override val emoji: ReactionEmoji by map.delegateJson({ ReactionEmoji(this as JsonObject, bot) })
+    override val emoji: ReactionEmoji? by map.delegateJsonNullable({
+        val obj = this as JsonObject
+        if (obj["id"] == null || obj["id"] is JsonNull) null
+        else ReactionEmoji(obj, bot)
+    })
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("(guild ?: throw UnavailableField()).upgrade().map { it.fetchMember(user.snowflake) }"))
     fun retrieveMember() = (guild ?: throw UnavailableField()).upgrade().map { it.fetchMember(user.snowflake) }

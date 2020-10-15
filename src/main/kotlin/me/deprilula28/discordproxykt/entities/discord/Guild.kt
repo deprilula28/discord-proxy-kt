@@ -4,6 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.assertPermissions
+import me.deprilula28.discordproxykt.events.guild.invite.*
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.channel.*
 import me.deprilula28.discordproxykt.entities.discord.message.GuildEmoji
@@ -54,7 +55,7 @@ data class Ban(private val map: JsonObject, private val bot: DiscordProxyKt) {
 /**
  * https://discord.com/developers/docs/resources/invite#invite-object
  */
-open class Invite(var map: JsonObject, val bot: DiscordProxyKt) {
+open class Invite(var map: JsonObject, val bot: DiscordProxyKt, private val internalGuild: PartialGuild? = null) {
     val code: String by map.delegateJson(JsonElement::asString)
     val guild: Guild? by map.delegateJsonNullable({ Guild(this as JsonObject, bot) })
     val inviter: User? by map.delegateJsonNullable({ User(this as JsonObject, bot) })
@@ -63,17 +64,23 @@ open class Invite(var map: JsonObject, val bot: DiscordProxyKt) {
     val approxMemberCount: Int? by map.delegateJsonNullable(JsonElement::asInt, "approximate_member_count")
     
     /**
-     * @throws [UnavailableField] If this invite object was from an event
+     * This is present under fetched invites
      */
-    val channel: TextChannel by map.delegateJson({
-         (guild?: throw UnavailableField()).run {
-             TextChannel(this, this@delegateJson as JsonObject, bot)
-         }
-    })
+    val cachedChannel: GuildChannel? by map.delegateJsonNullable({
+         (guild ?: internalGuild)?.run { this@delegateJsonNullable.asGuildChannel(bot, this) }
+    }, "channel")
     /**
-     * @throws [UnavailableField] If this invite object was fetched, rather than from an event
+     * This is present under invite events [GuildInviteCreateEvent] and [GuildInviteDeleteEvent]
      */
-    val channelRaw: Snowflake by map.delegateJson(JsonElement::asSnowflake, "channel_id")
+    val partialChannel: PartialGuildChannel? by map.delegateJsonNullable({
+         (guild ?: internalGuild)?.run { PartialGuildChannel.new(this, asSnowflake()) }
+    }, "channel_id")
+    
+    /**
+     * The only case where this is not present is when [guild] is `null`
+     */
+    val channel: PartialGuildChannel?
+        get() = cachedChannel ?: partialChannel
     
     fun delete(): IRestAction<Unit> {
         // TODO Check for MANAGE_CHANNELS on channel if the guild check fails
@@ -81,8 +88,11 @@ open class Invite(var map: JsonObject, val bot: DiscordProxyKt) {
         else bot.request(RestEndpoint.DELETE_INVITE.path(code), { Unit })
     }
     
+    /**
+     * @throws [UnavailableField] If [guild] is `null`
+     */
     fun expand(): IRestAction<ExtendedInvite>
-        = channel.fetchInvites
+        = (channel ?: throw UnavailableField()).fetchInvites
             .map { invs -> invs.find { it.code == this.code } ?: throw UnavailableField() }
 }
 
@@ -111,7 +121,9 @@ class InviteBuilder(private val internalChannel: GuildChannel, bot: DiscordProxy
     }
 }
 
-class ExtendedInvite(map: JsonObject, bot: DiscordProxyKt): Invite(map, bot) {
+class ExtendedInvite(map: JsonObject, bot: DiscordProxyKt, internalGuild: PartialGuild? = null):
+    Invite(map, bot, internalGuild)
+{
     val uses: Int by map.delegateJson(JsonElement::asInt, "uses")
     val maxUses: Int by map.delegateJson(JsonElement::asInt, "max_uses")
     val maxAge: Int by map.delegateJson(JsonElement::asInt, "max_age")
@@ -175,7 +187,7 @@ interface PartialGuild: PartialEntity {
     val fetchChannels: IRestAction<List<GuildChannel>>
         get() = bot.request(
             RestEndpoint.GET_GUILD_CHANNELS.path(snowflake.id),
-            { (this as JsonArray).mapNotNull { asGuildChannel(bot, this@PartialGuild) }  }
+            { (this as JsonArray).mapNotNull { it.asGuildChannel(bot, this@PartialGuild) }  }
         )
     
     fun fetchTextChannel(snowflake: Snowflake) = PartialTextChannel.new(this, snowflake)
@@ -629,7 +641,7 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
      * Only sent when under the event where the guild becomes available to the bot
      */
     val cachedChannels: List<GuildChannel>? by map.delegateJsonNullable(
-        { (this as JsonArray).mapNotNull { asGuildChannel(bot, this@Guild) } }, "channels")
+        { (this as JsonArray).mapNotNull { it.asGuildChannel(bot, this@Guild) } }, "channels")
     
     /**
      * the maximum number of presences for the guild (the default value, currently 25000, is in effect when null is returned)
@@ -1133,4 +1145,8 @@ enum class Features {
      * Guild has enabled the welcome screen
      */
     WELCOME_SCREEN_ENABLED,
+    /**
+     * Community server
+     */
+    COMMUNITY,
 }

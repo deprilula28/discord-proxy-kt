@@ -43,7 +43,7 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, Partia
     override val type: ChannelType
         get() = ChannelType.TEXT
     
-    fun upgrade(): IRestAction<TextChannel>
+    override fun upgrade(): IRestAction<TextChannel>
     
     fun bulkDelete(messages: Collection<PartialMessage>): IRestAction<Unit>
         = bot.request(RestEndpoint.BULK_DELETE_MESSAGES.path(snowflake.id), { Unit }) {
@@ -109,14 +109,14 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
     val rateLimitPerUser: Int? by map.delegateJsonNullable(JsonElement::asInt, "rate_limit_per_user")
     
     override val lastPinTimestamp: Timestamp? by map.delegateJsonNullable(JsonElement::asTimestamp, "last_pin_timestamp")
-    override val guild: PartialGuild by map.delegateJson({ bot.fetchGuild(asSnowflake()) }, "guild_id")
+    override val guild: PartialGuild by ::internalGuild
     override val lastMessage: PartialMessage by map.delegateJson({ fetchMessage(asSnowflake()) }, "last_message_id")
     
     override val name: String by map.delegateJson(JsonElement::asString)
     override val position: Int by map.delegateJson(JsonElement::asInt)
     override val category: PartialCategory? by map.delegateJsonNullable({ PartialCategory.new(guild, asSnowflake()) }, "parent_id")
     override val permissions: List<PermissionOverwrite> by map.delegateJson({
-        (this as JsonArray).map { asPermissionOverwrite(this@TextChannel, guild, bot) }
+        (this as JsonArray).map { it.asPermissionOverwrite(this@TextChannel, guild, bot) }
     }, "permission_overwrites")
     
     val fetchWebhooks: IRestAction<List<Webhook>>

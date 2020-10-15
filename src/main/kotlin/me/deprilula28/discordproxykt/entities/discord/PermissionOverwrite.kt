@@ -46,11 +46,8 @@ abstract class PermissionOverwrite(map: JsonObject, bot: DiscordProxyKt): Entity
         set
     }
     
-    val allowRaw: Long
-        get() = allow.toBitSet()
-    
-    val denyRaw: Long
-        get() = deny.toBitSet()
+    val allowRaw: Long by map.delegateJson(JsonElement::asLong, "allow")
+    val denyRaw: Long by map.delegateJson(JsonElement::asLong, "deny")
     
     val inheritRaw: Long
         get() = inherit.toBitSet()

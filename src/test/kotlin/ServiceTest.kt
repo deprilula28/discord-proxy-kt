@@ -13,14 +13,28 @@ import kotlin.test.Test
             "stable",
             URI.create("amqp://localhost"),
             System.getenv("token"),
-            deleteQueuesAfter = true,
         ).build()
-        bot.on(Events.MESSAGE_CREATE) {
-            println(it)
-        }
-        bot.on(Events.MESSAGE_UPDATE) {
-            println(it)
-        }
+        bot.on(Events.GUILD_CREATE) { }
+        bot.on(Events.GUILD_DELETE) { }
+        bot.on(Events.GUILD_BAN_ADD) { }
+        bot.on(Events.GUILD_BAN_REMOVE) { }
+        bot.on(Events.GUILD_EMOJIS_UPDATE) { }
+        bot.on(Events.GUILD_MEMBER_ADD) { }
+        bot.on(Events.GUILD_MEMBER_REMOVE) { }
+        bot.on(Events.GUILD_MEMBER_UPDATE) { }
+        bot.on(Events.GUILD_ROLE_CREATE) { }
+        bot.on(Events.GUILD_ROLE_DELETE) { }
+        bot.on(Events.GUILD_ROLE_UPDATE) { }
+        bot.on(Events.INVITE_CREATE) { }
+        bot.on(Events.INVITE_DELETE) { }
+        bot.on(Events.MESSAGE_CREATE) { }
+        bot.on(Events.MESSAGE_UPDATE) { }
+        bot.on(Events.MESSAGE_DELETE) { }
+        bot.on(Events.MESSAGE_DELETE_BULK) { }
+        bot.on(Events.MESSAGE_REACTION_ADD) { }
+        bot.on(Events.MESSAGE_REACTION_REMOVE) { }
+        bot.on(Events.MESSAGE_REACTION_REMOVE_ALL) { }
+        bot.on(Events.MESSAGE_REACTION_REMOVE_EMOJI) { }
         Thread.sleep(10000000L)
     }
 }

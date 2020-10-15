@@ -65,9 +65,9 @@ fun JsonElement.asMessageChannel(bot: DiscordProxyKt, guild: PartialGuild): Mess
 }
 fun JsonElement.asPermissionOverwrite(channel: GuildChannel, guild: PartialGuild, bot: DiscordProxyKt): PermissionOverwrite {
     val obj = this as JsonObject
-    return when (val type = obj["type"]!!.asInt()) {
-        0 -> RoleOverride(guild, channel, obj, bot)
-        1 -> MemberOverride(guild, channel, obj, bot)
+    return when (val type = obj["type"]!!.asString()) {
+        "role", "0" -> RoleOverride(guild, channel, obj, bot)
+        "member", "1" -> MemberOverride(guild, channel, obj, bot)
         else -> throw InternalError("Invalid permission overwrite type received: $type")
     }
 }
@@ -130,7 +130,7 @@ inline fun <reified E: Enum<E>> Long.bitSetToEnumSet(values: Array<E>): EnumSet<
 
 fun <E: Enum<E>> EnumSet<E>.toBitSet(): Long {
     var num = 0L
-    forEach { num = num and (1L shl it.ordinal) }
+    forEach { num = num or (1L shl it.ordinal) }
     return num
 }
 

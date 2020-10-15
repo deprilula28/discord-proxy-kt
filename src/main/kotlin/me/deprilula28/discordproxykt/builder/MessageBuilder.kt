@@ -6,6 +6,7 @@ import me.deprilula28.discordproxykt.entities.discord.PartialRole
 import me.deprilula28.discordproxykt.entities.discord.PartialUser
 import me.deprilula28.discordproxykt.entities.discord.message.Everyone
 import me.deprilula28.discordproxykt.entities.discord.message.Message
+import me.deprilula28.discordproxykt.rest.InvalidRequestException
 import me.deprilula28.discordproxykt.rest.RestEndpoint
 import me.deprilula28.discordproxykt.rest.toBitSet
 import java.util.*
@@ -15,6 +16,7 @@ class MessageBuilder: MessageConversion {
     internal val map = mutableMapOf<String, JsonElement>()
     
     fun setContent(text: String): MessageBuilder {
+        if (text.length > 2000) throw InvalidRequestException("Message content size of 2000 characters was surpassed.")
         map["content"] = JsonPrimitive(text)
         return this
     }

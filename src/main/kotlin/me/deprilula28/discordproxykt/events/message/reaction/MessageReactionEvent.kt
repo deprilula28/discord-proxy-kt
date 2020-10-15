@@ -12,14 +12,14 @@ interface MessageReactionEvent: MessageEvent {
     val message: PartialMessage
     val guild: PartialGuild?
     val member: Member?
-    val emoji: ReactionEmoji
+    val emoji: ReactionEmoji?
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("this"))
     val reaction: MessageReactionEvent
         get() = this
-    @Deprecated("JDA Compatibility Field", ReplaceWith("emoji"))
+    @Deprecated("JDA Compatibility Field", ReplaceWith("emoji!!"))
     val reactionEmote: ReactionEmoji
-        get() = emoji
+        get() = emoji!!
     @Deprecated("JDA Compatibility Field", ReplaceWith("user.snowflake.id"))
     val userId: String
         get() = user.snowflake.id

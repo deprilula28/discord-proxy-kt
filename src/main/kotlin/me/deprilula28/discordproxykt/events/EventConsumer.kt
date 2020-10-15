@@ -24,6 +24,7 @@ class EventConsumer<T>(
     ) {
         bot.scope.launch {
             try {
+                println("Event: ${event.eventName}, Body: ${body.toString(Charsets.UTF_8)}")
                 handler(event.constructor(Json.decodeFromString(body.toString(Charsets.UTF_8)), bot))
             } catch (e: Exception) {
                 bot.defaultExceptionHandler(e)

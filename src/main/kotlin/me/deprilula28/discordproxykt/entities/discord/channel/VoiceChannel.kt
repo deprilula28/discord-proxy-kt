@@ -37,7 +37,7 @@ interface PartialVoiceChannel: PartialGuildChannel, PartialEntity {
     override val type: ChannelType
         get() = ChannelType.VOICE
     
-    fun upgrade(): IRestAction<VoiceChannel>
+    override fun upgrade(): IRestAction<VoiceChannel>
 }
 
 open class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel, PartialVoiceChannel, EntityManager<VoiceChannel> {

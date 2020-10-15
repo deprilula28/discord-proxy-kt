@@ -34,7 +34,7 @@ interface PartialCategory: PartialEntity, PartialGuildChannel {
     override val type: ChannelType
         get() = ChannelType.CATEGORY
     
-    fun upgrade(): IRestAction<Category>
+    override fun upgrade(): IRestAction<Category>
 }
 
 

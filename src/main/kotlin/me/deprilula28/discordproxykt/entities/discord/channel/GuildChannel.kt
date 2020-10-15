@@ -20,6 +20,24 @@ import me.deprilula28.discordproxykt.rest.RestEndpoint
  * You can use the RestAction this type implements to get a full type, with permission checking.
  */
 interface PartialGuildChannel: PartialEntity, Channel {
+    companion object {
+        fun new(guild: PartialGuild, id: Snowflake): PartialGuildChannel
+            = object: PartialGuildChannel {
+                override val snowflake: Snowflake = id
+                override val bot: DiscordProxyKt = guild.bot
+                override val type: ChannelType
+                    get() = throw UnavailableField()
+                override fun upgrade(): IRestAction<GuildChannel>
+                        = IRestAction.FuturesRestAction(guild.bot) {
+                    guild.fetchChannels.request().thenApply {
+                        it.find { ch -> ch.snowflake == id }!!
+                    }
+                }
+            }
+    }
+    
+    fun upgrade(): IRestAction<out GuildChannel>
+    
     val fetchInvites: IRestAction<List<ExtendedInvite>>
         get() = bot.request(
             RestEndpoint.GET_CHANNEL_INVITES.path(snowflake.id),

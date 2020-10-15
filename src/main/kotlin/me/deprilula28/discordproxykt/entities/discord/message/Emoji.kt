@@ -1,6 +1,7 @@
 package me.deprilula28.discordproxykt.entities.discord.message
 
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.*
@@ -8,6 +9,7 @@ import me.deprilula28.discordproxykt.entities.discord.User
 import me.deprilula28.discordproxykt.rest.asBoolean
 import me.deprilula28.discordproxykt.rest.asSnowflake
 import me.deprilula28.discordproxykt.rest.asString
+import me.deprilula28.discordproxykt.rest.delegateJsonNullable
 import java.net.URLEncoder
 
 // https://discord.com/developers/docs/resources/emoji#emoji-object
@@ -17,6 +19,7 @@ interface Emoji {
 
 class ReactionEmoji(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Emoji {
     override fun toUriPart(): String = snowflake.id
+    val name: String? by map.delegateJsonNullable(JsonElement::asString)
 }
 class UnicodeEmoji(val name: String): Emoji {
     override fun toUriPart(): String = URLEncoder.encode(name)
