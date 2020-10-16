@@ -17,43 +17,37 @@ interface PartialMember {
     
     fun upgrade(): IRestAction<Member>
     
-    private inline fun <reified T: Any> assertRolePerms(role: PartialRole, crossinline func: () -> IRestAction<T>): IRestAction<T> {
-        return (guild as? Guild)?.run {
-            assertPermissions(this, Permissions.MANAGE_ROLES) {
-                (role as? Role)?.run {
-                    IRestAction.future(
-                        bot,
-                        guild.fetchSelfMember.request().thenCompose { member ->
-                            member.fetchRoles.request().thenCompose { roles ->
-                                val highest = roles.maxByOrNull { it.position }
-                                if (highest == null || this.position > highest.position) throw PermissionHierarchyException(this, highest)
-                                func().request()
-                            }
-                        },
-                    )
-                } ?: func()
-            }
-        } ?: func()
+    private suspend fun assertRolePerms(role: PartialRole) {
+        assertPermissions(guild, Permissions.MANAGE_ROLES)
+        (role as? Role)?.run {
+            val roles = guild.fetchSelfMember.await().fetchRoles.await()
+            val highest = roles.maxByOrNull { it.position }
+            if (highest == null || this.position > highest.position) throw PermissionHierarchyException(this, highest)
+        }
     }
     
     fun add(role: PartialRole): IRestAction<Unit>
-        = assertRolePerms(role) {
+        = IRestAction.coroutine(bot) {
+            assertRolePerms(role)
             bot.request(RestEndpoint.ADD_GUILD_MEMBER_ROLE.path(guild.snowflake.id, user.snowflake.id, role.snowflake.id), { Unit })
         }
     
     fun remove(role: PartialRole): IRestAction<Unit>
-        = assertRolePerms(role) {
+        = IRestAction.coroutine(bot) {
+            assertRolePerms(role)
             bot.request(RestEndpoint.REMOVE_GUILD_MEMBER_ROLE.path(guild.snowflake.id, user.snowflake.id, role.snowflake.id), { Unit })
         }
     
     fun kick(): IRestAction<Unit>
-        = assertPermissions(guild, Permissions.KICK_MEMBERS) {
+        = IRestAction.coroutine(bot) {
+            assertPermissions(guild, Permissions.KICK_MEMBERS)
             bot.request(RestEndpoint.REMOVE_GUILD_MEMBER.path(guild.snowflake.id, user.snowflake.id), { Unit })
         }
     
     fun ban(days: Int = 7): IRestAction<Unit> {
         if (days !in 0 .. 7) throw InvalidRequestException("Message deletion days on ban must be from 0 to 7")
-        return assertPermissions(guild, Permissions.BAN_MEMBERS) {
+        return IRestAction.coroutine(bot) {
+            assertPermissions(guild, Permissions.BAN_MEMBERS)
             bot.request(RestEndpoint.CREATE_GUILD_BAN.path(guild.snowflake.id, user.snowflake.id), { Unit }) {
                 Json.encodeToString(mapOf("delete_message_days" to JsonPrimitive(days)))
             }
@@ -61,9 +55,10 @@ interface PartialMember {
     }
     
     fun unban(): IRestAction<Unit>
-            = assertPermissions(guild, Permissions.BAN_MEMBERS) {
-        bot.request(RestEndpoint.REMOVE_GUILD_BAN.path(guild.snowflake.id, user.snowflake.id), { Unit })
-    }
+        = IRestAction.coroutine(bot) {
+            assertPermissions(guild, Permissions.BAN_MEMBERS)
+            bot.request(RestEndpoint.REMOVE_GUILD_BAN.path(guild.snowflake.id, user.snowflake.id), { Unit })
+        }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("ban(days)"))
     fun ban(days: Int = 7, reason: String?) = ban(days)
@@ -129,8 +124,8 @@ class Member(override val guild: PartialGuild, override var map: JsonObject, ove
     val fetchRoles: IRestAction<List<Role>>
         get() {
             val roleSnowflakes = roles.map { it.snowflake }
-            return guild.fetchRoles.map { finalRoles ->
-                finalRoles.filter { it.snowflake in roleSnowflakes }
+            return IRestAction.coroutine(bot) {
+                guild.fetchRoles.await().filter { it.snowflake in roleSnowflakes }
             }
         }
     
@@ -146,10 +141,11 @@ class Member(override val guild: PartialGuild, override var map: JsonObject, ove
         if (changes.containsKey("deaf")) permissions.add(Permissions.DEAFEN_MEMBERS)
         if (changes.containsKey("channel_id")) permissions.add(Permissions.MOVE_MEMBERS)
         
-        return assertPermissions(guild, *permissions.toTypedArray()) {
-            bot.request(
+        return IRestAction.coroutine(bot) {
+            assertPermissions(guild, *permissions.toTypedArray())
+            bot.coroutineRequest(
                 RestEndpoint.MODIFY_GUILD_MEMBER.path(guild.snowflake.id, user.snowflake.id),
-                { this@Member.apply { map = this@request as JsonObject } }
+                { this@Member.apply { map = this@coroutineRequest as JsonObject } }
             ) {
                 val res = Json.encodeToString(changes)
                 changes.clear()
@@ -164,27 +160,27 @@ class Member(override val guild: PartialGuild, override var map: JsonObject, ove
     }
     
     fun hasAuthorityOver(other: Member): IRestAction<Boolean>
-        = IRestAction.future(bot,
-            fetchRoles.request().thenCompose { selfRoles ->
-                other.fetchRoles.request().thenApply { otherRoles ->
-                    (selfRoles.maxByOrNull { it.position }?.position ?: 0) > (otherRoles.maxByOrNull { it.position }?.position ?: 0)
-                }
-            },
-        )
+        = IRestAction.coroutine(bot) {
+            val otherRoles = other.fetchRoles.await()
+            val selfRoles = fetchRoles.await()
+            (selfRoles.maxByOrNull { it.position }?.position ?: 0) > (otherRoles.maxByOrNull { it.position }?.position ?: 0)
+        }
     
     fun hasAuthorityOver(role: Role): IRestAction<Boolean>
-            = fetchRoles.map { roles -> roles.maxByOrNull { it.position }?.position ?: 0 > role.position }
+        = IRestAction.coroutine(bot) {
+            fetchRoles.await().maxByOrNull { it.position }?.position ?: 0 > role.position
+        }
     
     val fetchColor: IRestAction<Color>
-        get() = fetchRoles.map { roles ->
-            roles.filter { it.color != Color.black }.maxByOrNull { it.position }?.color ?: Color.black
+        get() = IRestAction.coroutine(bot) {
+            fetchRoles.await().filter { it.color != Color.black }.maxByOrNull { it.position }?.color ?: Color.black
         }
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("guild.owner == member"))
     val owner: Boolean
         get() {
             return if (guild is Guild) guild.owner.user.snowflake == user.snowflake
-            else guild.upgrade().request().get().owner.user.snowflake == user.snowflake
+            else guild.upgrade().complete().owner.user.snowflake == user.snowflake
         }
     @Deprecated("JDA Compatibility Field", ReplaceWith("joinedAt.offsetDateTime"))
     val timeJoined: OffsetDateTime
@@ -197,15 +193,15 @@ class Member(override val guild: PartialGuild, override var map: JsonObject, ove
         get() = listOf()
     @Deprecated("JDA Compatibility Field", ReplaceWith("color"))
     val color: Color
-        get() = fetchColor.request().get()
+        get() = fetchColor.complete()
     @Deprecated("JDA Compatibility Field", ReplaceWith("color.rgb"))
     val colorRaw: Int
-        get() = fetchColor.request().get().rgb
+        get() = fetchColor.complete().rgb
     
-    @Deprecated("JDA Compatibility Function", ReplaceWith("hasAuthorityOver(member).request().get()"))
-    fun canInteract(member: Member) = hasAuthorityOver(member).request().get()
-    @Deprecated("JDA Compatibility Function", ReplaceWith("hasAuthorityOver(role).request().get()"))
-    fun canInteract(role: Role) = hasAuthorityOver(role).request().get()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("hasAuthorityOver(member).complete()"))
+    fun canInteract(member: Member) = hasAuthorityOver(member).complete()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("hasAuthorityOver(role).complete()"))
+    fun canInteract(role: Role) = hasAuthorityOver(role).complete()
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("apply { nick = nickname }.edit()"))
     fun modifyNickname(nickname: String?) = apply { nick = nickname }.edit()

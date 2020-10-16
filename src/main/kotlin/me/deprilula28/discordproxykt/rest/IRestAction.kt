@@ -1,43 +1,30 @@
 package me.deprilula28.discordproxykt.rest
 
-import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import me.deprilula28.discordproxykt.DiscordProxyKt
-import java.util.concurrent.CompletableFuture
 
 interface IRestAction<T> {
     val bot: DiscordProxyKt
     
     companion object {
-        fun <T> future(bot: DiscordProxyKt, func: CompletableFuture<T>): IRestAction<T>
+        fun <T> coroutine(bot: DiscordProxyKt, func: suspend () -> T): IRestAction<T>
             = object: IRestAction<T> {
+                var res: T? = null
                 override val bot: DiscordProxyKt = bot
-                override fun request(): CompletableFuture<T> = func
-                override fun getIfAvailable(): T? = func.getNow(null)
+                override suspend fun await(): T = res ?: func().apply { res = this }
+                override fun getIfAvailable(): T? = res
             }
     }
     
-    fun request(): CompletableFuture<T>
-    fun getIfAvailable(): T?
-    
-    open class LazyFutureAction<T>(override val bot: DiscordProxyKt, futureProvider: () -> CompletableFuture<T>): IRestAction<T> {
-        private val lazyFuture = lazy(futureProvider)
-        override fun request() = lazyFuture.value
-        override fun getIfAvailable(): T? = if (lazyFuture.isInitialized()) lazyFuture.value.getNow(null) else null
-    }
-    
     open class ProvidedRestAction<T>(override val bot: DiscordProxyKt, private val value: T): IRestAction<T> {
-        private val future by lazy { CompletableFuture.completedFuture(value) }
-        override fun request(): CompletableFuture<T> = future
         override fun getIfAvailable(): T? = value
+        override suspend fun await(): T = value
     }
     
-    // TODO Find a way to optimize these
-    fun <V: Any> map(func: (T) -> V): IRestAction<V> = LazyFutureAction(bot) { this@IRestAction.request().thenApply(func) }
-    fun <V: Any> flatMap(func: (T) -> CompletableFuture<V>): IRestAction<V> = LazyFutureAction(bot) { this@IRestAction.request().thenCompose(func) }
+    suspend fun await(): T
     
-    /// Kotlin coroutine await function
-    suspend fun await(): T = request().await()
+    fun getIfAvailable(): T?
     
     fun queue() {
         queue({}, bot.defaultExceptionHandler)
@@ -59,5 +46,5 @@ interface IRestAction<T> {
     
     // JDA Compatibility
     @Deprecated("JDA Compatibility Function", ReplaceWith("queue()"))
-    fun complete(): T = request().get()
+    fun complete(): T = runBlocking { await() }
 }

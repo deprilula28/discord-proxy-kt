@@ -10,6 +10,7 @@ import me.deprilula28.discordproxykt.entities.UnavailableField
 import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.rest.IRestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
+import me.deprilula28.discordproxykt.rest.asGuildChannel
 
 /**
  * WARNING:<br>
@@ -28,11 +29,7 @@ interface PartialGuildChannel: PartialEntity, Channel {
                 override val type: ChannelType
                     get() = throw UnavailableField()
                 override fun upgrade(): IRestAction<GuildChannel>
-                        = IRestAction.LazyFutureAction(guild.bot) {
-                    guild.fetchChannels.request().thenApply {
-                        it.find { ch -> ch.snowflake == id }!!
-                    }
-                }
+                    = bot.request(RestEndpoint.GET_CHANNEL.path(snowflake.id), { this.asGuildChannel(bot, guild)!! })
             }
     }
     
@@ -79,9 +76,15 @@ interface GuildChannel: PartialGuildChannel {
     val category: PartialCategory?
     
     override val fetchInvites: IRestAction<List<ExtendedInvite>>
-        get() = assertPermissions(this, Permissions.MANAGE_CHANNELS) { super.fetchInvites }
+        get() = IRestAction.coroutine(guild.bot) {
+            assertPermissions(this, Permissions.MANAGE_CHANNELS)
+            super.fetchInvites.await()
+        }
     
-    override fun delete() = assertPermissions(this, Permissions.MANAGE_CHANNELS) { super.delete() }
+    override fun delete() = IRestAction.coroutine(guild.bot) {
+        assertPermissions(this, Permissions.MANAGE_CHANNELS)
+        super.delete().await()
+    }
     
     fun getPermissionOverride(member: PartialMember)
         = permissions.find { it.snowflake == member.user.snowflake } as MemberOverride?

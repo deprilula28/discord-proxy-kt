@@ -32,11 +32,7 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, Partia
                 override val bot: DiscordProxyKt = guild.bot
                 override val internalGuild: PartialGuild = guild
                 override fun upgrade(): IRestAction<TextChannel>
-                        = IRestAction.LazyFutureAction(guild.bot) {
-                    guild.fetchChannels.request().thenApply {
-                        it.find { ch -> ch.snowflake == id } as TextChannel
-                    }
-                }
+                    = bot.request(RestEndpoint.GET_CHANNEL.path(snowflake.id), { TextChannel(guild, this as JsonObject, bot) })
             }
     }
     
@@ -117,18 +113,17 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
     override val category: PartialCategory? by parsingOpt({ PartialCategory.new(guild, asSnowflake()) },
                                                                                              "parent_id")
     override val permissions: List<PermissionOverwrite> by parsing({
-                                                                                                          (this as JsonArray).map {
-                                                                                                              it.asPermissionOverwrite(
-                                                                                                                  this@TextChannel, guild, bot)
-                                                                                                          }
-                                                                                                      }, "permission_overwrites")
+        (this as JsonArray).map {
+            it.asPermissionOverwrite(
+                this@TextChannel, guild, bot)
+        }
+    }, "permission_overwrites")
     
     val fetchWebhooks: IRestAction<List<Webhook>>
-        get() = assertPermissions(this, Permissions.MANAGE_WEBHOOKS) {
-            bot.request(
-                RestEndpoint.GET_CHANNEL_WEBHOOKS.path(snowflake.id),
-                { (this as JsonArray).map { Webhook(it as JsonObject, bot) } }
-            )
+        get() = IRestAction.coroutine(guild.bot) {
+            assertPermissions(this, Permissions.MANAGE_WEBHOOKS)
+            bot.request(RestEndpoint.GET_CHANNEL_WEBHOOKS.path(snowflake.id),
+                        { (this as JsonArray).map { Webhook(it as JsonObject, bot) } }).await()
         }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("nsfw"))
@@ -136,15 +131,24 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
     
     // Permission checking
     override fun bulkDelete(messages: Collection<PartialMessage>)
-        = assertPermissions(this, Permissions.MANAGE_MESSAGES) { super.bulkDelete(messages) }
+        = IRestAction.coroutine(guild.bot) {
+            assertPermissions(this, Permissions.MANAGE_MESSAGES)
+            super.bulkDelete(messages).await()
+        }
     
     override fun bulkDelete(vararg messages: PartialMessage)
-        = assertPermissions(this, Permissions.MANAGE_MESSAGES) { super.bulkDelete(*messages) }
+        = IRestAction.coroutine(guild.bot) {
+            assertPermissions(this, Permissions.MANAGE_MESSAGES)
+            super.bulkDelete(*messages).await()
+        }
     
     override fun send(message: MessageConversion): IRestAction<Message>
-        = if (message is MessageBuilder && message.map["tts"]?.asBoolean() == true)
-            assertPermissions(this, Permissions.SEND_MESSAGES, Permissions.SEND_TTS_MESSAGES) { super.send(message) }
-        else assertPermissions(this, Permissions.SEND_MESSAGES) { super.send(message) }
+        = IRestAction.coroutine(guild.bot) {
+            if (message is MessageBuilder && message.map["tts"]?.asBoolean() == true)
+                assertPermissions(this, Permissions.SEND_MESSAGES, Permissions.SEND_TTS_MESSAGES)
+            else assertPermissions(this, Permissions.SEND_MESSAGES)
+            super.send(message).await()
+        }
     
     override fun upgrade(): IRestAction<TextChannel> = IRestAction.ProvidedRestAction(bot, this)
     
@@ -157,13 +161,16 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
      * Requests that this guild gets edited based on the altered fields.
      */
     override fun edit(): IRestAction<TextChannel> {
-        if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this channel, yet `edit()` was called.")
-        return assertPermissions(this, Permissions.MANAGE_CHANNELS) {
-            bot.request(RestEndpoint.MODIFY_CHANNEL.path(snowflake.id), { this@TextChannel.apply { map = this@request as JsonObject } }) {
+        if (changes.isEmpty()) throw InvalidRequestException(
+            "No changes have been made to this channel, yet `edit()` was called.")
+        return IRestAction.coroutine(guild.bot) {
+            assertPermissions(this, Permissions.MANAGE_CHANNELS)
+            bot.request(RestEndpoint.MODIFY_CHANNEL.path(snowflake.id),
+                        { this@TextChannel.apply { map = this@request as JsonObject } }) {
                 val res = Json.encodeToString(changes)
                 changes.clear()
                 res
-            }
+            }.await()
         }
     }
     
@@ -184,9 +191,9 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
     @Deprecated("JDA Compatibility Field", ReplaceWith("rateLimitPerUser"))
     val slowmode: Int? by ::rateLimitPerUser
     
-    @Deprecated("JDA Compatibility Field", ReplaceWith("category?.upgade()?.request()?.get()"))
+    @Deprecated("JDA Compatibility Field", ReplaceWith("category?.upgrade()?.complete()"))
     val parent: Category?
-        get() = category?.upgrade()?.request()?.get()
+        get() = category?.upgrade()?.complete()
 }
 
 class TextChannelBuilder(guild: PartialGuild, bot: DiscordProxyKt):
@@ -199,7 +206,8 @@ class TextChannelBuilder(guild: PartialGuild, bot: DiscordProxyKt):
     override fun create(): IRestAction<TextChannel> {
         if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
         changes["type"] = JsonPrimitive(0)
-        return assertPermissions(this, Permissions.MANAGE_GUILD) {
+        return IRestAction.coroutine(guild.bot) {
+            assertPermissions(this, Permissions.MANAGE_GUILD)
             bot.request(
                 RestEndpoint.CREATE_GUILD_CHANNEL.path(internalGuild.snowflake.id),
                 { this@TextChannelBuilder.apply { map = this@request as JsonObject } },
@@ -207,7 +215,7 @@ class TextChannelBuilder(guild: PartialGuild, bot: DiscordProxyKt):
                 val res = Json.encodeToString(changes)
                 changes.clear()
                 res
-            }
+            }.await()
         }
     }
 }

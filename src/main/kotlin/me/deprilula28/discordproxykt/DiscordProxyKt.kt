@@ -79,5 +79,8 @@ open class DiscordProxyKt internal constructor(
     }
     
     fun <T: Any> request(path: RestEndpoint.Path, constructor: JsonElement.(DiscordProxyKt) -> T, postData: (() -> String)? = null)
-        = RestAction(this, path, constructor, postData)
+            = RestAction(this, path, constructor, postData)
+    // TODO better way
+    suspend fun <T: Any> coroutineRequest(path: RestEndpoint.Path, constructor: JsonElement.(DiscordProxyKt) -> T, postData: (() -> String)? = null)
+            = RestAction(this, path, constructor, postData).await()
 }

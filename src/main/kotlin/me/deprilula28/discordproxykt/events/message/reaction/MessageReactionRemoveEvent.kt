@@ -12,6 +12,7 @@ import me.deprilula28.discordproxykt.entities.discord.PartialUser
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialMessageChannel
 import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
 import me.deprilula28.discordproxykt.entities.discord.message.ReactionEmoji
+import me.deprilula28.discordproxykt.rest.IRestAction
 import me.deprilula28.discordproxykt.rest.asSnowflake
 import me.deprilula28.discordproxykt.rest.parsing
 import me.deprilula28.discordproxykt.rest.parsingOpt
@@ -26,11 +27,13 @@ class MessageReactionRemoveEvent(override val map: JsonObject, override val bot:
     override val message: PartialMessage by parsing({ channel.fetchMessage(messageSnowflake) }, "message_id")
     override val member: Member? = null
     override val emoji: ReactionEmoji? by parsingOpt({
-                                                                   val obj = this as JsonObject
-                                                                   if (obj["id"] == null || obj["id"] is JsonNull) null
-                                                                   else ReactionEmoji(obj, bot)
-                                                               })
+        val obj = this as JsonObject
+        if (obj["id"] == null || obj["id"] is JsonNull) null
+        else ReactionEmoji(obj, bot)
+    })
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("(guild ?: throw UnavailableField()).upgrade().map { it.fetchMember(user.snowflake) }"))
-    fun retrieveMember() = (guild ?: throw UnavailableField()).upgrade().map { it.fetchMember(user.snowflake) }
+    fun retrieveMember() = IRestAction.coroutine(bot) {
+        (guild ?: throw UnavailableField()).upgrade().await().fetchMember(user.snowflake)
+    }
 }

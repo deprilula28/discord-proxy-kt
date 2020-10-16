@@ -26,8 +26,8 @@ interface PartialRole: PartialEntity, Message.Mentionable {
                 override val snowflake: Snowflake = id
     
                 override fun upgrade(): IRestAction<Role>
-                     = IRestAction.LazyFutureAction(spawnGuild.bot) {
-                        spawnGuild.fetchRoles.request().thenApply { it.find { role -> role.snowflake == id }!! }
+                     = IRestAction.coroutine(spawnGuild.bot) {
+                        spawnGuild.fetchRoles.await().find { role -> role.snowflake == id }!!
                     }
             }
     }
@@ -91,7 +91,8 @@ open class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordP
      */
     override fun edit(): IRestAction<Role> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this role, yet `edit()` was called.")
-        return assertPermissions(guild, Permissions.MANAGE_ROLES) {
+        return IRestAction.coroutine(guild.bot) {
+            assertPermissions(guild, Permissions.MANAGE_ROLES)
             bot.request(
                 RestEndpoint.MODIFY_GUILD_ROLE.path(guild.snowflake.id, snowflake.id),
                 { this@Role.apply { map = this@request as JsonObject } },
@@ -99,7 +100,7 @@ open class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordP
                 val res = Json.encodeToString(changes)
                 changes.clear()
                 res
-            }
+            }.await()
         }
     }
     
@@ -125,8 +126,12 @@ class RoleBuilder(guild: PartialGuild, bot: DiscordProxyKt):
      * The values of the fields in the builder itself will be updated, making it usable as a Role.
      */
     override fun create(): IRestAction<Role> {
-        return assertPermissions(guild, Permissions.MANAGE_ROLES) {
-            bot.request(RestEndpoint.CREATE_GUILD_ROLE.path(guild.snowflake.id), { this@RoleBuilder.apply { map = this@request as JsonObject } }) {
+        return IRestAction.coroutine(guild.bot) {
+            assertPermissions(guild, Permissions.MANAGE_ROLES)
+            bot.coroutineRequest(
+                RestEndpoint.CREATE_GUILD_ROLE.path(guild.snowflake.id),
+                { this@RoleBuilder.apply { map = this@coroutineRequest as JsonObject } },
+            ) {
                 val res = Json.encodeToString(changes)
                 changes.clear()
                 res

@@ -25,12 +25,8 @@ interface PartialVoiceChannel: PartialGuildChannel, PartialEntity {
                 override val snowflake: Snowflake = id
                 override val bot: DiscordProxyKt = guild.bot
         
-                override fun upgrade(): IRestAction<VoiceChannel> =
-                    IRestAction.LazyFutureAction(guild.bot) {
-                        guild.fetchChannels.request().thenApply {
-                            it.find { ch -> ch.snowflake == id } as VoiceChannel
-                        }
-                    }
+                override fun upgrade(): IRestAction<VoiceChannel>
+                    = bot.request(RestEndpoint.GET_CHANNEL.path(snowflake.id), { VoiceChannel(this as JsonObject, bot) })
             }
     }
     
@@ -57,11 +53,11 @@ open class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot),
                                                                                              "parent_id")
     
     override val permissions: List<PermissionOverwrite> by parsing({
-                                                                                                          (this as JsonArray).map {
-                                                                                                              asPermissionOverwrite(this@VoiceChannel,
-                                                                                                                                    guild, bot)
-                                                                                                          }
-                                                                                                      }, "permission_overwrites")
+        (this as JsonArray).map {
+            asPermissionOverwrite(this@VoiceChannel,
+                                  guild, bot)
+        }
+    }, "permission_overwrites")
     
     override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
     
@@ -69,13 +65,16 @@ open class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot),
      * Requests that this guild gets edited based on the altered fields.
      */
     override fun edit(): IRestAction<VoiceChannel> {
-        if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this channel, yet `edit()` was called.")
-        return assertPermissions(this, Permissions.MANAGE_CHANNELS) {
-            bot.request(RestEndpoint.MODIFY_CHANNEL.path(snowflake.id), { this@VoiceChannel.apply { map = this@request as JsonObject } }) {
+        if (changes.isEmpty()) throw InvalidRequestException(
+            "No changes have been made to this channel, yet `edit()` was called.")
+        return IRestAction.coroutine(guild.bot) {
+            assertPermissions(this, Permissions.MANAGE_CHANNELS)
+            bot.request(RestEndpoint.MODIFY_CHANNEL.path(snowflake.id),
+                        { this@VoiceChannel.apply { map = this@request as JsonObject } }) {
                 val res = Json.encodeToString(changes)
                 changes.clear()
                 res
-            }
+            }.await()
         }
     }
     
@@ -88,7 +87,7 @@ open class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot),
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("category?.upgrade()?.request()?.get()"))
     val parent: Category?
-        get() = category?.upgrade()?.request()?.get()
+        get() = category?.upgrade()?.complete()
 }
 
 class VoiceChannelBuilder(private val internalGuild: PartialGuild, bot: DiscordProxyKt):
@@ -101,7 +100,8 @@ class VoiceChannelBuilder(private val internalGuild: PartialGuild, bot: DiscordP
     override fun create(): IRestAction<VoiceChannel> {
         if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
         changes["type"] = JsonPrimitive(2)
-        return assertPermissions(this, Permissions.MANAGE_GUILD) {
+        return IRestAction.coroutine(guild.bot) {
+            assertPermissions(this, Permissions.MANAGE_GUILD)
             bot.request(
                 RestEndpoint.CREATE_GUILD_CHANNEL.path(internalGuild.snowflake.id),
                 { this@VoiceChannelBuilder.apply { map = this@request as JsonObject } },
@@ -109,7 +109,7 @@ class VoiceChannelBuilder(private val internalGuild: PartialGuild, bot: DiscordP
                 val res = Json.encodeToString(changes)
                 changes.clear()
                 res
-            }
+            }.await()
         }
     }
 }

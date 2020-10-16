@@ -25,9 +25,9 @@ interface PartialMessage: PartialEntity {
                 override val snowflake: Snowflake = id
         
                 override fun upgrade(): IRestAction<Message>
-                    = RestAction(
-                        channel.bot,
-                        RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id), { Message(this as JsonObject, channel.bot) }
+                    = bot.request(
+                        RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id),
+                        { Message(this as JsonObject, channel.bot) },
                     )
             }
         
@@ -40,11 +40,10 @@ interface PartialMessage: PartialEntity {
                 override val snowflake: Snowflake = id
     
                 override fun upgrade(): IRestAction<Message>
-                    = IRestAction.LazyFutureAction(channel.bot) {
-                        assertPermissions(channel, Permissions.READ_MESSAGE_HISTORY) {
-                            RestAction(channel.bot, RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id),
-                                       { Message(this as JsonObject, channel.bot) })
-                        }.request()
+                    = IRestAction.coroutine(channel.bot) {
+                        assertPermissions(channel, Permissions.READ_MESSAGE_HISTORY)
+                        RestAction(channel.bot, RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id),
+                                   { Message(this as JsonObject, channel.bot) }).await()
                     }
             }
     }
@@ -273,10 +272,10 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     fun mentionsEveryone() = mentionEveryone
     @Deprecated("JDA Compatibility Field", ReplaceWith("mentionChannels"))
     val mentionedChannels: List<MessageChannel>
-        get() = mentionChannels?.map { it.upgrade().request().get() } ?: listOf()
+        get() = mentionChannels?.map { it.upgrade().complete() } ?: listOf()
     @Deprecated("JDA Compatibility Field", ReplaceWith("mentionRoles"))
     val mentionedRoles: List<Role>
-        get() = mentionRoles.map { it.upgrade().request().get() }
+        get() = mentionRoles.map { it.upgrade().complete() }
     @Deprecated("JDA Compatibility Field", ReplaceWith("editTimestamp.offsetDateTime"))
     val timeEdited: OffsetDateTime?
         get() = editTimestamp?.offsetDateTime
@@ -292,9 +291,9 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     @Deprecated("JDA Compatibility Field", ReplaceWith("content.replace(Regex(\"(\\\\*)|(__)|(~)|(\\\\|\\\\|)|(^> )\"), \"\")"))
     val contentStripped: String
         get() = content.replace(Regex("(\\*)|(__)|(~)|(\\|\\|)|(^> )"), "")
-    @Deprecated("JDA Compatibility Field", ReplaceWith("textChannel?.upgrade()?.request()?.get()?.category?.upgrade()?.request()?.get()"))
+    @Deprecated("JDA Compatibility Field", ReplaceWith("textChannel?.upgrade()?.complete()?.category?.upgrade()?.complete()"))
     val category: Category?
-        get() = textChannel?.upgrade()?.request()?.get()?.category?.upgrade()?.request()?.get()
+        get() = textChannel?.upgrade()?.complete()?.category?.upgrade()?.complete()
 }
 object Everyone: Message.Mentionable {
     override val asMention: String = "@everyone"

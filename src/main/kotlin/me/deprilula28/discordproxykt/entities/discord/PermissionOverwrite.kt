@@ -7,8 +7,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.assertPermissions
-import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.channel.GuildChannel
+import me.deprilula28.discordproxykt.rest.EntityManager
+import me.deprilula28.discordproxykt.rest.IRestAction
+import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.rest.*
 import java.util.*
 
@@ -102,10 +104,10 @@ class MemberOverrideBuilder(
     override fun create(): IRestAction<MemberOverride> {
         if (!changes.containsKey("id")) throw InvalidRequestException("Member overrides require the user ID.")
         changes["type"] = JsonPrimitive(1)
-        return assertPermissions(channel, Permissions.MANAGE_ROLES) {
-            bot.request(
+        return IRestAction.coroutine(bot) {assertPermissions(channel, Permissions.MANAGE_ROLES)
+            bot.coroutineRequest(
                 RestEndpoint.EDIT_CHANNEL_PERMISSIONS.path(channel.snowflake.id, builderMember.id),
-                { this@MemberOverrideBuilder.apply { map = this@request as JsonObject } },
+                { this@MemberOverrideBuilder.apply { map = this@coroutineRequest as JsonObject } },
             ) {
                 val res = Json.encodeToString(changes)
                 changes.clear()
@@ -151,10 +153,11 @@ class RoleOverrideBuilder(
     override fun create(): IRestAction<RoleOverride> {
         if (!changes.containsKey("id")) throw InvalidRequestException("Role overrides require the role ID.")
         changes["type"] = JsonPrimitive(0)
-        return assertPermissions(channel, Permissions.MANAGE_ROLES) {
-            bot.request(
+        return IRestAction.coroutine(bot) {
+            assertPermissions(channel, Permissions.MANAGE_ROLES)
+            bot.coroutineRequest(
                 RestEndpoint.EDIT_CHANNEL_PERMISSIONS.path(channel.snowflake.id, builderRole.id),
-                { this@RoleOverrideBuilder.apply { map = this@request as JsonObject } },
+                { this@RoleOverrideBuilder.apply { map = this@coroutineRequest as JsonObject } },
             ) {
                 val res = Json.encodeToString(changes)
                 changes.clear()

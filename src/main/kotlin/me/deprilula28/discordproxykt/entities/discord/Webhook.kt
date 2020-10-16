@@ -84,10 +84,11 @@ class WebhookBuilder(private val internalChannel: TextChannel, bot: DiscordProxy
     override fun create(): IRestAction<Webhook> {
         if (!changes.containsKey("name")) throw InvalidRequestException("Webhooks require a name.")
         if (changes["name"]!!.asString() == "clyde") throw InvalidRequestException("Webhooks cannot be named Clyde.")
-        return assertPermissions(internalChannel, Permissions.MANAGE_CHANNELS) {
-            bot.request(
+        return IRestAction.coroutine(bot) {
+            assertPermissions(internalChannel, Permissions.MANAGE_CHANNELS)
+            bot.coroutineRequest(
                 RestEndpoint.CREATE_WEBHOOK.path(internalChannel.snowflake.id),
-                { this@WebhookBuilder.apply { map = this@request as JsonObject } },
+                { this@WebhookBuilder.apply { map = this@coroutineRequest as JsonObject } },
             ) {
                 val res = Json.encodeToString(changes)
                 changes.clear()

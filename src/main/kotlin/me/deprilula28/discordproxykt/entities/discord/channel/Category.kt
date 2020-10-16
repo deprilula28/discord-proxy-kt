@@ -23,11 +23,7 @@ interface PartialCategory: PartialEntity, PartialGuildChannel {
             override val snowflake: Snowflake = id
             override val bot: DiscordProxyKt = guild.bot
             override fun upgrade(): IRestAction<Category>
-                = IRestAction.LazyFutureAction(guild.bot) {
-                    guild.fetchChannels.request().thenApply {
-                        it.find { ch -> ch.snowflake == id } as Category
-                    }
-                }
+                = bot.request(RestEndpoint.GET_CHANNEL.path(snowflake.id), { Category(this as JsonObject, bot) })
         }
     }
     
@@ -47,11 +43,11 @@ open class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Gui
     override fun upgrade(): IRestAction<Category> = IRestAction.ProvidedRestAction(bot, this)
     
     override val permissions: List<PermissionOverwrite> by parsing({
-                                                                                                          (this as JsonArray).map {
-                                                                                                              asPermissionOverwrite(this@Category,
-                                                                                                                                    guild, bot)
-                                                                                                          }
-                                                                                                      }, "permission_overwrites")
+        (this as JsonArray).map {
+            asPermissionOverwrite(this@Category,
+                                  guild, bot)
+        }
+    }, "permission_overwrites")
     
     override val type: ChannelType
         get() = ChannelType.CATEGORY
@@ -68,8 +64,9 @@ open class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Gui
      */
     override fun edit(): IRestAction<Category> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this channel, yet `edit()` was called.")
-        return assertPermissions(this, Permissions.MANAGE_CHANNELS) {
-            bot.request(RestEndpoint.MODIFY_CHANNEL.path(snowflake.id), { this@Category.apply { map = this@request as JsonObject } }) {
+        return IRestAction.coroutine(guild.bot) {
+            assertPermissions(this, Permissions.MANAGE_CHANNELS)
+            bot.coroutineRequest(RestEndpoint.MODIFY_CHANNEL.path(snowflake.id), { this@Category.apply { map = this@coroutineRequest as JsonObject } }) {
                 val res = Json.encodeToString(changes)
                 changes.clear()
                 res
@@ -88,10 +85,11 @@ class CategoryBuilder(private val internalGuild: PartialGuild, bot: DiscordProxy
     override fun create(): IRestAction<Category> {
         if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
         changes["type"] = JsonPrimitive(4)
-        return assertPermissions(this, Permissions.MANAGE_GUILD) {
-            bot.request(
+        return IRestAction.coroutine(guild.bot) {
+            assertPermissions(this, Permissions.MANAGE_GUILD)
+            bot.coroutineRequest(
                 RestEndpoint.CREATE_GUILD_CHANNEL.path(internalGuild.snowflake.id),
-                { this@CategoryBuilder.apply { map = this@request as JsonObject } },
+                { this@CategoryBuilder.apply { map = this@coroutineRequest as JsonObject } },
             ) {
                 val res = Json.encodeToString(changes)
                 changes.clear()

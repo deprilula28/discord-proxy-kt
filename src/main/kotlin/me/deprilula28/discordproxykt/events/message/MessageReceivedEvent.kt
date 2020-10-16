@@ -15,9 +15,9 @@ class MessageReceivedEvent(override val map: JsonObject, override val bot: Disco
         get() = if (message.guild == null) message.privateChannel as PartialMessageChannel
         else message.textChannel as PartialMessageChannel
     
-    @Deprecated("JDA Compatibility Field", ReplaceWith("textChannel.guild.upgrade().request().get()"))
+    @Deprecated("JDA Compatibility Field", ReplaceWith("textChannel.guild.upgrade().complete()"))
     val guild: Guild
-        get() = textChannel.guild.upgrade().request().get()
+        get() = textChannel.guild.upgrade().complete()
     
     val author by message::author
     val member by message::member

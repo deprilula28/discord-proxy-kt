@@ -26,8 +26,8 @@ interface MessageReactionEvent: MessageEvent {
     @Deprecated("JDA Compatibility Field", ReplaceWith("user.snowflake.idLong"))
     val userIdLong: Long
         get() = user.snowflake.idLong
-    @Deprecated("JDA Compatibility Function", ReplaceWith("user.upgrade().request()"))
-    fun retrieveUser() = user.upgrade().request()
-    @Deprecated("JDA Compatibility Function", ReplaceWith("message.upgrade().request()"))
-    fun retrieveMessage() = message.upgrade().request()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("user.upgrade()"))
+    fun retrieveUser() = user.upgrade()
+    @Deprecated("JDA Compatibility Function", ReplaceWith("message.upgrade()"))
+    fun retrieveMessage() = message.upgrade()
 }

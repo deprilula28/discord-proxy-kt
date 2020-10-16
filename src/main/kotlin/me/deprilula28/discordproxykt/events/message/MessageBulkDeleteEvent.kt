@@ -17,7 +17,7 @@ class MessageBulkDeleteEvent(override val map: JsonObject, override val bot: Dis
     val messages: List<PartialMessage> by parsing(
         { (this as JsonArray).map { channel.fetchMessage(it.asSnowflake()) } }, "ids")
     
-    @Deprecated("JDA Compatibility Field", ReplaceWith("channel.upgrade().request().get()"))
+    @Deprecated("JDA Compatibility Field", ReplaceWith("channel.upgrade().complete()"))
     val textChannel: TextChannel
-        get() = channel.upgrade().request().get()
+        get() = channel.upgrade().complete()
 }
