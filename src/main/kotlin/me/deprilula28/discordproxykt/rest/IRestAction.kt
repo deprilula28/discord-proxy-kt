@@ -1,8 +1,10 @@
 package me.deprilula28.discordproxykt.rest
 
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.deprilula28.discordproxykt.DiscordProxyKt
+import java.util.concurrent.TimeUnit
 
 interface IRestAction<T> {
     val bot: DiscordProxyKt
@@ -30,16 +32,35 @@ interface IRestAction<T> {
         queue({}, bot.defaultExceptionHandler)
     }
     
-    fun queue(func: (T) -> Unit) {
-        queue(func, bot.defaultExceptionHandler)
+    fun queue(success: (T) -> Unit) {
+        queue(success, bot.defaultExceptionHandler)
     }
     
-    fun queue(func: (T) -> Unit, err: (Exception) -> Unit) {
+    fun queue(success: (T) -> Unit, failure: (Exception) -> Unit) {
         bot.scope.launch {
             try {
-                func(await())
+                success(await())
             } catch (exception: Exception) {
-                err(exception)
+                failure(exception)
+            }
+        }
+    }
+    
+    fun queueAfter(delay: Long, unit: TimeUnit, ) {
+        queueAfter(delay, unit, {}, bot.defaultExceptionHandler)
+    }
+    
+    fun queueAfter(delay: Long, unit: TimeUnit, success: (T) -> Unit) {
+        queueAfter(delay, unit, success, bot.defaultExceptionHandler)
+    }
+    
+    fun queueAfter(delay: Long, unit: TimeUnit, success: (T) -> Unit, failure: (Exception) -> Unit) {
+        bot.scope.launch {
+            delay(unit.toMillis(delay))
+            try {
+                success(await())
+            } catch (exception: Exception) {
+                failure(exception)
             }
         }
     }

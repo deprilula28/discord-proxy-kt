@@ -27,7 +27,13 @@ import kotlin.test.Test
         bot.on(Events.GUILD_ROLE_UPDATE) { }
         bot.on(Events.INVITE_CREATE) { }
         bot.on(Events.INVITE_DELETE) { }
-        bot.on(Events.MESSAGE_CREATE) { }
+        bot.on(Events.MESSAGE_CREATE) { msgReceived ->
+            if (msgReceived.message.content.startsWith("!ratelimit")) {
+                while (true) {
+                    msgReceived.channel.send("this is a thing im gonna do many times").await()
+                }
+            }
+        }
         bot.on(Events.MESSAGE_UPDATE) { }
         bot.on(Events.MESSAGE_DELETE) { }
         bot.on(Events.MESSAGE_DELETE_BULK) { }
