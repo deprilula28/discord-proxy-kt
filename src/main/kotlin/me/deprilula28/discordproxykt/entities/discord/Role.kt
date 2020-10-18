@@ -1,10 +1,7 @@
 package me.deprilula28.discordproxykt.entities.discord
 
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.Entity
@@ -55,7 +52,7 @@ open class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordP
     /**
      * integer representation of hexadecimal color code
      */
-    var color: Color by parsing(JsonElement::asColor, { Json.encodeToJsonElement(it.rgb) })
+    var color: Color by parsing(JsonElement::asColor, { JsonPrimitive((it.red shl 16) or (it.green shl 8) or it.blue) })
     /**
      * if this role is pinned in the user listing
      */
@@ -67,7 +64,8 @@ open class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordP
     /**
      * permission bit set
      */
-    val permissions: EnumSet<Permissions> by lazy { permissionsRaw.bitSetToEnumSet(Permissions.values()) }
+    val permissions: EnumSet<Permissions>
+        get() = permissionsRaw.bitSetToEnumSet(Permissions.values())
     /**
      * permission bit set
      */

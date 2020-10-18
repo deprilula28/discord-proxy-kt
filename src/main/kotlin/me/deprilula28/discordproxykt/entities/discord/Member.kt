@@ -29,26 +29,26 @@ interface PartialMember {
     fun add(role: PartialRole): IRestAction<Unit>
         = IRestAction.coroutine(bot) {
             assertRolePerms(role)
-            bot.request(RestEndpoint.ADD_GUILD_MEMBER_ROLE.path(guild.snowflake.id, user.snowflake.id, role.snowflake.id), { Unit })
+            bot.coroutineRequest(RestEndpoint.ADD_GUILD_MEMBER_ROLE.path(guild.snowflake.id, user.snowflake.id, role.snowflake.id), { Unit })
         }
     
     fun remove(role: PartialRole): IRestAction<Unit>
         = IRestAction.coroutine(bot) {
             assertRolePerms(role)
-            bot.request(RestEndpoint.REMOVE_GUILD_MEMBER_ROLE.path(guild.snowflake.id, user.snowflake.id, role.snowflake.id), { Unit })
+            bot.coroutineRequest(RestEndpoint.REMOVE_GUILD_MEMBER_ROLE.path(guild.snowflake.id, user.snowflake.id, role.snowflake.id), { Unit })
         }
     
     fun kick(): IRestAction<Unit>
         = IRestAction.coroutine(bot) {
             assertPermissions(guild, Permissions.KICK_MEMBERS)
-            bot.request(RestEndpoint.REMOVE_GUILD_MEMBER.path(guild.snowflake.id, user.snowflake.id), { Unit })
+            bot.coroutineRequest(RestEndpoint.REMOVE_GUILD_MEMBER.path(guild.snowflake.id, user.snowflake.id), { Unit })
         }
     
     fun ban(days: Int = 7): IRestAction<Unit> {
         if (days !in 0 .. 7) throw InvalidRequestException("Message deletion days on ban must be from 0 to 7")
         return IRestAction.coroutine(bot) {
             assertPermissions(guild, Permissions.BAN_MEMBERS)
-            bot.request(RestEndpoint.CREATE_GUILD_BAN.path(guild.snowflake.id, user.snowflake.id), { Unit }) {
+            bot.coroutineRequest(RestEndpoint.CREATE_GUILD_BAN.path(guild.snowflake.id, user.snowflake.id), { Unit }) {
                 Json.encodeToString(mapOf("delete_message_days" to JsonPrimitive(days)))
             }
         }
@@ -175,6 +175,8 @@ class Member(override val guild: PartialGuild, override var map: JsonObject, ove
         get() = IRestAction.coroutine(bot) {
             fetchRoles.await().filter { it.color != Color.black }.maxByOrNull { it.position }?.color ?: Color.black
         }
+    
+    override fun toString(): String = "Member($user, $guild)"
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("guild.owner == member"))
     val owner: Boolean

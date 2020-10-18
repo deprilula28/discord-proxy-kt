@@ -2,7 +2,7 @@ package me.deprilula28.discordproxykt
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.GlobalScope
-import me.deprilula28.discordproxykt.cache.Cache
+import me.deprilula28.discordproxykt.cache.DiscordRestCache
 import me.deprilula28.discordproxykt.cache.MemoryCache
 import java.net.URI
 import java.net.http.HttpClient
@@ -38,7 +38,7 @@ class DpkBuilder(
         .version(HttpClient.Version.HTTP_2)
         .connectTimeout(Duration.ofSeconds(30L))
         .build(),
-    var cache: Cache = MemoryCache(coroutineScope, 5L to TimeUnit.MINUTES),
+    var cache: DiscordRestCache = MemoryCache(coroutineScope, 5L to TimeUnit.MINUTES),
     var defaultExceptionHandler: (Exception) -> Unit = { it.printStackTrace() },
     var deleteQueuesAfter: Boolean = false,
 ) {

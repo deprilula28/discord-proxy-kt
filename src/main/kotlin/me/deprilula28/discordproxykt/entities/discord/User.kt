@@ -22,6 +22,7 @@ interface PartialUser: PartialEntity, Message.Mentionable {
                         bot, RestEndpoint.GET_USER.path(id.id),
                         { User(this as JsonObject, bot) }
                     )
+                override fun toString(): String = "User(partial, ${snowflake.id})"
             }
     }
     
@@ -112,6 +113,8 @@ class User(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialUser 
     val premiumType: PremiumType? by parsingOpt({ PremiumType.values()[asInt()] }, "premium_type")
     
     override fun upgrade(): IRestAction<User> = IRestAction.ProvidedRestAction(bot, this)
+    
+    override fun toString(): String = "User($username#$discriminator, ${snowflake.id})"
     
     enum class PremiumType {
         NONE, CLASSIC, NITRO

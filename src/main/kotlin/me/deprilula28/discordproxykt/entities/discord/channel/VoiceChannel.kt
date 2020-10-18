@@ -27,6 +27,7 @@ interface PartialVoiceChannel: PartialGuildChannel, PartialEntity {
         
                 override fun upgrade(): IRestAction<VoiceChannel>
                     = bot.request(RestEndpoint.GET_CHANNEL.path(snowflake.id), { VoiceChannel(this as JsonObject, bot) })
+                override fun toString(): String = "Channel(partial, $type, $guild, $snowflake.id)"
             }
     }
     
@@ -85,6 +86,8 @@ open class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot),
     
     override fun upgrade(): IRestAction<VoiceChannel> = IRestAction.ProvidedRestAction(bot, this)
     
+    override fun toString(): String = "Channel($type, $guild, $name, ${snowflake.id})"
+    
     @Deprecated("JDA Compatibility Field", ReplaceWith("category?.upgrade()?.request()?.get()"))
     val parent: Category?
         get() = category?.upgrade()?.complete()
@@ -112,4 +115,5 @@ class VoiceChannelBuilder(private val internalGuild: PartialGuild, bot: DiscordP
             }.await()
         }
     }
+    override fun toString(): String = "Channel(builder)"
 }

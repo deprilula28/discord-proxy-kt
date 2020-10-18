@@ -11,4 +11,6 @@ import me.deprilula28.discordproxykt.rest.parsing
 class RoleDeleteEvent(override val map: JsonObject, override val bot: DiscordProxyKt): GuildRoleEvent {
     override val guildSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "guild_id")
     override val role: PartialRole by parsing({ guild.fetchRole(asSnowflake()) }, "role_id")
+    
+    // TODO internalHandle updating guild role cache
 }

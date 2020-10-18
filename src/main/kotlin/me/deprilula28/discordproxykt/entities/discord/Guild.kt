@@ -155,6 +155,7 @@ interface PartialGuild: PartialEntity {
                     bot, RestEndpoint.GET_GUILD.path(snowflake.id),
                     { Guild(this as JsonObject, bot) },
                 )
+                override fun toString(): String = "Guild(partial, ${snowflake.id})"
             }
         }
     }
@@ -222,6 +223,7 @@ interface PartialGuild: PartialEntity {
         override fun upgrade(): IRestAction<Member> = RestAction(bot, RestEndpoint.GET_GUILD_MEMBER.path(snowflake.id,
                                                                                                          user.id),
                                                                  { Member(this@PartialGuild, this as JsonObject, bot) })
+        override fun toString(): String = "Member(partial, $user, $guild)"
     }
     
     val fetchEmojis: IRestAction<List<GuildEmoji>>
@@ -235,15 +237,22 @@ interface PartialGuild: PartialEntity {
         get() = bot.request(RestEndpoint.GET_GUILD_VANITY_URL.path(snowflake.id), { (this as JsonPrimitive).content })
     
     val fetchBans: IRestAction<List<Ban>>
-        get() = bot.request(
-            RestEndpoint.GET_GUILDS_BANS.path(snowflake.id),
-            { (this as JsonArray).map { Ban(it as JsonObject, bot) } },
-        )
+        get() = IRestAction.coroutine(bot) {
+            assertPermissions(this, Permissions.BAN_MEMBERS)
+            bot.request(
+                RestEndpoint.GET_GUILDS_BANS.path(snowflake.id),
+                { (this as JsonArray).map { Ban(it as JsonObject, bot) } },
+            ).await()
+        }
     
-    fun fetchBan(user: PartialUser): IRestAction<Ban> = bot.request(
-        RestEndpoint.GET_GUILDS_BAN.path(snowflake.id, user.snowflake.id),
-        { Ban(this as JsonObject, bot) },
-    )
+    fun fetchBan(user: PartialUser): IRestAction<Ban>
+        = IRestAction.coroutine(bot) {
+            assertPermissions(this, Permissions.BAN_MEMBERS)
+            bot.request(
+                RestEndpoint.GET_GUILDS_BAN.path(snowflake.id, user.snowflake.id),
+                { Ban(this as JsonObject, bot) },
+            ).await()
+        }
     
     val fetchSelfMember: IRestAction<Member>
         get() = IRestAction.coroutine(bot) {
@@ -253,7 +262,9 @@ interface PartialGuild: PartialEntity {
     val fetchUserPermissions: IRestAction<EnumSet<Permissions>>
         get() = IRestAction.coroutine(bot) {
             // In constructed guilds, fetchRoles has no requests needed
-            val selfRoles = fetchMember(bot.selfUser.await().snowflake).upgrade().await().fetchRoles.await()
+            val selfUser = bot.selfUser.await()
+            val selfMember = fetchMember(selfUser.snowflake).upgrade().await()
+            val selfRoles = selfMember.fetchRoles.await()
             var set = 0L
             selfRoles.forEach { el -> set = set and el.permissionsRaw }
             set.bitSetToEnumSet(Permissions.values())
@@ -272,7 +283,7 @@ interface PartialGuild: PartialEntity {
     fun retrievePrunableMemberCount(days: Int): IRestAction<Int> = IRestAction.coroutine(bot) {
         assertPermissions(this, Permissions.KICK_MEMBERS)
         bot.coroutineRequest(
-            RestEndpoint.DELETE_GUILD.path(listOf("days" to days.toString()), snowflake.id),
+            RestEndpoint.GET_GUILD_PRUNE_COUNT.path(listOf("days" to days.toString()), snowflake.id),
             { (this as JsonObject)["pruned"]!!.asInt() }
         )
     }
@@ -768,13 +779,22 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
         Properties below override PartialGuild to use the additional information this type has available
      */
     
-    // Ensure cached items are used instead of fetching when possible
+    override val fetchSelfMember: IRestAction<Member>
+        get() = cachedMembers?.run {
+            IRestAction.coroutine(bot) {
+                val selfUser = bot.selfUser.await()
+                this.find { it.user.snowflake == selfUser.snowflake } ?: super.fetchSelfMember.await()
+            }
+        } ?: super.fetchSelfMember
+    
     override val fetchUserPermissions: IRestAction<EnumSet<Permissions>>
         get() = cachedUserPermissions?.run { IRestAction.ProvidedRestAction(bot, this) } ?: super.fetchUserPermissions
     
     override val fetchRoles: IRestAction<List<Role>>
         get() = IRestAction.ProvidedRestAction(bot, cachedRoles)
-
+    
+    override fun toString(): String = "Guild($name, ${snowflake.id})"
+    
     @Deprecated("JDA Compatibility Field", ReplaceWith(""))
     val manager: Guild?
         get() = this
@@ -956,6 +976,7 @@ class GuildBuilder(bot: DiscordProxyKt):
             }
         }
     }
+    override fun toString(): String = "GuildBuilder"
 }
 
 enum class Region {

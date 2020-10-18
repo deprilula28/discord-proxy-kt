@@ -11,4 +11,6 @@ import me.deprilula28.discordproxykt.rest.parsing
 class GuildMemberJoinEvent(override val map: JsonObject, override val bot: DiscordProxyKt): GuildMemberEvent {
     override val member: Member = Member(guild, map, bot)
     override val guildSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "guild_id")
+    
+    // TODO internalHandle updating guild member cache
 }

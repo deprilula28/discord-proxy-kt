@@ -15,4 +15,6 @@ class GuildMemberUpdateEvent(override val map: JsonObject, override val bot: Dis
      */
     override val guildSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "guild_id")
     override val member: Member = Member(guild, map, bot)
+    
+    // TODO internalHandle updating guild member cache
 }

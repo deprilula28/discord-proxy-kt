@@ -28,6 +28,10 @@ interface PartialEntity {
 open class Entity(override var map: JsonObject, override val bot: DiscordProxyKt): PartialEntity, Parse {
     override val snowflake: Snowflake by parsing(JsonElement::asSnowflake, "id")
     
-    @Deprecated("JDA Compatibility Field", ReplaceWith("snowflake.id")) val id: String by snowflake::id
-    @Deprecated("JDA Compatibility Field", ReplaceWith("snowflake.idLong")) val idLong: Long by snowflake::idLong
+    @Deprecated("JDA Compatibility Field", ReplaceWith("snowflake.id"))
+    val id: String
+        get() = snowflake.id
+    @Deprecated("JDA Compatibility Field", ReplaceWith("snowflake.idLong"))
+    val idLong: Long
+        get() = snowflake.idLong
 }

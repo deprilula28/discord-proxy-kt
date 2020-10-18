@@ -30,6 +30,7 @@ interface PartialGuildChannel: PartialEntity, Channel {
                     get() = throw UnavailableField()
                 override fun upgrade(): IRestAction<GuildChannel>
                     = bot.request(RestEndpoint.GET_CHANNEL.path(snowflake.id), { this.asGuildChannel(bot, guild)!! })
+                override fun toString(): String = "Channel(partial, $guild, $snowflake.id)"
             }
     }
     

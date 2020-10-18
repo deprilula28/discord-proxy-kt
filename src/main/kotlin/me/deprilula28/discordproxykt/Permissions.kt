@@ -14,7 +14,7 @@ suspend fun assertPermissions(guild: PartialGuild, vararg perm: Permissions) {
     if (cachedPerms == null) {
         val (_, roles) = useSelfMemberRoles(guild)
         var bitSet = 0L
-        roles.forEach { el -> bitSet = bitSet and el.permissionsRaw }
+        roles.forEach { el -> bitSet = bitSet or el.permissionsRaw }
         val enumSet = bitSet.bitSetToEnumSet(Permissions.values())
         checkPerms(perm, enumSet)
     } else checkPerms(perm, cachedPerms)

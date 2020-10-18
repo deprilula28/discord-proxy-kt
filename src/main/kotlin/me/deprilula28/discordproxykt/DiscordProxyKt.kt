@@ -4,25 +4,21 @@ import com.rabbitmq.client.Channel
 import com.rabbitmq.client.Connection
 import com.rabbitmq.client.ConnectionFactory
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.GlobalScope
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import me.deprilula28.discordproxykt.cache.Cache
-import me.deprilula28.discordproxykt.cache.MemoryCache
+import me.deprilula28.discordproxykt.cache.DiscordRestCache
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.*
-import me.deprilula28.discordproxykt.entities.discord.channel.PartialMessageChannel
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialPrivateChannel
+import me.deprilula28.discordproxykt.events.Event
 import me.deprilula28.discordproxykt.events.EventConsumer
 import me.deprilula28.discordproxykt.events.Events
 import me.deprilula28.discordproxykt.rest.RestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
 import java.net.URI
 import java.net.http.HttpClient
-import java.time.Duration
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.getOrSet
 
@@ -33,7 +29,7 @@ open class DiscordProxyKt internal constructor(
     val scope: CoroutineScope,
     val client: HttpClient,
     token: String?,
-    val cache: Cache,
+    val cache: DiscordRestCache,
     val defaultExceptionHandler: (Exception) -> Unit,
     val deleteQueuesAfter: Boolean,
 ) {
@@ -63,7 +59,7 @@ open class DiscordProxyKt internal constructor(
         conn = factory.newConnection()
     }
     
-    fun <T> on(event: Events.Event<T>, handler: suspend (T) -> Unit) {
+    fun <T: Event> on(event: Events.Event<T>, handler: suspend (T) -> Unit) {
         synchronized(handlerSequence) {
             val atomic = handlerSequence[event] ?: AtomicInteger(-1).apply { handlerSequence[event] = this }
             val seq = atomic.addAndGet(1)

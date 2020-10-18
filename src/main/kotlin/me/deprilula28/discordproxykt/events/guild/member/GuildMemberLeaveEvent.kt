@@ -14,6 +14,8 @@ class GuildMemberLeaveEvent(override val map: JsonObject, override val bot: Disc
     val user: User by parsing({ User(this as JsonObject, bot) })
     override val guildSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "guild_id")
     
+    // TODO internalHandle updating guild member cache
+    
     @Deprecated("JDA Compatibility Field", ReplaceWith("null"))
     val member: Member? = null
 }

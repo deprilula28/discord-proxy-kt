@@ -4,8 +4,10 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.future.await
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.RestException
+import me.deprilula28.discordproxykt.cache.DiscordRestCache
 import java.io.InputStream
 import java.net.URI
 import java.net.http.HttpRequest
@@ -20,8 +22,8 @@ open class RestAction<T: Any>(
     private val bodyType: RestEndpoint.BodyType = RestEndpoint.BodyType.JSON,
 ): IRestAction<T> {
     companion object {
-        const val DISCORD_PATH: String = "https://discord.com/api/v8"
-        val routeRateLimits = ConcurrentHashMap<RestEndpoint, RateLimitBucket>()
+        const val DISCORD_PATH: String = "https://discord.com/api/v7"
+        val routeRateLimits = ConcurrentHashMap<RestEndpoint.Path, RateLimitBucket>()
         
         data class RateLimitBucket(
             var limit: Int,
@@ -35,38 +37,66 @@ open class RestAction<T: Any>(
                 remaining = limit
             }
             
-            fun loadFromHeaders(res: HttpResponse<InputStream>) {
-                limit = res.headers().firstValue("X-RateLimit-Limit").get().toInt()
+            fun loadFromHeaders(res: HttpResponse<InputStream>): Boolean {
+                val limitHeader = res.headers().firstValue("X-RateLimit-Limit")
+                if (!limitHeader.isPresent) return false
+                limit = limitHeader.get().toInt()
                 remaining = res.headers().firstValue("X-RateLimit-Remaining").get().toInt()
                 waitTime = (res.headers().firstValue("X-RateLimit-Reset-After").get().toDouble() * 1000).toLong() + 100 /* Hard coded epsilon for slight disrepancies */
                 resetEpoch = System.currentTimeMillis() + waitTime
-                println("Loaded from headers")
+                return true
             }
         }
     }
     
-    private suspend fun request(): Pair<T, HttpResponse<InputStream>> {
-        val req = HttpRequest.newBuilder()
+    private suspend fun request(rateLimit: Pair<RestEndpoint.Path, RateLimitBucket>?): T {
+        val builder = HttpRequest.newBuilder()
             .uri(URI(DISCORD_PATH + path.url))
-            .method(path.endpoint.method.toString(), postData?.run { HttpRequest.BodyPublishers.ofString(this()) }
-                    ?: HttpRequest.BodyPublishers.noBody())
             .header("Authorization", bot.authorization)
             .header("Content-Type", bodyType.typeStr)
             .header("User-Agent", "DiscordBot (https://github.com/deprilula28/discord-proxy-kt v0.0.1)")
-            .build()
+        
+        if (postData == null) builder.method(path.endpoint.method.toString(), HttpRequest.BodyPublishers.noBody())
+        else builder.method(path.endpoint.method.toString(), HttpRequest.BodyPublishers.ofByteArray(postData.invoke().encodeToByteArray()))
+        
+        val req = builder.build()
         val res = bot.client.sendAsync(req, HttpResponse.BodyHandlers.ofInputStream()).await()
         // TODO Streamed parsing of this
         val contents = withContext(Dispatchers.IO) { res.body().readBytes() }.toString(Charsets.UTF_8)
-        if (res.statusCode() >= 400)
-            throw RestException(
-                req.uri().toString(),
-                contents,
-                res.statusCode()
-            )
+        val code = res.statusCode()
+        
+        fun handleRateLimit() {
+            if (rateLimit != null) {
+                val (endpoint, bucket) = rateLimit
+                synchronized(bucket) {
+                    if (bucket.loadFromHeaders(res)) {
+                        val delayTime = bucket.resetEpoch - System.currentTimeMillis()
+                        bucket.timingJob = bot.scope.launch {
+                            delay(delayTime)
+                            routeRateLimits.remove(endpoint)
+                        }
+                    } else routeRateLimits.remove(endpoint)
+                }
+            }
+        }
+        
+        if (code >= 400) {
+            when (code) {
+                403 -> throw InsufficientPermissionsException(listOf()) // Missing permissions
+                493 -> {
+                    // TODO Handle global rate limits here
+                    handleRateLimit()
+                    return await()
+                }
+            }
+            throw RestException(req.uri().toString(), contents, code)
+        }
+        handleRateLimit()
     
-        val json = Json.decodeFromString(JsonElement.serializer(), contents)
-        if (path.endpoint.method == RestEndpoint.Method.GET) bot.cache.store(path, json)
-        return constructor(json, bot) to res
+        // 204 No Content
+        val obj = constructor(if (code == 204) JsonNull else Json.decodeFromString(JsonElement.serializer(), contents), bot)
+        if (path.endpoint.method == RestEndpoint.Method.GET) bot.cache.store(path, DiscordRestCache.StoreType.REQUEST, obj)
+        return obj
     }
     
     /**
@@ -82,21 +112,10 @@ open class RestAction<T: Any>(
         
         // Rate Limiting
         var deferred: Deferred<T>? = null
-        val bucket = routeRateLimits.getOrPut(endpoint) {
-            println("Running the getOrPut internal function")
+        // TODO This lets many threads call it at once, which makes rate limiting not entirely thread safe
+        val bucket = routeRateLimits.getOrPut(path) {
             val newBucket = RateLimitBucket(1, -1, -1, -1L, null)
-            deferred = bot.scope.async {
-                val (obj, res) = request()
-                synchronized(newBucket) {
-                    newBucket.loadFromHeaders(res)
-                    val delayTime = newBucket.resetEpoch - System.currentTimeMillis()
-                    newBucket.timingJob = bot.scope.launch {
-                        delay(delayTime)
-                        routeRateLimits.remove(endpoint)
-                    }
-                }
-                obj
-            }
+            deferred = bot.scope.async { request(path to newBucket) }
             newBucket.timingJob = deferred
             newBucket
         }
@@ -114,12 +133,13 @@ open class RestAction<T: Any>(
         }
         
         // Request
-        return deferred?.run { await() } ?: request().first
+        println("Performing request at $path")
+        return deferred?.run { await() } ?: request(null)
     }
     
     override fun getIfAvailable(): T? {
         if (path.endpoint.method == RestEndpoint.Method.GET) {
-            val item = bot.cache.retrieve<T>(path)
+            val item = runBlocking { bot.cache.retrieve<T>(path) }
             if (item != null) return item
         }
         return null

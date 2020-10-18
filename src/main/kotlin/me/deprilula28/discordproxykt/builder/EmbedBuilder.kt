@@ -39,7 +39,7 @@ class EmbedBuilder: MessageConversion {
     }
     
     fun setColor(color: Color): EmbedBuilder {
-        map["color"] = JsonPrimitive(color.rgb)
+        map["color"] = JsonPrimitive((color.red shl 16) or (color.green shl 8) or color.blue)
         return this
     }
     

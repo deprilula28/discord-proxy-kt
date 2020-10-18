@@ -11,4 +11,5 @@ import me.deprilula28.discordproxykt.rest.parsing
 class GuildUnbanEvent(override val map: JsonObject, override val bot: DiscordProxyKt): GuildEvent {
     override val guildSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "guild_id")
     val user: User by parsing({ User(this as JsonObject, bot) })
+    
 }

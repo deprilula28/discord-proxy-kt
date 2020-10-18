@@ -19,12 +19,14 @@ import me.deprilula28.discordproxykt.rest.*
 interface PartialCategory: PartialEntity, PartialGuildChannel {
     companion object {
         fun new(guild: PartialGuild, id: Snowflake): PartialCategory
-                = object: PartialCategory {
-            override val snowflake: Snowflake = id
-            override val bot: DiscordProxyKt = guild.bot
-            override fun upgrade(): IRestAction<Category>
-                = bot.request(RestEndpoint.GET_CHANNEL.path(snowflake.id), { Category(this as JsonObject, bot) })
-        }
+            = object: PartialCategory {
+                override val snowflake: Snowflake = id
+                override val bot: DiscordProxyKt = guild.bot
+                
+                override fun upgrade(): IRestAction<Category>
+                    = bot.request(RestEndpoint.GET_CHANNEL.path(snowflake.id), { Category(this as JsonObject, bot) })
+                override fun toString(): String = "Channel(partial, $type, $guild, $snowflake.id)"
+            }
     }
     
     override val type: ChannelType
@@ -58,6 +60,8 @@ open class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Gui
         // TODO fill this with copying fields
     }
     fun createCopy() = createCopy(guild)
+    
+    override fun toString(): String = "Channel($type, $guild, $name, ${snowflake.id})"
     
     /**
      * Requests that this guild gets edited based on the altered fields.
@@ -97,4 +101,6 @@ class CategoryBuilder(private val internalGuild: PartialGuild, bot: DiscordProxy
             }
         }
     }
+    
+    override fun toString(): String = "Channel(builder)"
 }

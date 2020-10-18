@@ -33,6 +33,7 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, Partia
                 override val internalGuild: PartialGuild = guild
                 override fun upgrade(): IRestAction<TextChannel>
                     = bot.request(RestEndpoint.GET_CHANNEL.path(snowflake.id), { TextChannel(guild, this as JsonObject, bot) })
+                override fun toString(): String = "Channel(partial, $type, $guild, $snowflake.id)"
             }
     }
     
@@ -181,6 +182,8 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
     
     fun webhookBuilder(): WebhookBuilder = WebhookBuilder(this, bot)
     
+    override fun toString(): String = "Channel($type, $guild, $name, ${snowflake.id})"
+    
     @Deprecated("JDA Compatibility Field", ReplaceWith("webhookBuilder().apply { this@apply.name = name }"))
     fun createWebhook(name: String) = webhookBuilder().apply { this@apply.name = name }
     @Deprecated("JDA Compatibility Field", ReplaceWith("fetchWebhooks"))
@@ -218,4 +221,6 @@ class TextChannelBuilder(guild: PartialGuild, bot: DiscordProxyKt):
             }.await()
         }
     }
+    
+    override fun toString(): String = "Channel(builder)"
 }

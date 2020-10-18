@@ -10,10 +10,10 @@ import kotlinx.serialization.json.Json
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import java.lang.Exception
 
-class EventConsumer<T>(
+class EventConsumer<T: Event>(
     private val bot: DiscordProxyKt,
     private val event: Events.Event<T>,
-    private val handler: suspend (T) -> Unit,
+    private val eventConsumer: suspend (T) -> Unit,
     channel: Channel,
 ): DefaultConsumer(channel) {
     override fun handleDelivery(
@@ -24,8 +24,10 @@ class EventConsumer<T>(
     ) {
         bot.scope.launch {
             try {
-                println("Event: ${event.eventName}, Body: ${body.toString(Charsets.UTF_8)}")
-                handler(event.constructor(Json.decodeFromString(body.toString(Charsets.UTF_8)), bot))
+//                println("Event: ${event.eventName}, Body: ${body.toString(Charsets.UTF_8)}")
+                val event = event.constructor(Json.decodeFromString(body.toString(Charsets.UTF_8)), bot)
+                eventConsumer(event)
+                event.internalHandle()
             } catch (e: Exception) {
                 bot.defaultExceptionHandler(e)
             }
