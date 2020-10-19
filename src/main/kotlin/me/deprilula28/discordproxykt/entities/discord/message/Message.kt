@@ -29,6 +29,8 @@ interface PartialMessage: PartialEntity {
                         RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id),
                         { Message(this as JsonObject, channel.bot) },
                     )
+    
+                override fun toString(): String = "Message(partial, ${snowflake.id}, channel = $channelRaw)"
             }
         
         // Includes permission check for reading the message in the guild
@@ -260,11 +262,13 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
     override fun upgrade(): IRestAction<Message> = IRestAction.ProvidedRestAction(bot, this)
     
     override fun edit(message: MessageConversion)
-            = bot.request(RestEndpoint.EDIT_MESSAGE.path(channelRaw.id, channelRaw.id), {
+            = bot.request(RestEndpoint.EDIT_MESSAGE.path(channelRaw.id, snowflake.id), {
         this@Message.apply { map = this@request as JsonObject }
     }) {
         message.toMessage().first
     }
+    
+    override fun toString(): String = "Message(${snowflake.id}, channel = $channelRaw)"
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("mentions"))
     val mentionedUsers: List<User> by ::mentions

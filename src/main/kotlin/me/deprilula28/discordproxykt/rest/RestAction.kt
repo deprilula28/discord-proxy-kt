@@ -22,7 +22,7 @@ open class RestAction<T: Any>(
     private val bodyType: RestEndpoint.BodyType = RestEndpoint.BodyType.JSON,
 ): IRestAction<T> {
     companion object {
-        const val DISCORD_PATH: String = "https://discord.com/api/v7"
+        const val DISCORD_PATH: String = "https://discord.com/api/v8"
         val routeRateLimits = ConcurrentHashMap<RestEndpoint.Path, RateLimitBucket>()
         
         data class RateLimitBucket(
@@ -53,13 +53,23 @@ open class RestAction<T: Any>(
         val builder = HttpRequest.newBuilder()
             .uri(URI(DISCORD_PATH + path.url))
             .header("Authorization", bot.authorization)
-            .header("Content-Type", bodyType.typeStr)
             .header("User-Agent", "DiscordBot (https://github.com/deprilula28/discord-proxy-kt v0.0.1)")
         
-        if (postData == null) builder.method(path.endpoint.method.toString(), HttpRequest.BodyPublishers.noBody())
-        else builder.method(path.endpoint.method.toString(), HttpRequest.BodyPublishers.ofByteArray(postData.invoke().encodeToByteArray()))
-        
+        val post = if (postData == null) {
+            builder.method(path.endpoint.method.toString(), HttpRequest.BodyPublishers.ofString(""))
+            null
+        } else {
+            builder.header("Content-Type", bodyType.typeStr)
+            val post = postData.invoke()
+            builder.method(path.endpoint.method.toString(), HttpRequest.BodyPublishers.ofByteArray(post.encodeToByteArray()))
+            post
+        }
         val req = builder.build()
+        println("Performing request at $path with body $post and headers " +
+            req.headers().map().entries.joinToString(", ") {
+                it.value.joinToString(", ") { i -> "${it.key}=$i"}
+            })// TODO Debug log
+    
         val res = bot.client.sendAsync(req, HttpResponse.BodyHandlers.ofInputStream()).await()
         // TODO Streamed parsing of this
         val contents = withContext(Dispatchers.IO) { res.body().readBytes() }.toString(Charsets.UTF_8)
@@ -133,7 +143,6 @@ open class RestAction<T: Any>(
         }
         
         // Request
-        println("Performing request at $path")
         return deferred?.run { await() } ?: request(null)
     }
     

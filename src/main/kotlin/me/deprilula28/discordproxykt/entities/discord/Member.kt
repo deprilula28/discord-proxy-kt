@@ -9,6 +9,7 @@ import me.deprilula28.discordproxykt.entities.Timestamp
 import me.deprilula28.discordproxykt.rest.*
 import java.awt.Color
 import java.time.OffsetDateTime
+import java.util.*
 
 interface PartialMember {
     val guild: PartialGuild
@@ -174,6 +175,13 @@ class Member(override val guild: PartialGuild, override var map: JsonObject, ove
     val fetchColor: IRestAction<Color>
         get() = IRestAction.coroutine(bot) {
             fetchRoles.await().filter { it.color != Color.black }.maxByOrNull { it.position }?.color ?: Color.black
+        }
+    
+    val fetchPermissions: IRestAction<EnumSet<Permissions>>
+        get() = IRestAction.coroutine(bot) {
+            var bitSet = 0L
+            fetchRoles.await().forEach { el -> bitSet = bitSet or el.permissionsRaw }
+            bitSet.bitSetToEnumSet(Permissions.values())
         }
     
     override fun toString(): String = "Member($user, $guild)"

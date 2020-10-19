@@ -24,7 +24,7 @@ suspend fun assertPermissions(channel: GuildChannel, vararg perm: Permissions) {
     val (member, roles) = useSelfMemberRoles(channel.guild)
     val roleSnowflakes = roles.map { it.snowflake to it }.toMap()
     var bitSet = 0L
-    roles.forEach { el -> bitSet = bitSet and el.permissionsRaw }
+    roles.forEach { el -> bitSet = bitSet or el.permissionsRaw }
     // Fast path for admin
     val adminCode = 1L shl Permissions.ADMINISTRATOR.ordinal
     if ((bitSet and adminCode) == adminCode) return

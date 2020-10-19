@@ -95,30 +95,36 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
     /**
      * the channel topic (0-1024 characters)
      */
-    val topic: String by parsing(JsonElement::asString)
+    var topic: String by parsing(JsonElement::asString, {
+        if (it.length !in 0 .. 1024) throw InvalidRequestException("Channel topic must be between 0 and 1024 characters in length")
+        Json.encodeToJsonElement(it)
+    })
     /**
      * whether the channel is nsfw
      */
-    val nsfw: Boolean by parsing(JsonElement::asBoolean)
+    var nsfw: Boolean by parsing(JsonElement::asBoolean, Json::encodeToJsonElement)
     /**
      * amount of seconds a user has to wait before sending another message (0-21600); bots, as well as users with the permission manage_messages or manage_channel, are unaffected
      */
-    val rateLimitPerUser: Int? by parsingOpt(JsonElement::asInt, "rate_limit_per_user")
+    var rateLimitPerUser: Int? by parsingOpt(JsonElement::asInt, Json::encodeToJsonElement, "rate_limit_per_user")
     
     override val lastPinTimestamp: Timestamp? by parsingOpt(JsonElement::asTimestamp, "last_pin_timestamp")
     override val guild: PartialGuild by ::internalGuild
     override val lastMessage: PartialMessage by parsing({ fetchMessage(asSnowflake()) }, "last_message_id")
     
-    override val name: String by parsing(JsonElement::asString)
-    override val position: Int by parsing(JsonElement::asInt)
-    override val category: PartialCategory? by parsingOpt({ PartialCategory.new(guild, asSnowflake()) },
-                                                                                             "parent_id")
-    override val permissions: List<PermissionOverwrite> by parsing({
-        (this as JsonArray).map {
-            it.asPermissionOverwrite(
-                this@TextChannel, guild, bot)
-        }
-    }, "permission_overwrites")
+    override var name: String by parsing(JsonElement::asString, {
+        if (it.length !in 2 .. 100) throw InvalidRequestException("Channel name must be between 2 and 100 characters in length")
+        Json.encodeToJsonElement(it)
+    })
+    override var position: Int by parsing(JsonElement::asInt, Json::encodeToJsonElement)
+    override var category: PartialCategory? by parsingOpt(
+        { PartialCategory.new(guild, asSnowflake()) },
+        { it?.run { JsonPrimitive(snowflake.id) } ?: JsonNull },
+        "parent_id",
+    )
+    override var permissions: List<PermissionOverwrite> by parsing({
+        (this as JsonArray).map { it.asPermissionOverwrite(this@TextChannel, guild, bot) }
+    }, { Json.encodeToJsonElement(it.map(PermissionOverwrite::toObject)) }, "permission_overwrites")
     
     val fetchWebhooks: IRestAction<List<Webhook>>
         get() = IRestAction.coroutine(guild.bot) {
@@ -176,7 +182,13 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
     }
     
     fun createCopy(guild: PartialGuild) = TextChannelBuilder(guild, bot).apply {
-        // TODO fill this with copying fields
+        name = this@TextChannel.name
+        position = this@TextChannel.position
+        permissions = this@TextChannel.permissions
+        category = this@TextChannel.category
+        topic = this@TextChannel.topic
+        nsfw = this@TextChannel.nsfw
+        rateLimitPerUser = this@TextChannel.rateLimitPerUser
     }
     fun createCopy() = createCopy(guild)
     
@@ -184,12 +196,17 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
     
     override fun toString(): String = "Channel($type, $guild, $name, ${snowflake.id})"
     
+    fun canTalk() = IRestAction.coroutine(bot) {
+        fetchPermissions(guild.fetchSelfMember.await()).await().contains(Permissions.SEND_MESSAGES)
+    }
+    fun canTalk(member: Member) = IRestAction.coroutine(bot) {
+        fetchPermissions(member).await().contains(Permissions.SEND_MESSAGES)
+    }
+    
     @Deprecated("JDA Compatibility Field", ReplaceWith("webhookBuilder().apply { this@apply.name = name }"))
     fun createWebhook(name: String) = webhookBuilder().apply { this@apply.name = name }
     @Deprecated("JDA Compatibility Field", ReplaceWith("fetchWebhooks"))
     fun retrieveWebhooks() = fetchWebhooks
-    
-    // TODO canTalk(), canTalk(Member) and also some permission checking stuff
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("rateLimitPerUser"))
     val slowmode: Int? by ::rateLimitPerUser

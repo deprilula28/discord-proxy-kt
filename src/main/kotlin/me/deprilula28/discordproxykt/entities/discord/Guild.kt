@@ -220,9 +220,12 @@ interface PartialGuild: PartialEntity {
         override val bot: DiscordProxyKt = this@PartialGuild.bot
         override val user: PartialUser by lazy { bot.fetchUser(user) }
         
-        override fun upgrade(): IRestAction<Member> = RestAction(bot, RestEndpoint.GET_GUILD_MEMBER.path(snowflake.id,
-                                                                                                         user.id),
-                                                                 { Member(this@PartialGuild, this as JsonObject, bot) })
+        override fun upgrade(): IRestAction<Member>
+            = RestAction(
+                bot, RestEndpoint.GET_GUILD_MEMBER.path(snowflake.id, user.id),
+                { Member(this@PartialGuild, this as JsonObject, bot) },
+            )
+        
         override fun toString(): String = "Member(partial, $user, $guild)"
     }
     

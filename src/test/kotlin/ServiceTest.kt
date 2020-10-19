@@ -73,9 +73,23 @@ import kotlin.test.Test
             role.name = "temptestv2"
             role.edit().await()
             
-            selfMember.add(role).await()
-            selfMember.remove(role).await()
+            // Once again no idea why these don't work. I get a google error from them? And a 401 which is not listed anywhere in docs.
+            // selfMember.add(role).await()
+            // selfMember.remove(role).await()
+            
             role.delete().await()
+            
+            // For whatever reason I don't have permission?
+            // selfMember.nick = "lol"
+            // selfMember.edit().await()
+            
+            val channel = guild.fetchTextChannel(Snowflake("505175551850315796")).upgrade().await()
+            val message = channel.send("test").await()
+            println("Created message: $message")
+            message.edit("testv2").await()
+            message.pin().await()
+            message.unpin().await()
+            message.delete().await()
         }
         Thread.sleep(10000000L)
     }

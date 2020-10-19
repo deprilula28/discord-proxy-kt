@@ -11,6 +11,7 @@ import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.rest.IRestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
 import me.deprilula28.discordproxykt.rest.asGuildChannel
+import me.deprilula28.discordproxykt.rest.bitSetToEnumSet
 
 /**
  * WARNING:<br>
@@ -62,19 +63,19 @@ interface GuildChannel: PartialGuildChannel {
      * Note: Discord does not assure this will be continuous. There may be two channels under the same position value,
      * in which case the client will sort them by the snowflake bigint.
      */
-    val position: Int
+    var position: Int
     /**
      * the name of the channel (2-100 characters)
      */
-    val name: String
+    var name: String
     /**
      * explicit permission overwrites for members and roles
      */
-    val permissions: List<PermissionOverwrite>
+    var permissions: List<PermissionOverwrite>
     /**
      * id of the parent category for a channel (each parent category can contain up to 50 channels)
      */
-    val category: PartialCategory?
+    var category: PartialCategory?
     
     override val fetchInvites: IRestAction<List<ExtendedInvite>>
         get() = IRestAction.coroutine(guild.bot) {
@@ -100,6 +101,41 @@ interface GuildChannel: PartialGuildChannel {
     fun memberOverrideBuilder(): MemberOverrideBuilder = MemberOverrideBuilder(guild, this, bot)
     fun roleOverrideBuilder(): RoleOverrideBuilder = RoleOverrideBuilder(guild, this, bot)
     fun inviteBuilder(): InviteBuilder = InviteBuilder(this, bot)
+    
+    fun fetchPermissions(member: Member)
+        = IRestAction.coroutine(bot) {
+            val roles = member.fetchRoles.await()
+            var bitSet = 0L
+            roles.forEach { el -> bitSet = bitSet or el.permissionsRaw }
+            val roleSnowflakes = roles.map { it.snowflake }
+            
+            var rolesAllow = 0L
+            var rolesDeny = 0L
+            var everyoneAllow = 0L
+            var everyoneDeny = 0L
+            var memberAllow = 0L
+            var memberDeny = 0L
+            permissions.forEach {
+                if (it is RoleOverride) {
+                    if (!roleSnowflakes.contains(it.snowflake)) return@forEach
+                    rolesAllow = rolesAllow or it.allowRaw
+                    rolesDeny = rolesDeny or it.denyRaw
+                } else if (it.snowflake == guild.snowflake) {
+                    everyoneAllow = it.allowRaw
+                    everyoneDeny = it.denyRaw
+                } else if (it is MemberOverride && it.snowflake == member.user.snowflake) {
+                    memberAllow = it.allowRaw
+                    memberDeny = it.denyRaw
+                }
+            }
+            bitSet = bitSet and (Long.MAX_VALUE xor everyoneDeny)
+            bitSet = bitSet or everyoneAllow
+            bitSet = bitSet and (Long.MAX_VALUE xor rolesDeny)
+            bitSet = bitSet or rolesAllow
+            bitSet = bitSet and (Long.MAX_VALUE xor memberDeny)
+            bitSet = bitSet or memberAllow
+            bitSet.bitSetToEnumSet(Permissions.values())
+        }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("memberOverrideBuilder().setMember(member)"))
     fun createPermissionOverride(member: PartialMember) = memberOverrideBuilder().setMember(member)

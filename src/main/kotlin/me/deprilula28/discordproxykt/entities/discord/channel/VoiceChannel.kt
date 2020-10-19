@@ -7,9 +7,7 @@ import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.Entity
 import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
-import me.deprilula28.discordproxykt.entities.discord.PartialGuild
-import me.deprilula28.discordproxykt.entities.discord.PermissionOverwrite
-import me.deprilula28.discordproxykt.entities.discord.Permissions
+import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.rest.*
 
 /**
@@ -41,24 +39,30 @@ open class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot),
     /**
      * the bitrate (in bits) of the voice channel
      */
-    val bitrate: Int by parsing(JsonElement::asInt)
+    var bitrate: Int by parsing(JsonElement::asInt, Json::encodeToJsonElement)
     /**
      * the user limit of the voice channel
      */
-    val userLimit: Int by parsing(JsonElement::asInt, "user_limit")
+    var userLimit: Int by parsing(JsonElement::asInt, {
+        if (it !in 0 .. 99) throw InvalidRequestException("User limit must be 0 for no limit or 1-99 for a user limit")
+        Json.encodeToJsonElement(it)
+    }, "user_limit")
     
     override val guild: PartialGuild by parsing({ bot.fetchGuild(asSnowflake()) }, "guild_id")
-    override val position: Int by parsing(JsonElement::asInt)
-    override val name: String by parsing(JsonElement::asString)
-    override val category: PartialCategory? by parsingOpt({ PartialCategory.new(guild, asSnowflake()) },
-                                                                                             "parent_id")
     
-    override val permissions: List<PermissionOverwrite> by parsing({
-        (this as JsonArray).map {
-            asPermissionOverwrite(this@VoiceChannel,
-                                  guild, bot)
-        }
-    }, "permission_overwrites")
+    override var name: String by parsing(JsonElement::asString, {
+        if (it.length !in 2 .. 100) throw InvalidRequestException("Channel name must be between 2 and 100 characters in length")
+        Json.encodeToJsonElement(it)
+    })
+    override var position: Int by parsing(JsonElement::asInt, Json::encodeToJsonElement)
+    override var category: PartialCategory? by parsingOpt(
+        { PartialCategory.new(guild, asSnowflake()) },
+        { it?.run { JsonPrimitive(snowflake.id) } ?: JsonNull },
+        "parent_id",
+    )
+    override var permissions: List<PermissionOverwrite> by parsing({
+        (this as JsonArray).map { it.asPermissionOverwrite(this@VoiceChannel, guild, bot) }
+    }, { Json.encodeToJsonElement(it.map(PermissionOverwrite::toObject)) }, "permission_overwrites")
     
     override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
     
@@ -70,6 +74,13 @@ open class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot),
             "No changes have been made to this channel, yet `edit()` was called.")
         return IRestAction.coroutine(guild.bot) {
             assertPermissions(this, Permissions.MANAGE_CHANNELS)
+            if (changes.containsKey("bitrate") && (changes["bitrate"] as JsonPrimitive).asInt() !in 8000 ..
+                when (guild.upgrade().await().boostTier) {
+                    BoostTier.NONE -> 96000
+                    BoostTier.TIER_1 -> 128000
+                    BoostTier.TIER_2 -> 256000
+                    BoostTier.TIER_3 -> 384000
+                }) throw InvalidRequestException("Invalid bitrate for guild boost tier")
             bot.request(RestEndpoint.MODIFY_CHANNEL.path(snowflake.id),
                         { this@VoiceChannel.apply { map = this@request as JsonObject } }) {
                 val res = Json.encodeToString(changes)
@@ -80,13 +91,25 @@ open class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot),
     }
     
     fun createCopy(guild: PartialGuild) = VoiceChannelBuilder(guild, bot).apply {
-        // TODO fill this with copying fields
+        name = this@VoiceChannel.name
+        position = this@VoiceChannel.position
+        permissions = this@VoiceChannel.permissions
+        category = this@VoiceChannel.category
+        userLimit = this@VoiceChannel.userLimit
+        bitrate = this@VoiceChannel.bitrate
     }
     fun createCopy() = createCopy(guild)
     
     override fun upgrade(): IRestAction<VoiceChannel> = IRestAction.ProvidedRestAction(bot, this)
     
     override fun toString(): String = "Channel($type, $guild, $name, ${snowflake.id})"
+    
+    fun canSpeak() = IRestAction.coroutine(bot) {
+        fetchPermissions(guild.fetchSelfMember.await()).await().contains(Permissions.SPEAK)
+    }
+    fun canSpeak(member: Member) = IRestAction.coroutine(bot) {
+        fetchPermissions(member).await().contains(Permissions.SPEAK)
+    }
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("category?.upgrade()?.request()?.get()"))
     val parent: Category?

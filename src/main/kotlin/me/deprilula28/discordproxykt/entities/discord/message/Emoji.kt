@@ -20,9 +20,11 @@ interface Emoji {
 class ReactionEmoji(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Emoji {
     override fun toUriPart(): String = snowflake.id
     val name: String? by parsingOpt(JsonElement::asString)
+    override fun toString(): String = "Emoji(${snowflake.id}, $name)"
 }
 class UnicodeEmoji(val name: String): Emoji {
     override fun toUriPart(): String = URLEncoder.encode(name)
+    override fun toString(): String = "Emoji($name)"
 }
 
 class GuildEmoji(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Emoji {
@@ -56,4 +58,5 @@ class GuildEmoji(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Emoji 
     val available: Boolean by lazy { map["available"]!!.asBoolean() }
     
     override fun toUriPart(): String = URLEncoder.encode(name)
+    override fun toString(): String = "Emoji(${snowflake.id}, $name)"
 }

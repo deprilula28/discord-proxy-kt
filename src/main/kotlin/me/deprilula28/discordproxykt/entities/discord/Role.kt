@@ -26,6 +26,8 @@ interface PartialRole: PartialEntity, Message.Mentionable {
                      = IRestAction.coroutine(spawnGuild.bot) {
                         spawnGuild.fetchRoles.await().find { role -> role.snowflake == id }!!
                     }
+    
+                override fun toString(): String = "Role(partial, ${snowflake.id})"
             }
     }
     
@@ -104,6 +106,8 @@ open class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordP
     
     override fun upgrade(): IRestAction<Role> = IRestAction.ProvidedRestAction(bot, this)
     
+    override fun toString(): String = "Role(${snowflake.id}, guild = $guild)"
+    
     @Deprecated("JDA Compatibility Field", ReplaceWith("color.rgb"))
     val colorRaw: Int
         get() = color.rgb
@@ -136,4 +140,6 @@ class RoleBuilder(guild: PartialGuild, bot: DiscordProxyKt):
             }
         }
     }
+    
+    override fun toString(): String = "Role(builder)"
 }

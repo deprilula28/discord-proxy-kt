@@ -1,10 +1,7 @@
 package me.deprilula28.discordproxykt.entities.discord
 
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.discord.channel.GuildChannel
@@ -20,6 +17,8 @@ import java.util.*
 abstract class PermissionOverwrite(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), EntityManager<Unit> {
     abstract val channel: GuildChannel
     abstract val guild: PartialGuild
+    abstract fun toObject(): JsonElement
+    
     open val role: PartialRole?
         get() = null
     open val member: PartialMember?
@@ -77,6 +76,15 @@ open class MemberOverride(
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this overwrite, yet `edit()` was called.")
         return bot.request(RestEndpoint.EDIT_CHANNEL_PERMISSIONS.path(snowflake.id, member.user.snowflake.id), { Json.encodeToString(changes) })
     }
+    
+    override fun toObject(): JsonElement {
+        return Json.encodeToJsonElement(mapOf(
+            "type" to JsonPrimitive(1),
+            "id" to JsonPrimitive(snowflake.id),
+            "allow" to JsonPrimitive(allowRaw.toString()),
+            "deny" to JsonPrimitive(denyRaw.toString()),
+        ))
+    }
 }
 
 // TODO All the crazy methods on https://ci.dv8tion.net/job/JDA/javadoc/net/dv8tion/jda/api/requests/restaction/PermissionOverrideAction.html
@@ -130,6 +138,15 @@ open class RoleOverride(
     override fun edit(): IRestAction<Unit> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this overwrite, yet `edit()` was called.")
         return bot.request(RestEndpoint.EDIT_CHANNEL_PERMISSIONS.path(snowflake.id, role.snowflake.id), { Json.encodeToString(changes) })
+    }
+    
+    override fun toObject(): JsonElement {
+        return Json.encodeToJsonElement(mapOf(
+            "type" to JsonPrimitive(0),
+            "id" to JsonPrimitive(snowflake.id),
+            "allow" to JsonPrimitive(allowRaw.toString()),
+            "deny" to JsonPrimitive(denyRaw.toString()),
+        ))
     }
 }
 

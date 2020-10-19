@@ -38,18 +38,19 @@ interface PartialCategory: PartialEntity, PartialGuildChannel {
 
 open class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel, PartialCategory, EntityManager<Category> {
     override val guild: PartialGuild by parsing({ bot.fetchGuild(asSnowflake()) }, "guild_id")
-    override val position: Int by parsing(JsonElement::asInt)
-    override val name: String by parsing(JsonElement::asString)
-    override val category: PartialCategory?
-        get() = this
     override fun upgrade(): IRestAction<Category> = IRestAction.ProvidedRestAction(bot, this)
+    override var category: PartialCategory?
+        get() = this
+        set(_) = throw InvalidRequestException("Cannot edit category for category")
     
-    override val permissions: List<PermissionOverwrite> by parsing({
-        (this as JsonArray).map {
-            asPermissionOverwrite(this@Category,
-                                  guild, bot)
-        }
-    }, "permission_overwrites")
+    override var name: String by parsing(JsonElement::asString, {
+        if (it.length !in 2 .. 100) throw InvalidRequestException("Channel name must be between 2 and 100 characters in length")
+        Json.encodeToJsonElement(it)
+    })
+    override var position: Int by parsing(JsonElement::asInt, Json::encodeToJsonElement)
+    override var permissions: List<PermissionOverwrite> by parsing({
+        (this as JsonArray).map { it.asPermissionOverwrite(this@Category, guild, bot) }
+    }, { Json.encodeToJsonElement(it.map(PermissionOverwrite::toObject)) }, "permission_overwrites")
     
     override val type: ChannelType
         get() = ChannelType.CATEGORY
@@ -57,7 +58,9 @@ open class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Gui
     override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
     
     fun createCopy(guild: PartialGuild) = CategoryBuilder(guild, bot).apply {
-        // TODO fill this with copying fields
+        name = this@Category.name
+        position = this@Category.position
+        permissions = this@Category.permissions
     }
     fun createCopy() = createCopy(guild)
     
