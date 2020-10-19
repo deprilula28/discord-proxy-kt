@@ -201,7 +201,7 @@ import kotlin.test.assertEquals
         assertEquals(guild.boosters, 0)
         assertEquals(guild.systemChannelFlags, EnumSet.noneOf(SystemChannelFlags::class.java))
         assertEquals(guild.locale, "en-US")
-        assertEquals(guild.rulesChannelSnowflake, null)
+        assertEquals(guild.rulesChannel, null)
         assertEquals(guild.publicUpdatesChannel, null)
     
         assertEquals(guild.features, EnumSet.of(

@@ -385,7 +385,7 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     /**
      * the id of the channel where guilds with the "PUBLIC" feature can display rules and/or guidelines
      */
-    val rulesChannelSnowflake: Snowflake? by parsingOpt(JsonElement::asSnowflake, "rules_channel_id")
+    val rulesChannel: PartialTextChannel? by parsingOpt({ fetchTextChannel(asSnowflake()) }, "rules_channel_id")
     /**
      * 	the preferred locale of a guild with the "PUBLIC" feature; used in server discovery and notices from Discord; defaults to "en-US"
      */

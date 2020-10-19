@@ -47,6 +47,10 @@ Fetch methods should provide an immediate partial entity, that may be used to ca
 
 The partial entities can be upgraded through an API request for the final entity using `PartialEntity#upgrade`.
 
+## Commenting
+
+The code should be able to explain itself. The function of comments should be to specify conditions, best practices and provide an easy link to Discord's documentation.
+
 # Contributing
 
 Feel free to contribute! We don't have any restrictions as of yet, just make sure your contribution falls under the scope of the project.

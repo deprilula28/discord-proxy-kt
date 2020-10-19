@@ -604,7 +604,7 @@ import kotlin.test.assertEquals
         assertEquals(guild.owner.user.snowflake, Snowflake("699884483830349875"))
         assertEquals(guild.systemChannel!!.snowflake, Snowflake("484892069379309568"))
         assertEquals(guild.publicUpdatesChannel!!.snowflake, Snowflake("708422106874118225"))
-        assertEquals(guild.rulesChannelSnowflake!!, Snowflake("516736142800846849"))
+        assertEquals(guild.rulesChannel!!.snowflake, Snowflake("516736142800846849"))
         assertEquals(guild.maxMembers, 250000)
         assertEquals(guild.memberCount, 5973)
         assertEquals(guild.maxVideoChannelUsers, 25)
@@ -623,7 +623,7 @@ import kotlin.test.assertEquals
         assert(guild.unavailable != true)
         assert(guild.large == true)
         
-        val members = guild.cachedMembers!!
+        val members = guild.cachedMembers
         assertEquals(members.size, 1)
         
         val member = members[0]
@@ -642,7 +642,7 @@ import kotlin.test.assertEquals
         assertEquals(user.snowflake, Snowflake("387758848125042688"))
         assert(user.isBot)
         
-        val channels = guild.cachedChannels!!
+        val channels = guild.cachedChannels
         assertEquals(channels.size, 1)
         
         val channel = channels[0] as TextChannel

@@ -10,9 +10,11 @@ import me.deprilula28.discordproxykt.RestException
 import me.deprilula28.discordproxykt.cache.DiscordRestCache
 import java.io.InputStream
 import java.net.URI
+import java.net.URL
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.util.concurrent.ConcurrentHashMap
+import javax.net.ssl.HttpsURLConnection
 
 open class RestAction<T: Any>(
     override val bot: DiscordProxyKt,
