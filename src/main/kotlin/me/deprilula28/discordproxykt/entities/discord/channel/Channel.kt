@@ -11,4 +11,5 @@ enum class ChannelType {
     GROUP,
     CATEGORY,
     STORE,
+    NEWS,
 }

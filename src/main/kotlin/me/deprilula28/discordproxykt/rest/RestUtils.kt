@@ -1,16 +1,10 @@
 package me.deprilula28.discordproxykt.rest
 
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
-import me.deprilula28.discordproxykt.entities.Parse
-import me.deprilula28.discordproxykt.entities.Snowflake
-import me.deprilula28.discordproxykt.entities.Timestamp
-import me.deprilula28.discordproxykt.entities.UnavailableField
+import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.MemberOverride
-import me.deprilula28.discordproxykt.entities.discord.PartialGuild
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.PermissionOverwrite
 import me.deprilula28.discordproxykt.entities.discord.RoleOverride
 import me.deprilula28.discordproxykt.entities.discord.channel.*
@@ -47,6 +41,8 @@ fun JsonElement.asGuildChannel(bot: DiscordProxyKt, guild: PartialGuild): GuildC
         0 -> TextChannel(guild, obj, bot)
         2 -> VoiceChannel(obj, bot)
         4 -> Category(obj, bot)
+        5 -> NewsChannel(guild, obj, bot)
+        6 -> StoreChannel(obj, bot)
         else -> {
             println("Invalid channel type received: $type")
             null

@@ -8,6 +8,9 @@ import me.deprilula28.discordproxykt.entities.discord.channel.GuildChannel
 import me.deprilula28.discordproxykt.rest.EntityManager
 import me.deprilula28.discordproxykt.rest.IRestAction
 import me.deprilula28.discordproxykt.entities.*
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialMember
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialRole
 import me.deprilula28.discordproxykt.rest.*
 import java.util.*
 

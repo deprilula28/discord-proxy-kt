@@ -8,6 +8,7 @@ import me.deprilula28.discordproxykt.entities.Entity
 import me.deprilula28.discordproxykt.entities.UnavailableField
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialTextChannel
 import me.deprilula28.discordproxykt.entities.discord.channel.TextChannel
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
 import me.deprilula28.discordproxykt.rest.*
 import java.awt.image.RenderedImage
 import java.io.ByteArrayOutputStream

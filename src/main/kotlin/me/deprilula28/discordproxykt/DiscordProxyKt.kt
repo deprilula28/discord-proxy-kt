@@ -10,6 +10,7 @@ import me.deprilula28.discordproxykt.cache.DiscordRestCache
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialPrivateChannel
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
 import me.deprilula28.discordproxykt.events.Event
 import me.deprilula28.discordproxykt.events.EventConsumer
 import me.deprilula28.discordproxykt.events.Events

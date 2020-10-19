@@ -1,10 +1,8 @@
 package me.deprilula28.discordproxykt.events.guild
 
 import me.deprilula28.discordproxykt.entities.Snowflake
-import me.deprilula28.discordproxykt.entities.discord.Guild
-import me.deprilula28.discordproxykt.entities.discord.PartialGuild
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
 import me.deprilula28.discordproxykt.events.Event
-import me.deprilula28.discordproxykt.rest.RestEndpoint
 
 interface GuildEvent: Event {
     val guildSnowflake: Snowflake

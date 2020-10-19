@@ -1,16 +1,24 @@
-package me.deprilula28.discordproxykt.entities.discord
+package me.deprilula28.discordproxykt.entities.discord.guild
 
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.assertPermissions
-import me.deprilula28.discordproxykt.entities.discord.channel.PartialVoiceChannel
 import me.deprilula28.discordproxykt.entities.Timestamp
+import me.deprilula28.discordproxykt.entities.discord.PartialUser
+import me.deprilula28.discordproxykt.entities.discord.Permissions
+import me.deprilula28.discordproxykt.entities.discord.User
+import me.deprilula28.discordproxykt.entities.discord.channel.PartialVoiceChannel
 import me.deprilula28.discordproxykt.rest.*
 import java.awt.Color
 import java.time.OffsetDateTime
 import java.util.*
 
+/**
+ * This type is used for operations when an ID of a [Member] is known.<br>
+ * If the data is also known it will implement [Member], and [upgrade] is a no-op.<br>
+ * If it isn't known, [upgrade] will be a request to get the data from Discord.
+ */
 interface PartialMember {
     val guild: PartialGuild
     val user: PartialUser

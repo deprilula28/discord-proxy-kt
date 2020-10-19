@@ -1,4 +1,4 @@
-package me.deprilula28.discordproxykt.entities.discord
+package me.deprilula28.discordproxykt.entities.discord.guild
 
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
@@ -7,6 +7,7 @@ import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.Entity
 import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
+import me.deprilula28.discordproxykt.entities.discord.Permissions
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.rest.*
 import java.awt.Color
@@ -46,7 +47,8 @@ interface PartialRole: PartialEntity, Message.Mentionable {
  * <br>
  * https://discord.com/developers/docs/topics/permissions#role-object-role-structure
  */
-open class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialRole, EntityManager<Role> {
+open class Role(override val guild: PartialGuild, map: JsonObject, bot: DiscordProxyKt): Entity(map, bot),
+    PartialRole, EntityManager<Role> {
     /**
      * role name
      */

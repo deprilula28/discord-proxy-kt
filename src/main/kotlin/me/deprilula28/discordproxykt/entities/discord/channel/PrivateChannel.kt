@@ -13,6 +13,11 @@ import me.deprilula28.discordproxykt.entities.Timestamp
 import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
 import me.deprilula28.discordproxykt.rest.*
 
+/**
+ * This type is used for operations when an ID of a [PrivateChannel] is known.<br>
+ * If the data is also known it will implement [PrivateChannel], and [upgrade] is a no-op.<br>
+ * If it isn't known, [upgrade] will be a request to get the data from Discord.
+ */
 interface PartialPrivateChannel: PartialMessageChannel, PartialEntity {
     companion object {
         fun new(id: Snowflake, bot: DiscordProxyKt): PartialPrivateChannel

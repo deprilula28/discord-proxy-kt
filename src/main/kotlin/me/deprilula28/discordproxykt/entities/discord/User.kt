@@ -10,7 +10,6 @@ import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.rest.*
 import java.util.*
 
-// TODO Other methods
 interface PartialUser: PartialEntity, Message.Mentionable {
     companion object {
         fun new(id: Snowflake, bot: DiscordProxyKt): PartialUser

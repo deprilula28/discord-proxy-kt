@@ -16,8 +16,10 @@ import me.deprilula28.discordproxykt.rest.RestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
 
 /**
- * Channel documentation:
- * https://discord.com/developers/docs/resources/channel
+ * This type is used for operations when an ID of a [MessageChannel] is known.<br>
+ * Message child implementations:
+ * - In guilds: [TextChannel] and an inheritor [NewsChannel],
+ * - In DMs: [PrivateChannel]
  */
 interface PartialMessageChannel: PartialEntity, Channel {
     fun fetchMessage(message: Snowflake): PartialMessage = PartialMessage.new(this, message)

@@ -10,10 +10,19 @@ import me.deprilula28.discordproxykt.builder.MessageConversion
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.entities.discord.channel.*
+import me.deprilula28.discordproxykt.entities.discord.guild.Member
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialRole
+import me.deprilula28.discordproxykt.entities.discord.guild.Role
 import me.deprilula28.discordproxykt.rest.*
 import java.time.OffsetDateTime
 import java.util.*
 
+/**
+ * This type is used for operations when an ID of a [Message] is known.<br>
+ * If the data is also known it will implement [Message], and [upgrade] is a no-op.<br>
+ * If it isn't known, [upgrade] will be a request to get the data from Discord.
+ */
 interface PartialMessage: PartialEntity {
     val channelRaw: Snowflake
 

@@ -2,7 +2,7 @@ package me.deprilula28.discordproxykt.builder
 
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
-import me.deprilula28.discordproxykt.entities.discord.PartialRole
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialRole
 import me.deprilula28.discordproxykt.entities.discord.PartialUser
 import me.deprilula28.discordproxykt.entities.discord.message.Everyone
 import me.deprilula28.discordproxykt.entities.discord.message.Message

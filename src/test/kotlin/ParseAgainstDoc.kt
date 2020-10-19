@@ -4,7 +4,7 @@ import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
 import me.deprilula28.discordproxykt.entities.discord.*
-import me.deprilula28.discordproxykt.entities.discord.channel.TextChannel
+import me.deprilula28.discordproxykt.entities.discord.guild.*
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.entities.discord.message.UnicodeEmoji
 import org.junit.jupiter.api.TestInstance

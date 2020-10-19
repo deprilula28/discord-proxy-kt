@@ -2,11 +2,13 @@ package me.deprilula28.discordproxykt
 
 import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.entities.discord.channel.GuildChannel
-import me.deprilula28.discordproxykt.rest.IRestAction
+import me.deprilula28.discordproxykt.entities.discord.guild.Guild
+import me.deprilula28.discordproxykt.entities.discord.guild.Member
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
+import me.deprilula28.discordproxykt.entities.discord.guild.Role
 import me.deprilula28.discordproxykt.rest.InsufficientPermissionsException
 import me.deprilula28.discordproxykt.rest.bitSetToEnumSet
 import java.util.*
-import java.util.concurrent.CompletableFuture
 
 // Permission Utilities
 suspend fun assertPermissions(guild: PartialGuild, vararg perm: Permissions) {

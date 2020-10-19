@@ -146,9 +146,9 @@ open class RestAction<T: Any>(
         return deferred?.run { await() } ?: request(null)
     }
     
-    override fun getIfAvailable(): T? {
+    override suspend fun getIfAvailable(): T? {
         if (path.endpoint.method == RestEndpoint.Method.GET) {
-            val item = runBlocking { bot.cache.retrieve<T>(path) }
+            val item = bot.cache.retrieve<T>(path)
             if (item != null) return item
         }
         return null

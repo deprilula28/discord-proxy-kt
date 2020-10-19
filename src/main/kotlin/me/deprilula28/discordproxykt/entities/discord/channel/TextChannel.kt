@@ -11,6 +11,8 @@ import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
 import me.deprilula28.discordproxykt.entities.discord.*
+import me.deprilula28.discordproxykt.entities.discord.guild.Member
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.message.Emoji
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
@@ -40,7 +42,7 @@ interface PartialTextChannel: PartialMessageChannel, PartialGuildChannel, Partia
     override val type: ChannelType
         get() = ChannelType.TEXT
     
-    override fun upgrade(): IRestAction<TextChannel>
+    override fun upgrade(): IRestAction<out TextChannel>
     
     fun bulkDelete(messages: Collection<PartialMessage>): IRestAction<Unit>
         = bot.request(RestEndpoint.BULK_DELETE_MESSAGES.path(snowflake.id), { Unit }) {
@@ -157,7 +159,7 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
             super.send(message).await()
         }
     
-    override fun upgrade(): IRestAction<TextChannel> = IRestAction.ProvidedRestAction(bot, this)
+    override fun upgrade(): IRestAction<out TextChannel> = IRestAction.ProvidedRestAction(bot, this)
     
     override fun fetchMessage(message: Snowflake): PartialMessage
         = PartialMessage.new(this as GuildChannel, message)
@@ -196,12 +198,17 @@ open class TextChannel(override val internalGuild: PartialGuild, map: JsonObject
     
     override fun toString(): String = "Channel($type, $guild, $name, ${snowflake.id})"
     
-    fun canTalk() = IRestAction.coroutine(bot) {
+    fun fetchCanTalk() = IRestAction.coroutine(bot) {
         fetchPermissions(guild.fetchSelfMember.await()).await().contains(Permissions.SEND_MESSAGES)
     }
-    fun canTalk(member: Member) = IRestAction.coroutine(bot) {
+    fun fetchCanTalk(member: Member) = IRestAction.coroutine(bot) {
         fetchPermissions(member).await().contains(Permissions.SEND_MESSAGES)
     }
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("fetchCanTalk()"))
+    fun canTalk() = fetchCanTalk().complete()
+    @Deprecated("JDA Compatibility Field", ReplaceWith("fetchCanTalk(member)"))
+    fun canTalk(member: Member) = fetchCanTalk(member).complete()
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("webhookBuilder().apply { this@apply.name = name }"))
     fun createWebhook(name: String) = webhookBuilder().apply { this@apply.name = name }
@@ -221,12 +228,12 @@ class TextChannelBuilder(guild: PartialGuild, bot: DiscordProxyKt):
 {
     /**
      * Creates a text channel based on altered fields and returns it as a rest action.<br>
-     * The values of the fields in the builder itself will be updated, making it usable as a TextChannel.
+     * The values of the fields in the builder itself will be updated, making it usable as a [TextChannel].
      */
     override fun create(): IRestAction<TextChannel> {
         if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
         changes["type"] = JsonPrimitive(0)
-        return IRestAction.coroutine(guild.bot) {
+        return IRestAction.coroutine(internalGuild.bot) {
             assertPermissions(this, Permissions.MANAGE_GUILD)
             bot.request(
                 RestEndpoint.CREATE_GUILD_CHANNEL.path(internalGuild.snowflake.id),

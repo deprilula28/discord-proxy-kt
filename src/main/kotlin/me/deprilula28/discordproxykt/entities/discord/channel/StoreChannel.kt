@@ -5,61 +5,65 @@ import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.*
+import me.deprilula28.discordproxykt.entities.discord.guild.Features
 import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.PermissionOverwrite
 import me.deprilula28.discordproxykt.entities.discord.Permissions
 import me.deprilula28.discordproxykt.rest.*
 
 /**
- * This type is used for operations when an ID of a [Category] is known.<br>
- * If the data is also known it will implement [Category], and [upgrade] is a no-op.<br>
+ * This type is used for operations when an ID of a [StoreChannel] is known.<br>
+ * If the data is also known it will implement [StoreChannel], and [upgrade] is a no-op.<br>
  * If it isn't known, [upgrade] will be a request to get the data from Discord.
  */
-interface PartialCategory: PartialEntity, PartialGuildChannel {
+interface PartialStoreChannel: PartialEntity, PartialGuildChannel {
     companion object {
-        fun new(guild: PartialGuild, id: Snowflake): PartialCategory
-            = object: PartialCategory {
+        fun new(guild: PartialGuild, id: Snowflake): PartialStoreChannel
+            = object: PartialStoreChannel {
                 override val snowflake: Snowflake = id
                 override val bot: DiscordProxyKt = guild.bot
                 
-                override fun upgrade(): IRestAction<Category>
-                    = bot.request(RestEndpoint.GET_CHANNEL.path(snowflake.id), { Category(this as JsonObject, bot) })
+                override fun upgrade(): IRestAction<StoreChannel>
+                    = bot.request(RestEndpoint.GET_CHANNEL.path(snowflake.id), { StoreChannel(this as JsonObject, bot) })
                 override fun toString(): String = "Channel(partial, $type, $guild, $snowflake.id)"
             }
     }
     
     override val type: ChannelType
-        get() = ChannelType.CATEGORY
+        get() = ChannelType.STORE
     
-    override fun upgrade(): IRestAction<Category>
+    override fun upgrade(): IRestAction<StoreChannel>
 }
 
 
-open class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel, PartialCategory, EntityManager<Category> {
+open class StoreChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), GuildChannel, PartialStoreChannel, EntityManager<StoreChannel> {
     override val guild: PartialGuild by parsing({ bot.fetchGuild(asSnowflake()) }, "guild_id")
-    override fun upgrade(): IRestAction<Category> = IRestAction.ProvidedRestAction(bot, this)
-    override var category: PartialCategory?
-        get() = this
-        set(_) = throw InvalidRequestException("Cannot edit category for category")
-    
+    override fun upgrade(): IRestAction<StoreChannel> = IRestAction.ProvidedRestAction(bot, this)
+
     override var name: String by parsing(JsonElement::asString, {
         if (it.length !in 2 .. 100) throw InvalidRequestException("Channel name must be between 2 and 100 characters in length")
         Json.encodeToJsonElement(it)
     })
     override var position: Int by parsing(JsonElement::asInt, Json::encodeToJsonElement)
     override var permissions: List<PermissionOverwrite> by parsing({
-        (this as JsonArray).map { it.asPermissionOverwrite(this@Category, guild, bot) }
+        (this as JsonArray).map { it.asPermissionOverwrite(this@StoreChannel, guild, bot) }
     }, { Json.encodeToJsonElement(it.map(PermissionOverwrite::toObject)) }, "permission_overwrites")
+    override var category: PartialCategory? by parsingOpt(
+        { PartialCategory.new(guild, asSnowflake()) },
+        { it?.run { JsonPrimitive(snowflake.id) } ?: JsonNull },
+        "parent_id",
+    )
     
     override val type: ChannelType
-        get() = ChannelType.CATEGORY
+        get() = ChannelType.STORE
     
     override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
     
     fun createCopy(guild: PartialGuild) = CategoryBuilder(guild, bot).apply {
-        name = this@Category.name
-        position = this@Category.position
-        permissions = this@Category.permissions
+        name = this@StoreChannel.name
+        position = this@StoreChannel.position
+        permissions = this@StoreChannel.permissions
+        category = this@StoreChannel.category
     }
     fun createCopy() = createCopy(guild)
     
@@ -68,11 +72,11 @@ open class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Gui
     /**
      * Requests that this guild gets edited based on the altered fields.
      */
-    override fun edit(): IRestAction<Category> {
+    override fun edit(): IRestAction<StoreChannel> {
         if (changes.isEmpty()) throw InvalidRequestException("No changes have been made to this channel, yet `edit()` was called.")
         return IRestAction.coroutine(guild.bot) {
             assertPermissions(this, Permissions.MANAGE_CHANNELS)
-            bot.coroutineRequest(RestEndpoint.MODIFY_CHANNEL.path(snowflake.id), { this@Category.apply { map = this@coroutineRequest as JsonObject } }) {
+            bot.coroutineRequest(RestEndpoint.MODIFY_CHANNEL.path(snowflake.id), { this@StoreChannel.apply { map = this@coroutineRequest as JsonObject } }) {
                 val res = Json.encodeToString(changes)
                 changes.clear()
                 res
@@ -81,21 +85,23 @@ open class Category(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Gui
     }
 }
 
-class CategoryBuilder(private val internalGuild: PartialGuild, bot: DiscordProxyKt):
+class StoreChannelBuilder(private val internalGuild: PartialGuild, bot: DiscordProxyKt):
     Category(JsonObject(MapNotReady()), bot), EntityBuilder<Category>
 {
     /**
      * Creates a voice channel based on altered fields and returns it as a rest action.<br>
-     * The values of the fields in the builder itself will be updated, making it usable as a [Category].
+     * The values of the fields in the builder itself will be updated, making it usable as a [StoreChannel].
      */
     override fun create(): IRestAction<Category> {
         if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
-        changes["type"] = JsonPrimitive(4)
+        changes["type"] = JsonPrimitive(6)
         return IRestAction.coroutine(internalGuild.bot) {
             assertPermissions(this, Permissions.MANAGE_GUILD)
+            if (!internalGuild.upgrade().await().features.contains(Features.COMMERCE))
+                throw InvalidRequestException("Cannot create store channel in a guild that doesn't have commerce")
             bot.coroutineRequest(
                 RestEndpoint.CREATE_GUILD_CHANNEL.path(internalGuild.snowflake.id),
-                { this@CategoryBuilder.apply { map = this@coroutineRequest as JsonObject } },
+                { this@StoreChannelBuilder.apply { map = this@coroutineRequest as JsonObject } },
             ) {
                 val res = Json.encodeToString(changes)
                 changes.clear()

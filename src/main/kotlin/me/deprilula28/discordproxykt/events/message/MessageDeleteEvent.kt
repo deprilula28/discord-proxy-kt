@@ -4,7 +4,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Snowflake
-import me.deprilula28.discordproxykt.entities.discord.PartialGuild
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialMessageChannel
 import me.deprilula28.discordproxykt.rest.asSnowflake
 import me.deprilula28.discordproxykt.rest.parsing

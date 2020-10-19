@@ -1,4 +1,4 @@
-package me.deprilula28.discordproxykt.entities.discord
+package me.deprilula28.discordproxykt.entities.discord.guild
 
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt

@@ -1,12 +1,11 @@
-package me.deprilula28.discordproxykt.entities.discord
+package me.deprilula28.discordproxykt.entities.discord.guild
 
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.*
-import me.deprilula28.discordproxykt.events.guild.GuildJoinEvent
-import me.deprilula28.discordproxykt.events.guild.GuildLeaveEvent
+import me.deprilula28.discordproxykt.entities.discord.*
 import me.deprilula28.discordproxykt.entities.discord.channel.*
 import me.deprilula28.discordproxykt.entities.discord.message.GuildEmoji
 import me.deprilula28.discordproxykt.rest.*
@@ -17,133 +16,9 @@ import java.util.*
 import javax.imageio.ImageIO
 
 /**
- * https://discord.com/developers/docs/resources/voice#voice-region-object
- */
-class VoiceRegion(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot) {
-    /**
-     * name of the region
-     */
-    val name: String by parsing(JsonElement::asString)
-    /**
-     * true if this is a vip-only server
-     * <br>
-     * "VIP" regions are now known as 368kbps regions for boosted servers
-     */
-    val vip: Boolean by parsing(JsonElement::asBoolean)
-    /**
-     * true for a single server that is closest to the current user's client
-     */
-    val optimal: Boolean by parsing(JsonElement::asBoolean)
-    /**
-     * whether this is a deprecated voice region (avoid switching to these)
-     */
-    val deprecated: Boolean by parsing(JsonElement::asBoolean)
-    /**
-     * whether this is a custom voice region (used for events/etc)
-     */
-    val custom: Boolean by parsing(JsonElement::asBoolean)
-}
-
-/**
- * https://discord.com/developers/docs/resources/guild#ban-object
- */
-data class Ban(override val map: JsonObject, override val bot: DiscordProxyKt): Parse {
-    val user: User by parsing({ User(this as JsonObject, bot) })
-    val reason: String by parsing(JsonElement::asString)
-}
-
-/**
- * https://discord.com/developers/docs/resources/invite#invite-object
- */
-open class Invite(override var map: JsonObject, override val bot: DiscordProxyKt, private val internalGuild: PartialGuild? = null): Parse {
-    val code: String by parsing(JsonElement::asString)
-    val guild: Guild? by parsingOpt({ Guild(this as JsonObject, bot) })
-    val inviter: User? by parsingOpt({ User(this as JsonObject, bot) })
-    val targetUser: User? by parsingOpt({ User(this as JsonObject, bot) }, "target_user")
-    val approxPresenceCount: Int? by parsingOpt(JsonElement::asInt, "approximate_presence_count")
-    val approxMemberCount: Int? by parsingOpt(JsonElement::asInt, "approximate_member_count")
-    
-    /**
-     * This is present under fetched invites
-     */
-    val cachedChannel: GuildChannel? by parsingOpt({
-        (guild ?: internalGuild)?.run {
-            this@parsingOpt.asGuildChannel(bot, this)
-        }
-    }, "channel")
-    /**
-     * This is present under invite events [GuildInviteCreateEvent] and [GuildInviteDeleteEvent]
-     */
-    val partialChannel: PartialGuildChannel? by parsingOpt({
-        (guild ?: internalGuild)?.run {
-            PartialGuildChannel.new(this, asSnowflake())
-        }
-    }, "channel_id")
-    
-    /**
-     * The only case where this is not present is when [guild] is `null`
-     */
-    val channel: PartialGuildChannel?
-        get() = cachedChannel ?: partialChannel
-    
-    fun delete(): IRestAction<Unit> {
-        return if (guild != null) IRestAction.coroutine(bot) {
-            assertPermissions(guild!!, Permissions.MANAGE_GUILD)
-            bot.coroutineRequest(RestEndpoint.DELETE_INVITE.path(code), { Unit })
-        }
-        else bot.request(RestEndpoint.DELETE_INVITE.path(code), { Unit })
-    }
-    
-    /**
-     * @throws [UnavailableField] If [guild] is `null`
-     */
-    fun expand(): IRestAction<ExtendedInvite>
-        = IRestAction.coroutine(bot) {
-            (channel ?: throw UnavailableField()).fetchInvites.await().find { it.code == this.code } ?: throw UnavailableField()
-        }
-}
-
-class InviteBuilder(private val internalChannel: GuildChannel, bot: DiscordProxyKt):
-    Invite(JsonObject(MapNotReady()), bot), EntityBuilder<Invite>
-{
-    val changes = mutableMapOf<String, JsonElement>()
-    
-    /**
-     * Creates an invite based on altered fields and returns it as a rest action.<br>
-     * The values of the fields in the builder itself will be updated, making it usable as a Invite.
-     */
-    override fun create(): IRestAction<Invite> {
-        if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
-        changes["type"] = JsonPrimitive(0)
-        return IRestAction.coroutine(bot) {
-            assertPermissions(internalChannel, Permissions.CREATE_INSTANT_INVITE)
-            bot.coroutineRequest(
-                RestEndpoint.CREATE_GUILD_CHANNEL.path(internalChannel.snowflake.id),
-                { this@InviteBuilder.apply { map = this@coroutineRequest as JsonObject } },
-            ) {
-                val res = Json.encodeToString(changes)
-                changes.clear()
-                res
-            }
-        }
-    }
-}
-
-class ExtendedInvite(map: JsonObject, bot: DiscordProxyKt, internalGuild: PartialGuild? = null):
-    Invite(map, bot, internalGuild)
-{
-    val uses: Int by parsing(JsonElement::asInt, "uses")
-    val maxUses: Int by parsing(JsonElement::asInt, "max_uses")
-    val maxAge: Int by parsing(JsonElement::asInt, "max_age")
-    val temporary: Boolean by parsing(JsonElement::asBoolean)
-    val createdAt: Timestamp by parsing(JsonElement::asTimestamp, "created_at")
-}
-
-/**
- * Partial objects only need an ID.<br>
- * Working off this type means no permission checking will be done before requesting.<br>
- * You can get a full object by using {@link me.deprilula28.discordproxykt.rest.RestAction#request() request()} in this
- * type, if it isn't one already.
+ * This type is used for operations when an ID of a [Guild] is known.<br>
+ * If the data is also known it will implement [Guild], and [upgrade] is a no-op.<br>
+ * If it isn't known, [upgrade] will be a request to get the data from Discord.
  */
 interface PartialGuild: PartialEntity {
     companion object {
@@ -177,7 +52,7 @@ interface PartialGuild: PartialEntity {
             PaginatedAction(
                 bot, { AuditLogEntry(this as JsonObject, bot) },
                 RestEndpoint.GET_GUILD_AUDIT_LOGS, snowflake.id,
-            ).await() // TODO
+            ).await()
         }
     
     val fetchInvites: IRestAction<List<ExtendedInvite>>
@@ -197,7 +72,10 @@ interface PartialGuild: PartialEntity {
     
     fun fetchTextChannel(snowflake: Snowflake) = PartialTextChannel.new(this, snowflake)
     fun fetchVoiceChannel(snowflake: Snowflake) = PartialVoiceChannel.new(this, snowflake)
+    fun fetchStoreChannel(snowflake: Snowflake) = PartialStoreChannel.new(this, snowflake)
+    fun fetchNewsChannel(snowflake: Snowflake) = PartialNewsChannel.new(this, snowflake)
     fun fetchCategory(snowflake: Snowflake) = PartialCategory.new(this, snowflake)
+    fun fetchChannel(snowflake: Snowflake) = PartialGuildChannel.new(this, snowflake)
     
     val fetchWebhooks: IRestAction<List<Webhook>>
         get() = IRestAction.coroutine(bot) {
@@ -341,11 +219,11 @@ interface PartialGuild: PartialEntity {
     fun unban(member: PartialMember) = member.unban()
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("textChannelBuilder().apply { this@apply.name = name }"))
-    fun createTextChannel(name: String) = textChannelBuilder().apply { /* TODO set name here */ }
+    fun createTextChannel(name: String) = textChannelBuilder().apply { this@apply.name = name }
     @Deprecated("JDA Compatibility Field", ReplaceWith("voiceChannelBuilder().apply { this@apply.name = name }"))
-    fun createVoiceChannel(name: String) = voiceChannelBuilder().apply { /* TODO set name here */ }
+    fun createVoiceChannel(name: String) = voiceChannelBuilder().apply { this@apply.name = name }
     @Deprecated("JDA Compatibility Field", ReplaceWith("categoryBuilder().apply { this@apply.name = name }"))
-    fun createCategory(name: String) = categoryBuilder().apply { /* TODO set name here */ }
+    fun createCategory(name: String) = categoryBuilder().apply { this@apply.name = name }
     @Deprecated("JDA Compatibility Field", ReplaceWith("roleBuilder()"))
     fun createRole() = roleBuilder()
     
@@ -487,12 +365,6 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
      * application id of the guild creator if it is bot-created
      */
     val applicationSnowflake: Snowflake? by parsingOpt(JsonElement::asSnowflake, "application_id")
-    
-    /**
-     * roles in the guild
-     */
-    val cachedRoles: List<Role> by parsing({ (this as JsonArray).map { Role(this@Guild, it as JsonObject, bot) } },
-                                                                              "roles")
     /**
      * custom guild emojis
      */
@@ -617,19 +489,34 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
      * 	approximate number of non-offline members in this guild
      */
     val approxPresenceCount: Int? by parsingOpt(JsonElement::asInt, "approximate_presence_count")
+    
     /**
      * users in the guild <br>
      * Only sent when under the event where the guild becomes available to the bot <br>
      * Requires the GUILD_MEMBERS privileged intent
      */
-    val cachedMembers: List<Member>? by parsingOpt(
-        { (this as JsonArray).map { Member(this@Guild, it as JsonObject, bot) } }, "members")
+    val cachedMembers: EntityCache<Member> by lazy {
+        EntityCache(map["members"]?.run {
+            (this as JsonArray).map { Member(this@Guild, it as JsonObject, bot) }.toMutableList()
+        } ?: mutableListOf())
+    }
     /**
      * channels in the guild <br>
      * Only sent when under the event where the guild becomes available to the bot
      */
-    val cachedChannels: List<GuildChannel>? by parsingOpt(
-        { (this as JsonArray).mapNotNull { it.asGuildChannel(bot, this@Guild) } }, "channels")
+    val cachedChannels: EntityCache<GuildChannel> by lazy {
+        EntityCache(map["channels"]?.run {
+            (this as JsonArray).mapNotNull { it.asGuildChannel(bot, this@Guild) }.toMutableList()
+        } ?: mutableListOf())
+    }
+    /**
+     * roles in the guild
+     */
+    val cachedRoles: EntityCache<Role> by lazy {
+        EntityCache(map["roles"]?.run {
+            (this as JsonArray).map { Role(this@Guild, it as JsonObject, bot) }.toMutableList()
+        } ?: mutableListOf())
+    }
     
     /**
      * the maximum number of presences for the guild (the default value, currently 25000, is in effect when null is returned)
@@ -713,7 +600,8 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     /**
      * system channel flags
      */
-    val systemChannelFlags: EnumSet<SystemChannelFlags> by parsing({ asLong().bitSetToEnumSet(SystemChannelFlags.values()) }, "system_channel_flags")
+    val systemChannelFlags: EnumSet<SystemChannelFlags> by parsing({ asLong().bitSetToEnumSet(
+        SystemChannelFlags.values()) }, "system_channel_flags")
     
     val memberCount: Int by lazy { instantMemberCount ?: approxMemberCount ?: -1 }
     val iconUrl: String? by lazy {
@@ -781,14 +669,8 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     /*
         Properties below override PartialGuild to use the additional information this type has available
      */
-    
-    override val fetchSelfMember: IRestAction<Member>
-        get() = cachedMembers?.run {
-            IRestAction.coroutine(bot) {
-                val selfUser = bot.selfUser.await()
-                this.find { it.user.snowflake == selfUser.snowflake } ?: super.fetchSelfMember.await()
-            }
-        } ?: super.fetchSelfMember
+    override fun fetchMember(user: Snowflake): PartialMember
+        = cachedMembers.run { find { it.user.snowflake == user } } ?: super.fetchMember(user)
     
     override val fetchUserPermissions: IRestAction<EnumSet<Permissions>>
         get() = cachedUserPermissions?.run { IRestAction.ProvidedRestAction(bot, this) } ?: super.fetchUserPermissions
@@ -836,63 +718,63 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.any { it.user == user } ?: false"))
     fun isMember(user: User): Boolean
-            = cachedMembers?.any { it.user == user } ?: false
+            = cachedMembers.any { it.user == user }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.find { it.user == user }"))
     fun getMember(user: User)
-            = cachedMembers?.find { it.user == user }
+            = cachedMembers.find { it.user == user }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.find { it.user.snowflake.id == userId }"))
     fun getMember(userId: String)
-            = cachedMembers?.find { it.user.snowflake.id == userId }
+            = cachedMembers.find { it.user.snowflake.id == userId }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.find { it.user.snowflake.idLong == userIdLong }"))
     fun getMember(userIdLong: Long)
-            = cachedMembers?.find { it.user.snowflake.idLong == userIdLong }
+            = cachedMembers.find { it.user.snowflake.idLong == userIdLong }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.find { \"\${it.user.username}#\${it.user.discriminator}\" == tag }"))
     fun getMemberByTag(tag: String)
-            = cachedMembers?.find { "${it.user.username}#${it.user.discriminator}" == tag }
+            = cachedMembers.find { "${it.user.username}#${it.user.discriminator}" == tag }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.find { it.user.username == tag && it.user.discriminator == discrim }"))
     fun getMemberByTag(tag: String, discrim: String)
-            = cachedMembers?.find { it.user.username == tag && it.user.discriminator == discrim }
+            = cachedMembers.find { it.user.username == tag && it.user.discriminator == discrim }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.filter { it.user.username.equals(tag, ignoreCase) } ?: listOf()"))
     fun getMembersByName(tag: String, ignoreCase: Boolean)
-            = cachedMembers?.filter { it.user.username.equals(tag, ignoreCase) } ?: listOf()
+            = cachedMembers.filter { it.user.username.equals(tag, ignoreCase) }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.filter { it.nick?.equals(tag, ignoreCase) ?: false } ?: listOf()"))
     fun getMembersByNickname(tag: String, ignoreCase: Boolean)
-            = cachedMembers?.filter { it.nick?.equals(tag, ignoreCase) ?: false } ?: listOf()
+            = cachedMembers.filter { it.nick?.equals(tag, ignoreCase) ?: false }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.filter { it.nick?.equals(tag, ignoreCase) ?: it.user.username.equals(tag, ignoreCase) } ?: listOf()"))
     fun getMembersByEffectiveName(tag: String, ignoreCase: Boolean)
-            = cachedMembers?.filter { it.nick?.equals(tag, ignoreCase) ?: it.user.username.equals(tag, ignoreCase) } ?: listOf()
+            = cachedMembers.filter { it.nick?.equals(tag, ignoreCase) ?: it.user.username.equals(tag, ignoreCase) }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it.snowflake) } } ?: listOf()"))
     fun getMembersWithRoles(vararg roles: Role)
-            = cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it) } } ?: listOf()
+            = cachedMembers.filter { mem -> roles.all { mem.roles.contains(it) } }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it.snowflake) } } ?: listOf()"))
     fun getMembersWithRoles(roles: Collection<Role>)
-            = cachedMembers?.filter { mem -> roles.all { mem.roles.contains(it) } } ?: listOf()
+            = cachedMembers.filter { mem -> roles.all { mem.roles.contains(it) } }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.find { it.snowflake.id == id }"))
     fun getGuildChannelById(id: String)
-            = cachedChannels?.find { it.snowflake.id == id }
+            = cachedChannels.find { it.snowflake.id == id }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.find { it.snowflake.idLong == idLong }"))
     fun getGuildChannelById(idLong: Long)
-            = cachedChannels?.find { it.snowflake.idLong == idLong }
+            = cachedChannels.find { it.snowflake.idLong == idLong }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.find { it.type == channelType && it.snowflake.id == id }"))
     fun getGuildChannelById(channelType: ChannelType, id: String)
-            = cachedChannels?.find { it.type == channelType && it.snowflake.id == id }
+            = cachedChannels.find { it.type == channelType && it.snowflake.id == id }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.find { it.type == channelType && it.snowflake.idLong == idLong }"))
     fun getGuildChannelById(channelType: ChannelType, idLong: Long)
-            = cachedChannels?.find { it.type == channelType && it.snowflake.idLong == idLong }
+            = cachedChannels.find { it.type == channelType && it.snowflake.idLong == idLong }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? Category }?.find { it.snowflake.id == id }"))
     fun getCategoryById(id: String)
-            = cachedChannels?.mapNotNull { it as? Category }?.find { it.snowflake.id == id }
+            = cachedChannels.mapNotNull { it as? Category }.find { it.snowflake.id == id }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? Category }?.find { it.snowflake.idLong == idLong }"))
     fun getCategoryById(idLong: Long)
-            = cachedChannels?.mapNotNull { it as? Category }?.find { it.snowflake.idLong == idLong }
+            = cachedChannels.mapNotNull { it as? Category }.find { it.snowflake.idLong == idLong }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? Category }?.find { it.name.equals(name, ignoreCase) }"))
     fun getCategoriesByName(name: String, ignoreCase: Boolean)
-            = cachedChannels?.mapNotNull { it as? Category }?.find { it.name.equals(name, ignoreCase) }
+            = cachedChannels.mapNotNull { it as? Category }.find { it.name.equals(name, ignoreCase) }
     @Deprecated("JDA Compatibility Field", ReplaceWith("null"))
     val categories
-        get() = cachedChannels?.mapNotNull { it as? Category }
+        get() = cachedChannels.mapNotNull { it as? Category }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("null"))
     fun getStoreChannelById(id: String) = null
@@ -982,173 +864,3 @@ class GuildBuilder(bot: DiscordProxyKt):
     override fun toString(): String = "GuildBuilder"
 }
 
-enum class Region {
-    AMSTERDAN, VIP_AMSTERDAN,
-    BRAZIL, VIP_BRAZIL,
-    EUROPE,  VIP_EUROPE,
-    EU_CENTRAL,  VIP_EU_CENTRAL,
-    EU_WEST, VIP_EU_WEST,
-    FRANKFURT,  VIP_FRANKFURT,
-    HONG_KONG,  VIP_HONG_KONG,
-    JAPAN, VIP_JAPAN,
-    SOUTH_KOREA, VIP_SOUTH_KOREA,
-    LONDON, VIP_LONDON,
-    RUSSIA,  VIP_RUSSIA,
-    INDIA,  VIP_INDIA,
-    SINGAPORE, VIP_SINGAPORE,
-    SOUTH_AFRICA, VIP_SOUTH_AFRICA,
-    SYDNEY, VIP_SYDNEY,
-    US_CENTRAL, VIP_US_CENTRAL,
-    US_EAST, VIP_US_EAST,
-    US_SOUTH, VIP_US_SOUTH,
-    US_WEST, VIP_US_WEST,
-}
-
-/**
- * https://discord.com/developers/docs/resources/guild#guild-object-system-channel-flags
- */
-enum class SystemChannelFlags {
-    /**
-     * Suppress member join notifications
-     */
-    SUPPRESS_JOIN_NOTIFICATIONS,
-    /**
-     * Suppress server boost notifications
-     */
-    SUPPRESS_PREMIUM_SUBSCRIPTIONS,
-}
-
-/**
- * https://discord.com/developers/docs/resources/guild#guild-object-premium-tier
- */
-enum class BoostTier(val bitrate: Int, val emotes: Int, val fileSize: Long) {
-    NONE(96000, 50, 8_388_608L),
-    TIER_1(128000, 100, 8_388_608L),
-    TIER_2(256000, 150, 52_428_800L),
-    TIER_3(384000, 250, 104_857_600L),
-}
-
-/**
- * https://discord.com/developers/docs/resources/guild#guild-object-mfa-level
- */
-enum class MFALevel {
-    NONE,
-    ELEVATED
-}
-
-/**
- * https://discord.com/developers/docs/resources/guild#guild-object-explicit-content-filter-level
- */
-enum class ExplicitContentFilterLevel {
-    OFF,
-    NO_ROLE,
-    ALL,
-}
-
-/**
- * https://discord.com/developers/docs/resources/guild#guild-object-default-message-notification-level
- */
-enum class NotificationLevel {
-    ALL_MESSAGES,
-    MENTIONS_ONLY
-}
-
-/**
- * https://discord.com/developers/docs/resources/guild#guild-object-verification-level
- */
-enum class VerificationLevel {
-    /**
-     * Unrestricted
-     */
-    NONE,
-    /**
-     * Must have verified email on account
-     */
-    LOW,
-    /**
-     * Must be registered on Discord for longer than 5 minutes
-     */
-    MEDIUM,
-    /**
-     * (╯°□°）╯︵ ┻━┻ - must be a member of the server for longer than 10 minutes
-     */
-    HIGH,
-    /**
-     * ┻━┻ ミヽ(ಠ 益 ಠ)ﾉ彡 ┻━┻ - must have a verified phone number
-     */
-    VERY_HIGH
-}
-
-enum class Timeout(val seconds: Int) {
-    SECONDS_60(60),
-    SECONDS_300(300),
-    SECONDS_900(900),
-    SECONDS_1800(1800),
-    SECONDS_3600(3600);
-}
-
-/**
- * https://discord.com/developers/docs/resources/guild#guild-object-guild-features
- */
-enum class Features {
-    /**
-     * Guild has access to set an invite splash background
-     */
-    INVITE_SPLASH,
-    /**
-     * Guild has access to set 384kbps bitrate in voice (previously VIP voice servers)
-     */
-    VIP_REGIONS,
-    /**
-     * Guild has access to set a vanity URL
-     */
-    VANITY_URL,
-    /**
-     * Guild is verified
-     */
-    VERIFIED,
-    /**
-     * Guild is partnered
-     */
-    PARTNERED,
-    /**
-     * Guild is public
-     */
-    PUBLIC,
-    /**
-     * Guild has access to use commerce features (i.e. create store channels)
-     */
-    COMMERCE,
-    /**
-     * Guild has access to create news channels
-     */
-    NEWS,
-    /**
-     * Guild is able to be discovered in the directory
-     */
-    DISCOVERABLE,
-    /**
-     * Guild is able to be featured in the directory
-     */
-    FEATURABLE,
-    /**
-     * Guild has access to set an animated guild icon
-     */
-    ANIMATED_ICON,
-    /**
-     * Guild has access to set a guild banner image
-     */
-    BANNER,
-    /**
-     * Guild cannot be public
-     */
-    PUBLIC_DISABLED,
-    /**
-     * Guild has enabled the welcome screen
-     */
-    WELCOME_SCREEN_ENABLED,
-    /**
-     * Community server
-     */
-    COMMUNITY,
-}

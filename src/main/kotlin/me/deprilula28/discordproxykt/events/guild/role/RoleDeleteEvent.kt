@@ -4,7 +4,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Snowflake
-import me.deprilula28.discordproxykt.entities.discord.*
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialRole
 import me.deprilula28.discordproxykt.rest.asSnowflake
 import me.deprilula28.discordproxykt.rest.parsing
 
@@ -12,5 +12,7 @@ class RoleDeleteEvent(override val map: JsonObject, override val bot: DiscordPro
     override val guildSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "guild_id")
     override val role: PartialRole by parsing({ guild.fetchRole(asSnowflake()) }, "role_id")
     
-    // TODO internalHandle updating guild role cache
+    override suspend fun internalHandle() {
+        guild.upgrade().getIfAvailable()?.apply { cachedRoles.removeIf { it.snowflake == role.snowflake } }
+    }
 }

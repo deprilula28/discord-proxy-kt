@@ -4,7 +4,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Snowflake
-import me.deprilula28.discordproxykt.entities.discord.Member
+import me.deprilula28.discordproxykt.entities.discord.guild.Member
 import me.deprilula28.discordproxykt.rest.asSnowflake
 import me.deprilula28.discordproxykt.rest.parsing
 
@@ -12,5 +12,7 @@ class GuildMemberJoinEvent(override val map: JsonObject, override val bot: Disco
     override val member: Member = Member(guild, map, bot)
     override val guildSnowflake: Snowflake by parsing(JsonElement::asSnowflake, "guild_id")
     
-    // TODO internalHandle updating guild member cache
+    override suspend fun internalHandle() {
+        guild.upgrade().getIfAvailable()?.apply { cachedMembers.add(member) }
+    }
 }

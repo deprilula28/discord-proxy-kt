@@ -3,7 +3,7 @@ package me.deprilula28.discordproxykt.events.message
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
-import me.deprilula28.discordproxykt.entities.discord.PartialGuild
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.channel.PartialTextChannel
 import me.deprilula28.discordproxykt.entities.discord.channel.TextChannel
 import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage

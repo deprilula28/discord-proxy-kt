@@ -8,18 +8,23 @@ import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.UnavailableField
 import me.deprilula28.discordproxykt.entities.discord.*
+import me.deprilula28.discordproxykt.entities.discord.guild.*
 import me.deprilula28.discordproxykt.rest.IRestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
 import me.deprilula28.discordproxykt.rest.asGuildChannel
 import me.deprilula28.discordproxykt.rest.bitSetToEnumSet
 
 /**
- * WARNING:<br>
+ * # WARNING
+ *
  * This type will not have permission checking ahead of time!<br>
  * If your bot causes more than 10,000 permission errors within 10 minutes, your IP address
- * will be "temporarily restricted from accessing the Discord API". (Interpret that as you will, Discord
- * isn't more specific than that)<br>
- * You can use the RestAction this type implements to get a full type, with permission checking.
+ * will be "temporarily restricted from accessing the Discord API". (Interpret that as you will)
+ *
+ * You can use the RestAction this type implements to get a full type, with permission checking.<br>
+ * This type is used for operations when an ID of a [GuildChannel] is known.<br>
+ * If the data is also known it will implement [GuildChannel], and [upgrade] is a no-op.<br>
+ * If it isn't known, [upgrade] will be a request to get the data from Discord.
  */
 interface PartialGuildChannel: PartialEntity, Channel {
     companion object {

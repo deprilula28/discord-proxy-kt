@@ -8,13 +8,15 @@ import me.deprilula28.discordproxykt.entities.Entity
 import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.*
+import me.deprilula28.discordproxykt.entities.discord.guild.BoostTier
+import me.deprilula28.discordproxykt.entities.discord.guild.Member
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
 import me.deprilula28.discordproxykt.rest.*
 
 /**
- * a voice channel within a server
- * <br>
- * Channel documentation:
- * https://discord.com/developers/docs/resources/channel
+ * This type is used for operations when an ID of a [VoiceChannel] is known.<br>
+ * If the data is also known it will implement [VoiceChannel], and [upgrade] is a no-op.<br>
+ * If it isn't known, [upgrade] will be a request to get the data from Discord.
  */
 interface PartialVoiceChannel: PartialGuildChannel, PartialEntity {
     companion object {
@@ -104,12 +106,17 @@ open class VoiceChannel(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot),
     
     override fun toString(): String = "Channel($type, $guild, $name, ${snowflake.id})"
     
-    fun canSpeak() = IRestAction.coroutine(bot) {
+    fun fetchCanSpeak() = IRestAction.coroutine(bot) {
         fetchPermissions(guild.fetchSelfMember.await()).await().contains(Permissions.SPEAK)
     }
-    fun canSpeak(member: Member) = IRestAction.coroutine(bot) {
+    fun fetchCanSpeak(member: Member) = IRestAction.coroutine(bot) {
         fetchPermissions(member).await().contains(Permissions.SPEAK)
     }
+    
+    @Deprecated("JDA Compatibility Field", ReplaceWith("fetchCanSpeak()"))
+    fun canSpeak() = fetchCanSpeak().complete()
+    @Deprecated("JDA Compatibility Field", ReplaceWith("fetchCanSpeak(member)"))
+    fun canSpeak(member: Member) = fetchCanSpeak(member).complete()
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("category?.upgrade()?.request()?.get()"))
     val parent: Category?
@@ -121,12 +128,12 @@ class VoiceChannelBuilder(private val internalGuild: PartialGuild, bot: DiscordP
 {
     /**
      * Creates a voice channel based on altered fields and returns it as a rest action.<br>
-     * The values of the fields in the builder itself will be updated, making it usable as a VoiceChannel.
+     * The values of the fields in the builder itself will be updated, making it usable as a [VoiceChannel].
      */
     override fun create(): IRestAction<VoiceChannel> {
         if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
         changes["type"] = JsonPrimitive(2)
-        return IRestAction.coroutine(guild.bot) {
+        return IRestAction.coroutine(internalGuild.bot) {
             assertPermissions(this, Permissions.MANAGE_GUILD)
             bot.request(
                 RestEndpoint.CREATE_GUILD_CHANNEL.path(internalGuild.snowflake.id),

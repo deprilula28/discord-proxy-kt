@@ -15,18 +15,18 @@ interface IRestAction<T> {
                 var res: T? = null
                 override val bot: DiscordProxyKt = bot
                 override suspend fun await(): T = res ?: func().apply { res = this }
-                override fun getIfAvailable(): T? = res
+                override suspend fun getIfAvailable(): T? = res
             }
     }
     
     open class ProvidedRestAction<T>(override val bot: DiscordProxyKt, private val value: T): IRestAction<T> {
-        override fun getIfAvailable(): T? = value
+        override suspend fun getIfAvailable(): T? = value
         override suspend fun await(): T = value
     }
     
     suspend fun await(): T
     
-    fun getIfAvailable(): T?
+    suspend fun getIfAvailable(): T?
     
     fun queue() {
         queue({}, bot.defaultExceptionHandler)

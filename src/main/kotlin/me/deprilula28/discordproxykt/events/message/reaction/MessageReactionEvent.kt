@@ -1,7 +1,7 @@
 package me.deprilula28.discordproxykt.events.message.reaction
 
-import me.deprilula28.discordproxykt.entities.discord.Member
-import me.deprilula28.discordproxykt.entities.discord.PartialGuild
+import me.deprilula28.discordproxykt.entities.discord.guild.Member
+import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
 import me.deprilula28.discordproxykt.entities.discord.PartialUser
 import me.deprilula28.discordproxykt.entities.discord.message.PartialMessage
 import me.deprilula28.discordproxykt.entities.discord.message.ReactionEmoji
