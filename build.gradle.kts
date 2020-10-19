@@ -20,6 +20,8 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.9")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.3.9")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.0.0-RC2")
+                implementation("io.ktor:ktor-client-apache:1.4.1")
+                implementation("org.apache.httpcomponents:httpasyncclient:4.1.4")
                 implementation("com.rabbitmq:amqp-client:5.9.0")
             }
         }

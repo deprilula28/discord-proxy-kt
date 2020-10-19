@@ -3,6 +3,7 @@ package me.deprilula28.discordproxykt
 import com.rabbitmq.client.Channel
 import com.rabbitmq.client.Connection
 import com.rabbitmq.client.ConnectionFactory
+import io.ktor.client.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -17,7 +18,6 @@ import me.deprilula28.discordproxykt.events.Events
 import me.deprilula28.discordproxykt.rest.RestAction
 import me.deprilula28.discordproxykt.rest.RestEndpoint
 import java.net.URI
-import java.net.http.HttpClient
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger

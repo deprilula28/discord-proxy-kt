@@ -1,20 +1,17 @@
 package me.deprilula28.discordproxykt.rest
 
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.util.*
 import kotlinx.coroutines.*
-import kotlinx.coroutines.future.await
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.RestException
 import me.deprilula28.discordproxykt.cache.DiscordRestCache
-import java.io.InputStream
-import java.net.URI
-import java.net.URL
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.util.concurrent.ConcurrentHashMap
-import javax.net.ssl.HttpsURLConnection
 
 open class RestAction<T: Any>(
     override val bot: DiscordProxyKt,
@@ -25,6 +22,7 @@ open class RestAction<T: Any>(
 ): IRestAction<T> {
     companion object {
         const val DISCORD_PATH: String = "https://discord.com/api/v8"
+        const val USER_AGENT: String = "DiscordBot (https://github.com/deprilula28/discord-proxy-kt v0.0.1)"
         val routeRateLimits = ConcurrentHashMap<RestEndpoint.Path, RateLimitBucket>()
         
         data class RateLimitBucket(
@@ -39,12 +37,10 @@ open class RestAction<T: Any>(
                 remaining = limit
             }
             
-            fun loadFromHeaders(res: HttpResponse<InputStream>): Boolean {
-                val limitHeader = res.headers().firstValue("X-RateLimit-Limit")
-                if (!limitHeader.isPresent) return false
-                limit = limitHeader.get().toInt()
-                remaining = res.headers().firstValue("X-RateLimit-Remaining").get().toInt()
-                waitTime = (res.headers().firstValue("X-RateLimit-Reset-After").get().toDouble() * 1000).toLong() + 100 /* Hard coded epsilon for slight disrepancies */
+            fun loadFromHeaders(res: HttpResponse): Boolean {
+                limit = (res.headers["X-RateLimit-Limit"] ?: return false).toInt()
+                remaining = res.headers["X-RateLimit-Remaining"]!!.toInt()
+                waitTime = (res.headers["X-RateLimit-Reset-After"]!!.toDouble() * 1000).toLong() + 100 /* Hard coded epsilon for slight disrepancies */
                 resetEpoch = System.currentTimeMillis() + waitTime
                 return true
             }
@@ -52,30 +48,22 @@ open class RestAction<T: Any>(
     }
     
     private suspend fun request(rateLimit: Pair<RestEndpoint.Path, RateLimitBucket>?): T {
-        val builder = HttpRequest.newBuilder()
-            .uri(URI(DISCORD_PATH + path.url))
-            .header("Authorization", bot.authorization)
-            .header("User-Agent", "DiscordBot (https://github.com/deprilula28/discord-proxy-kt v0.0.1)")
-        
-        val post = if (postData == null) {
-            builder.method(path.endpoint.method.toString(), HttpRequest.BodyPublishers.ofString(""))
-            null
-        } else {
+        val builder = HttpRequestBuilder()
+        builder.url(DISCORD_PATH + path.url)
+        builder.method = path.endpoint.method
+        builder.header("Authorization", bot.authorization)
+        builder.header("User-Agent", USER_AGENT)
+
+        if (postData != null) {
             builder.header("Content-Type", bodyType.typeStr)
-            val post = postData.invoke()
-            builder.method(path.endpoint.method.toString(), HttpRequest.BodyPublishers.ofByteArray(post.encodeToByteArray()))
-            post
-        }
-        val req = builder.build()
-        println("Performing request at $path with body $post and headers " +
-            req.headers().map().entries.joinToString(", ") {
-                it.value.joinToString(", ") { i -> "${it.key}=$i"}
-            })// TODO Debug log
+            builder.body = postData.invoke()
+        } else if (path.endpoint.method == HttpMethod.Put) builder.body = "" // TODO Remove when https://github.com/ktorio/ktor/issues/1333
     
-        val res = bot.client.sendAsync(req, HttpResponse.BodyHandlers.ofInputStream()).await()
+        println("Perform request $builder ($path)")
+        val res = bot.client.request<HttpResponse>(builder)
         // TODO Streamed parsing of this
-        val contents = withContext(Dispatchers.IO) { res.body().readBytes() }.toString(Charsets.UTF_8)
-        val code = res.statusCode()
+        val contents = withContext(Dispatchers.IO) { res.content.toByteArray() }.toString(Charsets.UTF_8)
+        val code = res.status
         
         fun handleRateLimit() {
             if (rateLimit != null) {
@@ -92,22 +80,21 @@ open class RestAction<T: Any>(
             }
         }
         
-        if (code >= 400) {
+        if (code.value >= 400) {
             when (code) {
-                403 -> throw InsufficientPermissionsException(listOf()) // Missing permissions
-                493 -> {
+                HttpStatusCode.Forbidden -> throw InsufficientPermissionsException(listOf())
+                HttpStatusCode.TooManyRequests -> {
                     // TODO Handle global rate limits here
                     handleRateLimit()
                     return await()
                 }
             }
-            throw RestException(req.uri().toString(), contents, code)
+            throw RestException(path.url, contents, code.value)
         }
         handleRateLimit()
     
-        // 204 No Content
-        val obj = constructor(if (code == 204) JsonNull else Json.decodeFromString(JsonElement.serializer(), contents), bot)
-        if (path.endpoint.method == RestEndpoint.Method.GET) bot.cache.store(path, DiscordRestCache.StoreType.REQUEST, obj)
+        val obj = constructor(if (code == HttpStatusCode.NoContent) JsonNull else Json.decodeFromString(JsonElement.serializer(), contents), bot)
+        if (path.endpoint.method == HttpMethod.Get) bot.cache.store(path, DiscordRestCache.StoreType.REQUEST, obj)
         return obj
     }
     
@@ -117,7 +104,7 @@ open class RestAction<T: Any>(
     override suspend fun await(): T {
         // Cache
         val endpoint = path.endpoint
-        if (endpoint.method == RestEndpoint.Method.GET) {
+        if (endpoint.method == HttpMethod.Get) {
             val item = bot.cache.retrieve<T>(path)
             if (item != null) return item
         }
@@ -149,7 +136,7 @@ open class RestAction<T: Any>(
     }
     
     override suspend fun getIfAvailable(): T? {
-        if (path.endpoint.method == RestEndpoint.Method.GET) {
+        if (path.endpoint.method == HttpMethod.Get) {
             val item = bot.cache.retrieve<T>(path)
             if (item != null) return item
         }

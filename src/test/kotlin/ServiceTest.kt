@@ -77,9 +77,6 @@ import kotlin.test.Test
             selfMember.remove(role).await()
             role.delete().await()
             
-            selfMember.nick = "lol"
-            selfMember.edit().await()
-            
             val tcb = guild.textChannelBuilder()
             tcb.name = "coolo1"
             tcb.topic = "very cool"
