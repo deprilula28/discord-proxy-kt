@@ -17,12 +17,16 @@ object Events {
     val GUILD_BAN_REMOVE by event(::GuildUnbanEvent)
     val GUILD_EMOJIS_UPDATE by event(::GuildUpdateEmojisEvent)
     
+    val CHANNEL_CREATE by event(::ChannelCreateEvent)
+    val CHANNEL_UPDATE by event(::ChannelUpdateEvent)
+    val CHANNEL_DELETE by event(::ChannelDeleteEvent)
+    
     val GUILD_MEMBER_ADD by event(::GuildMemberJoinEvent)
     val GUILD_MEMBER_REMOVE by event(::GuildMemberLeaveEvent)
     val GUILD_MEMBER_UPDATE by event(::GuildMemberUpdateEvent)
-    val GUILD_ROLE_CREATE by event(::RoleCreateEvent)
-    val GUILD_ROLE_DELETE by event(::RoleDeleteEvent)
-    val GUILD_ROLE_UPDATE by event(::RoleUpdateEvent)
+    val GUILD_ROLE_CREATE by event(::ChannelCreateEvent)
+    val GUILD_ROLE_DELETE by event(::ChannelDeleteEvent)
+    val GUILD_ROLE_UPDATE by event(::ChannelUpdateEvent)
     
     val INVITE_CREATE by event(::GuildInviteCreateEvent)
     val INVITE_DELETE by event(::GuildInviteDeleteEvent)
