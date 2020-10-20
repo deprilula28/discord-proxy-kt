@@ -40,9 +40,9 @@ interface PartialGuild: PartialEntity {
     val fetchRoles: IRestAction<List<Role>>
         get() = PaginatedAction(
             // This isn't actually paginated, but PaginatedAction supports a list format by default
-            bot, { Role(this@PartialGuild, this as JsonObject, bot) },
+            bot,
             RestEndpoint.GET_GUILD_ROLES, snowflake.id,
-        )
+        ) { Role(this@PartialGuild, this as JsonObject, bot) }
     
     fun fetchRole(role: Snowflake): PartialRole = PartialRole.new(this, role)
     
@@ -86,12 +86,20 @@ interface PartialGuild: PartialEntity {
     
     /**
      * Requires the GUILD_MEMBERS privileged intent
+     * It's recommended to use [fetchMembers] instead
      */
     val fetchMembers: PaginatedAction<Member>
         get() = PaginatedAction(
-            bot, { Member(this@PartialGuild, this as JsonObject, bot) },
+            bot,
             RestEndpoint.LIST_GUILD_MEMBERS, snowflake.id,
-        )
+        ) { Member(this@PartialGuild, this as JsonObject, bot) }
+    
+    fun fetchMembers(
+        presences: Boolean = false, // TODO Presences
+        query: String? = null,
+        limit: Int? = null,
+        users: List<Snowflake>? = null,
+    ) = bot.requestGuildMembers(listOf(snowflake), presences, query, limit, users)
     
     fun fetchMember(user: Snowflake): PartialMember = object: PartialMember {
         override val guild: PartialGuild = this@PartialGuild
@@ -101,9 +109,12 @@ interface PartialGuild: PartialEntity {
         
         override fun upgrade(): IRestAction<Member>
             = RestAction(
-                bot, RestEndpoint.GET_GUILD_MEMBER.path(snowflake.id, user.id),
+                bot, RestEndpoint.GET_GUILD_MEMBER.path(this@PartialGuild.snowflake.id, user.id),
                 { Member(this@PartialGuild, this as JsonObject, bot) },
             )
+    
+        override val snowflake: Snowflake
+            get() = user
         
         override fun toString(): String = "Member(partial, $user, $guild)"
     }
@@ -334,20 +345,24 @@ interface PartialGuild: PartialEntity {
     @Deprecated("JDA Compatibility Function", ReplaceWith("regions"))
     fun retrieveRegions(includeDeprecated: Boolean) = retrieveRegions()
     
-    /*
-    TODO from JDA:
-    Guild#retrieveMembers(Collection<User>)
-    Guild#retrieveMembersByIds(Collection<String>)
-    Guild#retrieveMembersByIds(String...)
-    Guild#retrieveMembersByIds(Collection<Long>)
-    Guild#retrieveMembersByIds(long...)
-    Guild#retrieveMembers(boolean, Collection<User>)
-    Guild#retrieveMembersByIds(boolean, Collection<String>)
-    Guild#retrieveMembersByIds(boolean, String...)
-    Guild#retrieveMembersByIds(boolean, Collection<Long>)
-    Guild#retrieveMembersByIds(boolean, long...)
-    Guild#retrieveMembersByPrefix(String, int)
-    */
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers(users = users.map { it.snowflake })"))
+    fun retrieveMembers(users: Collection<User>) = fetchMembers(users = users.map { it.snowflake })
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers(users = users.map { Snowflake(it) })"))
+    fun retrieveMembersByIds(users: Collection<String>) = fetchMembers(users = users.map { Snowflake(it) })
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers(users = users.map { Snowflake(it) })"))
+    fun retrieveMembersByIds(vararg users: String) = fetchMembers(users = users.map { Snowflake(it) })
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers(users = users.map { Snowflake(it.toString()) })"))
+    fun retrieveMembersByIds(vararg users: Long) = fetchMembers(users = users.map { Snowflake(it.toString()) })
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers(users = users.map { it.snowflake })"))
+    fun retrieveMembers(presences: Boolean, users: Collection<User>) = fetchMembers(presences, users = users.map { it.snowflake })
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers(users = users.map { Snowflake(it) })"))
+    fun retrieveMembersByIds(presences: Boolean, users: Collection<String>) = fetchMembers(presences, users = users.map { Snowflake(it) })
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers(users = users.map { Snowflake(it) })"))
+    fun retrieveMembersByIds(presences: Boolean, vararg users: String) = fetchMembers(presences, users = users.map { Snowflake(it) })
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers(users = users.map { Snowflake(it.toString()) })"))
+    fun retrieveMembersByIds(presences: Boolean, vararg users: Long) = fetchMembers(presences, users = users.map { Snowflake(it.toString()) })
+    @Deprecated("JDA Compatibility Function", ReplaceWith("fetchMembers(query = prefix, limit = limit)"))
+    fun retrieveMembersByPrefix(prefix: String, limit: Int) = fetchMembers(query = prefix, limit = limit)
 }
 
 /**
@@ -802,29 +817,29 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? TextChannel }?.find { it.snowflake.id == id }"))
     fun getTextChannelById(id: String)
-            = cachedChannels?.mapNotNull { it as? TextChannel }?.find { it.snowflake.id == id }
+            = cachedChannels.mapNotNull { it as? TextChannel }?.find { it.snowflake.id == id }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? TextChannel }?.find { it.snowflake.idLong == idLong }"))
     fun getTextChannelById(idLong: Long)
-            = cachedChannels?.mapNotNull { it as? TextChannel }?.find { it.snowflake.idLong == idLong }
+            = cachedChannels.mapNotNull { it as? TextChannel }?.find { it.snowflake.idLong == idLong }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? TextChannel }?.find { it.name.equals(name, ignoreCase) }"))
     fun getTextChannelsByName(name: String, ignoreCase: Boolean)
-            = cachedChannels?.mapNotNull { it as? TextChannel }?.find { it.name.equals(name, ignoreCase) }
+            = cachedChannels.mapNotNull { it as? TextChannel }?.find { it.name.equals(name, ignoreCase) }
     @Deprecated("JDA Compatibility Field", ReplaceWith("null"))
     val textChannels
-        get() = cachedChannels?.mapNotNull { it as? TextChannel }
+        get() = cachedChannels.mapNotNull { it as? TextChannel }
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? VoiceChannel }?.find { it.snowflake.id == id }"))
     fun getVoiceChannelById(id: String)
-            = cachedChannels?.mapNotNull { it as? VoiceChannel }?.find { it.snowflake.id == id }
+            = cachedChannels.mapNotNull { it as? VoiceChannel }?.find { it.snowflake.id == id }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? VoiceChannel }?.find { it.snowflake.idLong == idLong }"))
     fun getVoiceChannelById(idLong: Long)
-            = cachedChannels?.mapNotNull { it as? VoiceChannel }?.find { it.snowflake.idLong == idLong }
+            = cachedChannels.mapNotNull { it as? VoiceChannel }?.find { it.snowflake.idLong == idLong }
     @Deprecated("JDA Compatibility Function", ReplaceWith("cachedChannels?.mapNotNull { it as? VoiceChannel }?.find { it.name.equals(name, ignoreCase) }"))
     fun getVoiceChannelsByName(name: String, ignoreCase: Boolean)
-            = cachedChannels?.mapNotNull { it as? VoiceChannel }?.find { it.name.equals(name, ignoreCase) }
+            = cachedChannels.mapNotNull { it as? VoiceChannel }?.find { it.name.equals(name, ignoreCase) }
     @Deprecated("JDA Compatibility Field", ReplaceWith("null"))
     val voiceChannels
-        get() = cachedChannels?.mapNotNull { it as? VoiceChannel }
+        get() = cachedChannels.mapNotNull { it as? VoiceChannel }
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("cachedChannels"))
     val channels

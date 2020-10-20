@@ -322,34 +322,6 @@ import kotlin.test.assertEquals
         assertEquals(event.role.snowflake, Snowflake("766340218541703228"))
     }
     
-    // TODO Get a real packet for role update
-//    @Test fun roleUpdate() {
-//        val text = """
-//            {
-//                "role_id": "766115747633954856",
-//                "guild_id": "345259986303057930",
-//                "guild_hashes": {
-//                    "version": 1,
-//                    "roles": {
-//                        "hash": "pTnnEE1L2UU"
-//                    },
-//                    "metadata": {
-//                        "hash": "0dViSYrsY1w"
-//                    },
-//                    "channels": {
-//                        "hash": "PRMJpVWdlK8"
-//                    }
-//                }
-//            }
-//        """.trimIndent()
-//
-//        val event = RoleUpdateEvent(Json.decodeFromString(JsonObject.serializer(), text),
-//                                         Mockito.mock(DiscordProxyKt::class.java))
-//
-//        assertEquals(event.guildSnowflake, Snowflake("345259986303057930"))
-//        assertEquals(event.role.snowflake, Snowflake("766115747633954856"))
-//    }
-    
     @Test fun messageReactionAdd() {
         val text = """
             {

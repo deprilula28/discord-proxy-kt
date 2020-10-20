@@ -19,6 +19,7 @@ object Events {
     val GUILD_BAN_ADD by event(::GuildBanEvent)
     val GUILD_BAN_REMOVE by event(::GuildUnbanEvent)
     val GUILD_EMOJIS_UPDATE by event(::GuildUpdateEmojisEvent)
+    val GUILD_MEMBERS_CHUNK by event(::GuildMembersChunk)
     
     val CHANNEL_CREATE by event(::ChannelCreateEvent)
     val CHANNEL_UPDATE by event(::ChannelUpdateEvent)
@@ -43,7 +44,7 @@ object Events {
     val MESSAGE_REACTION_REMOVE_ALL by event(::MessageReactionRemoveAllEvent)
     val MESSAGE_REACTION_REMOVE_EMOJI by event(::MessageReactionRemoveEmojiEvent)
     
-    private inline fun <reified T> event(noinline constructor: (JsonObject, DiscordProxyKt) -> T, ):
+    private inline fun <reified T> event(noinline constructor: (JsonObject, DiscordProxyKt) -> T):
             ReadOnlyProperty<Any?, Event<T>>
         = ReadOnlyProperty{ _, property -> Event(property.name, constructor, T::class.java) }
     

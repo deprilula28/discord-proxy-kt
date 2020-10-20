@@ -121,7 +121,8 @@ enum class RestEndpoint(private val path: String, val method: HttpMethod) {
     
     fun path(vararg parts: String) = Path(String.format(path, *parts), this)
     fun path(getParameters: List<Pair<String?, String>>, vararg parts: String)
-        = Path(String.format(path, *parts) + "?" + getParameters.joinToString("&") {
+        = Path(String.format(path, *parts) + (if (getParameters.isEmpty()) "" else "?" +
+            getParameters.joinToString("&") {
                 (key, value) -> if (key == null) value else "$key=$value"
-        }, this)
+            }), this)
 }

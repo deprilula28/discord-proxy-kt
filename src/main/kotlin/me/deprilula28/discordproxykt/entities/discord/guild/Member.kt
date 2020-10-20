@@ -4,6 +4,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.assertPermissions
+import me.deprilula28.discordproxykt.entities.PartialEntity
+import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.Timestamp
 import me.deprilula28.discordproxykt.entities.discord.PartialUser
 import me.deprilula28.discordproxykt.entities.discord.Permissions
@@ -19,10 +21,9 @@ import java.util.*
  * If the data is also known it will implement [Member], and [upgrade] is a no-op.<br>
  * If it isn't known, [upgrade] will be a request to get the data from Discord.
  */
-interface PartialMember {
+interface PartialMember: PartialEntity {
     val guild: PartialGuild
     val user: PartialUser
-    val bot: DiscordProxyKt
     
     fun upgrade(): IRestAction<Member>
     
@@ -192,6 +193,9 @@ class Member(override val guild: PartialGuild, override var map: JsonObject, ove
             fetchRoles.await().forEach { el -> bitSet = bitSet or el.permissionsRaw }
             bitSet.bitSetToEnumSet(Permissions.values())
         }
+    
+    override val snowflake: Snowflake
+        get() = user.snowflake
     
     override fun toString(): String = "Member($user, $guild)"
     

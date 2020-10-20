@@ -32,11 +32,6 @@ open class RestAction<T: Any>(
             var waitTime: Long,
             var timingJob: Job?,
         ) {
-            fun resetTimer() {
-                resetEpoch = System.currentTimeMillis() + waitTime
-                remaining = limit
-            }
-            
             fun loadFromHeaders(res: HttpResponse): Boolean {
                 limit = (res.headers["X-RateLimit-Limit"] ?: return false).toInt()
                 remaining = res.headers["X-RateLimit-Remaining"]!!.toInt()

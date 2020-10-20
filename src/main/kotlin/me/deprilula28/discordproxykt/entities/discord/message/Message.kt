@@ -43,7 +43,6 @@ interface PartialMessage: PartialEntity {
             }
         
         // Includes permission check for reading the message in the guild
-        // TODO make this less of a spaghetti mess
         fun new(channel: GuildChannel, id: Snowflake): PartialMessage
             = object: PartialMessage {
                 override val channelRaw: Snowflake = channel.snowflake
@@ -53,16 +52,23 @@ interface PartialMessage: PartialEntity {
                 override fun upgrade(): IRestAction<Message>
                     = IRestAction.coroutine(channel.bot) {
                         assertPermissions(channel, Permissions.READ_MESSAGE_HISTORY)
-                        RestAction(channel.bot, RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id),
-                                   { Message(this as JsonObject, channel.bot) }).await()
+                        bot.coroutineRequest(
+                            RestEndpoint.GET_CHANNEL_MESSAGE.path(channel.snowflake.id, id.id),
+                            { Message(this as JsonObject, channel.bot) },
+                        )
                     }
+    
+                override fun toString(): String = "Message(partial, ${snowflake.id}, channel = $channelRaw)"
             }
     }
     
     fun upgrade(): IRestAction<Message>
     
     fun fetchReactions(emoji: Emoji): PaginatedAction<User>
-        = PaginatedAction(bot, { User(this as JsonObject, bot) }, RestEndpoint.GET_REACTIONS, channelRaw.id, snowflake.id, emoji.toUriPart())
+        = PaginatedAction(
+            bot,
+            RestEndpoint.GET_REACTIONS, channelRaw.id, snowflake.id, emoji.toUriPart(),
+        ) { User(this as JsonObject, bot) }
     
     fun edit(message: MessageConversion): IRestAction<Message>
         = bot.request(RestEndpoint.EDIT_MESSAGE.path(channelRaw.id, snowflake.id), { Message(this as JsonObject, bot) }) {

@@ -31,9 +31,9 @@ interface PartialMessageChannel: PartialEntity, Channel {
     
     val fetchMessages: PaginatedAction<Message>
         get() = PaginatedAction(
-            bot, { Message(this as  JsonObject, bot) },
+            bot,
             RestEndpoint.GET_CHANNEL_MESSAGES, snowflake.id,
-        )
+        ) { Message(this as JsonObject, bot) }
     
     fun typing() = bot.request(RestEndpoint.TRIGGER_TYPING_INDICATOR.path(snowflake.id), { Unit })
     
