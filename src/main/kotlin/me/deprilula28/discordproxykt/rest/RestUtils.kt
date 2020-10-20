@@ -69,7 +69,7 @@ fun JsonElement.asPermissionOverwrite(channel: GuildChannel, guild: PartialGuild
     }
 }
 
-fun <T> getValue(obj: JsonObject, field: String, func: JsonElement.() -> T): T = func(obj[field]!!)
+fun <T> getValue(obj: JsonObject, field: String, func: JsonElement.() -> T): T = func(obj[field] ?: throw UnavailableField(field, obj))
 
 fun <T> getValueNullable(obj: JsonObject, field: String, func: JsonElement.() -> T): T? {
     val prop = obj[field]

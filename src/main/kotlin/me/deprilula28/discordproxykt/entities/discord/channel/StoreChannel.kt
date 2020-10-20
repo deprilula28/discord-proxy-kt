@@ -96,7 +96,7 @@ class StoreChannelBuilder(private val internalGuild: PartialGuild, bot: DiscordP
         if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
         changes["type"] = JsonPrimitive(6)
         return IRestAction.coroutine(internalGuild.bot) {
-            assertPermissions(this, Permissions.MANAGE_GUILD)
+            assertPermissions(internalGuild, Permissions.MANAGE_GUILD)
             if (!internalGuild.upgrade().await().features.contains(Features.COMMERCE))
                 throw InvalidRequestException("Cannot create store channel in a guild that doesn't have commerce")
             bot.coroutineRequest(

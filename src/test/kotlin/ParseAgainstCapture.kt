@@ -2,7 +2,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Snowflake
-import me.deprilula28.discordproxykt.entities.discord.*
+import me.deprilula28.discordproxykt.entities.discord.Permissions
+import me.deprilula28.discordproxykt.entities.discord.RoleOverride
+import me.deprilula28.discordproxykt.entities.discord.User
 import me.deprilula28.discordproxykt.entities.discord.channel.TextChannel
 import me.deprilula28.discordproxykt.entities.discord.guild.*
 import me.deprilula28.discordproxykt.entities.discord.message.Message
@@ -10,8 +12,8 @@ import me.deprilula28.discordproxykt.events.guild.*
 import me.deprilula28.discordproxykt.events.guild.invite.GuildInviteCreateEvent
 import me.deprilula28.discordproxykt.events.guild.invite.GuildInviteDeleteEvent
 import me.deprilula28.discordproxykt.events.guild.member.GuildMemberUpdateEvent
-import me.deprilula28.discordproxykt.events.guild.role.ChannelCreateEvent
-import me.deprilula28.discordproxykt.events.guild.role.ChannelDeleteEvent
+import me.deprilula28.discordproxykt.events.guild.role.RoleCreateEvent
+import me.deprilula28.discordproxykt.events.guild.role.RoleDeleteEvent
 import me.deprilula28.discordproxykt.events.message.MessageBulkDeleteEvent
 import me.deprilula28.discordproxykt.events.message.MessageDeleteEvent
 import me.deprilula28.discordproxykt.events.message.MessageReceivedEvent
@@ -279,8 +281,8 @@ import kotlin.test.assertEquals
             }
         """.trimIndent()
         
-        val event = ChannelCreateEvent(Json.decodeFromString(JsonObject.serializer(), text),
-                                       Mockito.mock(DiscordProxyKt::class.java))
+        val event = RoleCreateEvent(Json.decodeFromString(JsonObject.serializer(), text),
+                                         Mockito.mock(DiscordProxyKt::class.java))
         
         assertEquals(event.guildSnowflake, Snowflake("345259986303057930"))
         
@@ -314,8 +316,8 @@ import kotlin.test.assertEquals
             }
         """.trimIndent()
         
-        val event = ChannelDeleteEvent(Json.decodeFromString(JsonObject.serializer(), text),
-                                       Mockito.mock(DiscordProxyKt::class.java))
+        val event = RoleDeleteEvent(Json.decodeFromString(JsonObject.serializer(), text),
+                                         Mockito.mock(DiscordProxyKt::class.java))
         assertEquals(event.guildSnowflake, Snowflake("345259986303057930"))
         assertEquals(event.role.snowflake, Snowflake("766340218541703228"))
     }

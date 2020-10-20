@@ -170,6 +170,7 @@ class Member(override val guild: PartialGuild, override var map: JsonObject, ove
     
     fun hasAuthorityOver(other: Member): IRestAction<Boolean>
         = IRestAction.coroutine(bot) {
+            if (this.user.snowflake == other.user.snowflake) return@coroutine false
             val otherRoles = other.fetchRoles.await()
             val selfRoles = fetchRoles.await()
             (selfRoles.maxByOrNull { it.position }?.position ?: 0) > (otherRoles.maxByOrNull { it.position }?.position ?: 0)

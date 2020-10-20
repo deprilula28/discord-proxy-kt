@@ -59,10 +59,10 @@ open class RestAction<T: Any>(
             builder.body = postData.invoke()
         } else if (path.endpoint.method == HttpMethod.Put) builder.body = "" // TODO Remove when https://github.com/ktorio/ktor/issues/1333
     
-        println("Perform request $builder ($path)")
         val res = bot.client.request<HttpResponse>(builder)
         // TODO Streamed parsing of this
         val contents = withContext(Dispatchers.IO) { res.content.toByteArray() }.toString(Charsets.UTF_8)
+        println("Perform request $builder ($path) $contents")
         val code = res.status
         
         fun handleRateLimit() {

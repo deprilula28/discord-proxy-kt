@@ -46,13 +46,13 @@ interface PartialGuild: PartialEntity {
     
     fun fetchRole(role: Snowflake): PartialRole = PartialRole.new(this, role)
     
-    val fetchAuditLogs: IRestAction<List<AuditLogEntry>>
+    val fetchAuditLogs: IRestAction<AuditLogEntry>
         get() = IRestAction.coroutine(bot) {
             assertPermissions(this, Permissions.VIEW_AUDIT_LOG)
-            PaginatedAction(
-                bot, { AuditLogEntry(this as JsonObject, bot) },
-                RestEndpoint.GET_GUILD_AUDIT_LOGS, snowflake.id,
-            ).await()
+            bot.coroutineRequest(
+                RestEndpoint.GET_GUILD_AUDIT_LOGS.path(snowflake.id),
+                { AuditLogEntry(this as JsonObject, bot) },
+            )
         }
     
     val fetchInvites: IRestAction<List<ExtendedInvite>>
@@ -80,7 +80,7 @@ interface PartialGuild: PartialEntity {
     val fetchWebhooks: IRestAction<List<Webhook>>
         get() = IRestAction.coroutine(bot) {
             assertPermissions(this, Permissions.MANAGE_WEBHOOKS)
-            bot.coroutineRequest(RestEndpoint.GET_GUILD_AUDIT_LOGS.path(snowflake.id),
+            bot.coroutineRequest(RestEndpoint.GET_GUILD_WEBHOOKS.path(snowflake.id),
                         { (this as JsonArray).map { Webhook(it as JsonObject, bot) } })
         }
     

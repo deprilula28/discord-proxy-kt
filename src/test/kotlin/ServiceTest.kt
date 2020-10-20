@@ -1,4 +1,5 @@
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import me.deprilula28.discordproxykt.DpkBuilder
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.Permissions
@@ -9,6 +10,7 @@ import java.awt.Color
 import java.net.URI
 import java.util.*
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS) class ServiceTest {
     @Test fun test() {
@@ -28,6 +30,9 @@ import kotlin.test.Test
         bot.on(Events.GUILD_MEMBER_ADD) { }
         bot.on(Events.GUILD_MEMBER_REMOVE) { }
         bot.on(Events.GUILD_MEMBER_UPDATE) { }
+        bot.on(Events.CHANNEL_CREATE) { }
+        bot.on(Events.CHANNEL_DELETE) { }
+        bot.on(Events.CHANNEL_UPDATE) { }
         bot.on(Events.GUILD_ROLE_CREATE) { }
         bot.on(Events.GUILD_ROLE_DELETE) { }
         bot.on(Events.GUILD_ROLE_UPDATE) { }
@@ -48,7 +53,7 @@ import kotlin.test.Test
         bot.on(Events.MESSAGE_REACTION_REMOVE_ALL) { }
         bot.on(Events.MESSAGE_REACTION_REMOVE_EMOJI) { }
         
-        bot.scope.launch {
+        runBlocking {
             val guild = bot.fetchGuild(Snowflake("505161921784315938")).upgrade().await()
             val selfMember = guild.fetchSelfMember.await()
             println("Self member: $selfMember")
@@ -56,6 +61,17 @@ import kotlin.test.Test
             guild.fetchBans.await().forEach { println("Ban: $it") }
             guild.fetchRoles.await().forEach { println("Role: $it") }
             guild.fetchEmojis.await().forEach { println("Emoji: $it") }
+            // TODO Test when audit logs are done
+//            guild.fetchAuditLogs.await()
+            guild.fetchRegions.await().forEach { println("Region: $it") }
+            guild.fetchChannels.await().forEach { println("Channel: $it") }
+            guild.fetchWebhooks.await().forEach { println("Webhook: $it") }
+    
+            guild.fetchBan(bot.fetchUser(Snowflake("503720029456695306"))).await()
+            guild.fetchTextChannel(Snowflake("505175551850315796")).upgrade().await()
+            guild.fetchVoiceChannel(Snowflake("767903585056587797")).upgrade().await()
+            guild.fetchCategory(Snowflake("505721153025867779")).upgrade().await()
+            guild.fetchChannel(Snowflake("505174920809021460")).upgrade().await()
             
             // Absolutely no idea why this doesn't work:
             // Exception in thread "DefaultDispatcher-worker-3 @coroutine#1" me.deprilula28.discordproxykt.RestException: Failed request at https://discord.com/api/v8/guilds/505161921784315938/prune?days=30 (400):
@@ -75,6 +91,10 @@ import kotlin.test.Test
             
             selfMember.add(role).await()
             selfMember.remove(role).await()
+            assert(selfMember.hasAuthorityOver(role).await())
+            assert(!selfMember.hasAuthorityOver(selfMember).await())
+            assertEquals(selfMember.fetchColor.await(), Color(0xe91e63))
+            assert(selfMember.fetchPermissions.await().contains(Permissions.ADMINISTRATOR))
             role.delete().await()
             
             val tcb = guild.textChannelBuilder()
@@ -88,11 +108,30 @@ import kotlin.test.Test
             message.unpin().await()
             message.delete().await()
             
+            channel.nsfw = true
+            channel.edit().await()
+            
             val other = channel.createCopy()
             other.create().await()
             other.delete().await()
+            
+            val category = guild.categoryBuilder()
+            category.name = "neat category"
+            val cat = category.create().await()
+            
+            val voice = guild.voiceChannelBuilder()
+            voice.name = "voicetest"
+            voice.userLimit = 2
+            voice.category = cat
+            voice.create().await()
+            
+            category.delete().await()
+            voice.delete().await()
             channel.delete().await()
+    
+            guild.name = "Gameshrub Emote 1"
+            guild.edit().await()
         }
-        Thread.sleep(10000000L)
+//        Thread.sleep(10000000L)
     }
 }

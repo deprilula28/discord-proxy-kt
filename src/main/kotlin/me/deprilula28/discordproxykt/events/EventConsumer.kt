@@ -24,7 +24,7 @@ class EventConsumer<T: Event>(
     ) {
         bot.scope.launch {
             try {
-//                println("Event: ${event.eventName}, Body: ${body.toString(Charsets.UTF_8)}")
+                println("Event: ${event.eventName}, Body: ${body.toString(Charsets.UTF_8)}")
                 val event = event.constructor(Json.decodeFromString(body.toString(Charsets.UTF_8)), bot)
                 eventConsumer(event)
                 event.internalHandle()

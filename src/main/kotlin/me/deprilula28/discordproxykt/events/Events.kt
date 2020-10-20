@@ -3,6 +3,9 @@ package me.deprilula28.discordproxykt.events
 import kotlinx.serialization.json.JsonObject
 import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.events.guild.*
+import me.deprilula28.discordproxykt.events.guild.channel.ChannelCreateEvent
+import me.deprilula28.discordproxykt.events.guild.channel.ChannelDeleteEvent
+import me.deprilula28.discordproxykt.events.guild.channel.ChannelUpdateEvent
 import me.deprilula28.discordproxykt.events.guild.member.*
 import me.deprilula28.discordproxykt.events.guild.invite.*
 import me.deprilula28.discordproxykt.events.guild.role.*
@@ -24,9 +27,9 @@ object Events {
     val GUILD_MEMBER_ADD by event(::GuildMemberJoinEvent)
     val GUILD_MEMBER_REMOVE by event(::GuildMemberLeaveEvent)
     val GUILD_MEMBER_UPDATE by event(::GuildMemberUpdateEvent)
-    val GUILD_ROLE_CREATE by event(::ChannelCreateEvent)
-    val GUILD_ROLE_DELETE by event(::ChannelDeleteEvent)
-    val GUILD_ROLE_UPDATE by event(::ChannelUpdateEvent)
+    val GUILD_ROLE_CREATE by event(::RoleCreateEvent)
+    val GUILD_ROLE_DELETE by event(::RoleDeleteEvent)
+    val GUILD_ROLE_UPDATE by event(::RoleUpdateEvent)
     
     val INVITE_CREATE by event(::GuildInviteCreateEvent)
     val INVITE_DELETE by event(::GuildInviteDeleteEvent)

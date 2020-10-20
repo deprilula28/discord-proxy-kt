@@ -134,7 +134,7 @@ class VoiceChannelBuilder(private val internalGuild: PartialGuild, bot: DiscordP
         if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
         changes["type"] = JsonPrimitive(2)
         return IRestAction.coroutine(internalGuild.bot) {
-            assertPermissions(this, Permissions.MANAGE_GUILD)
+            assertPermissions(internalGuild, Permissions.MANAGE_GUILD)
             bot.request(
                 RestEndpoint.CREATE_GUILD_CHANNEL.path(internalGuild.snowflake.id),
                 { this@VoiceChannelBuilder.apply { map = this@request as JsonObject } },

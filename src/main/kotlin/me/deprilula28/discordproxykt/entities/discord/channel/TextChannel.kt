@@ -234,7 +234,7 @@ class TextChannelBuilder(guild: PartialGuild, bot: DiscordProxyKt):
         if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
         changes["type"] = JsonPrimitive(0)
         return IRestAction.coroutine(internalGuild.bot) {
-            assertPermissions(this, Permissions.MANAGE_GUILD)
+            assertPermissions(internalGuild, Permissions.MANAGE_GUILD)
             bot.request(
                 RestEndpoint.CREATE_GUILD_CHANNEL.path(internalGuild.snowflake.id),
                 { this@TextChannelBuilder.apply { map = this@request as JsonObject } },

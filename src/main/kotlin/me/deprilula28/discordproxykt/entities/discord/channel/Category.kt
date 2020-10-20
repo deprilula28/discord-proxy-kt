@@ -92,7 +92,7 @@ class CategoryBuilder(private val internalGuild: PartialGuild, bot: DiscordProxy
         if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
         changes["type"] = JsonPrimitive(4)
         return IRestAction.coroutine(internalGuild.bot) {
-            assertPermissions(this, Permissions.MANAGE_GUILD)
+            assertPermissions(internalGuild, Permissions.MANAGE_GUILD)
             bot.coroutineRequest(
                 RestEndpoint.CREATE_GUILD_CHANNEL.path(internalGuild.snowflake.id),
                 { this@CategoryBuilder.apply { map = this@coroutineRequest as JsonObject } },
