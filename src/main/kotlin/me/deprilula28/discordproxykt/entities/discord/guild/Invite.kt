@@ -25,6 +25,10 @@ open class Invite(
     private val internalGuild: PartialGuild? = null
 ): Parse {
     val code: String by parsing(JsonElement::asString)
+    /**
+     * The guild returned from the invite is a preview guild, with less information.
+     */
+    // TODO Preview guild object
     val guild: Guild? by parsingOpt({ Guild(this as JsonObject, bot) })
     val inviter: User? by parsingOpt({ User(this as JsonObject, bot) })
     val targetUser: User? by parsingOpt({ User(this as JsonObject, bot) }, "target_user")
@@ -82,12 +86,10 @@ class InviteBuilder(private val internalChannel: GuildChannel, bot: DiscordProxy
      * The values of the fields in the builder itself will be updated, making it usable as a Invite.
      */
     override fun create(): IRestAction<Invite> {
-        if (!changes.containsKey("name")) throw InvalidRequestException("Channels require at least a name.")
-        changes["type"] = JsonPrimitive(0)
         return IRestAction.coroutine(bot) {
             assertPermissions(internalChannel, Permissions.CREATE_INSTANT_INVITE)
             bot.coroutineRequest(
-                RestEndpoint.CREATE_GUILD_CHANNEL.path(internalChannel.snowflake.id),
+                RestEndpoint.CREATE_CHANNEL_INVITE.path(internalChannel.snowflake.id),
                 { this@InviteBuilder.apply { map = this@coroutineRequest as JsonObject } },
             ) {
                 val res = Json.encodeToString(changes)

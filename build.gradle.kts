@@ -28,6 +28,7 @@ kotlin {
         val test by getting {
             dependencies {
                 implementation(kotlin("test-junit"))
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-debug:1.4.0-M1")
                 implementation("org.junit.jupiter:junit-jupiter-api:5.7.0-M1")
                 implementation("org.mockito:mockito-core:3.3.3")
             }

@@ -6,6 +6,8 @@ import me.deprilula28.discordproxykt.DiscordProxyKt
 import me.deprilula28.discordproxykt.entities.Entity
 import me.deprilula28.discordproxykt.entities.PartialEntity
 import me.deprilula28.discordproxykt.entities.Snowflake
+import me.deprilula28.discordproxykt.entities.discord.channel.PartialPrivateChannel
+import me.deprilula28.discordproxykt.entities.discord.channel.PrivateChannel
 import me.deprilula28.discordproxykt.entities.discord.message.Message
 import me.deprilula28.discordproxykt.rest.*
 import java.util.*
@@ -26,6 +28,13 @@ interface PartialUser: PartialEntity, Message.Mentionable {
     }
     
     fun upgrade(): IRestAction<User>
+    
+    val fetchPrivateChannel: PartialPrivateChannel
+        get() = PartialPrivateChannel.new(snowflake, bot)
+    
+    @Deprecated("JDA Compatbility Function", ReplaceWith("fetchPrivateChannel.upgrade()"))
+    fun openPrivateChannel(): IRestAction<PrivateChannel> = fetchPrivateChannel.upgrade()
+    
     override val asMention: String
         get() = "<@${snowflake.id}>"
 }

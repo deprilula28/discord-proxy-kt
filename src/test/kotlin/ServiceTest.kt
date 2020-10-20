@@ -66,12 +66,13 @@ import kotlin.test.assertEquals
             guild.fetchRegions.await().forEach { println("Region: $it") }
             guild.fetchChannels.await().forEach { println("Channel: $it") }
             guild.fetchWebhooks.await().forEach { println("Webhook: $it") }
+            guild.fetchInvites.await().forEach { println("Invite: $it") }
     
             guild.fetchBan(bot.fetchUser(Snowflake("503720029456695306"))).await()
             guild.fetchTextChannel(Snowflake("505175551850315796")).upgrade().await()
-            guild.fetchVoiceChannel(Snowflake("767903585056587797")).upgrade().await()
-            guild.fetchCategory(Snowflake("505721153025867779")).upgrade().await()
-            guild.fetchChannel(Snowflake("505174920809021460")).upgrade().await()
+            guild.fetchVoiceChannel(Snowflake("768067515422736424")).upgrade().await()
+            guild.fetchCategory(Snowflake("505720831834456074")).upgrade().await()
+            guild.fetchChannel(Snowflake("505525890709717022")).upgrade().await()
             
             // Absolutely no idea why this doesn't work:
             // Exception in thread "DefaultDispatcher-worker-3 @coroutine#1" me.deprilula28.discordproxykt.RestException: Failed request at https://discord.com/api/v8/guilds/505161921784315938/prune?days=30 (400):
@@ -101,10 +102,27 @@ import kotlin.test.assertEquals
             tcb.name = "coolo1"
             tcb.topic = "very cool"
             tcb.rateLimitPerUser = 10
+            
             val channel = tcb.create().await()
+            channel.typing().await()
+            
+            val invite = channel.inviteBuilder().create().await()
+            assert(channel.fetchInvites.await().find { it.code == invite.code } != null)
+            invite.delete().await()
+            
             val message = channel.send("test").await()
             message.edit("testv2").await()
             message.pin().await()
+            assertEquals(channel.fetchPins.await().size, 1)
+            assertEquals(channel.fetchMessages.await().size, 2) // The other message is the pin
+            assertEquals(channel.fetchWebhooks.await().size, 0)
+            
+            message.addReaction("🤡").await()
+            message.addReaction("😞").await()
+            assertEquals(message.fetchReactions("\uD83D\uDE1E").await().size, 1)
+            message.clearReactions("😞").await()
+            message.clearReactions().await()
+            
             message.unpin().await()
             message.delete().await()
             
@@ -131,6 +149,13 @@ import kotlin.test.assertEquals
     
             guild.name = "Gameshrub Emote 1"
             guild.edit().await()
+            
+            val coolMember = guild.fetchMember(Snowflake("717983911824588862")).upgrade().await()
+            coolMember.nick = "cool username"
+            coolMember.edit().await()
+            
+            // Apparently not a real endpoint
+//            coolMember.user.fetchPrivateChannel.upgrade().await()
         }
 //        Thread.sleep(10000000L)
     }

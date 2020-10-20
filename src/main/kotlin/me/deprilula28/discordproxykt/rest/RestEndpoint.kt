@@ -8,7 +8,7 @@ enum class RestEndpoint(private val path: String, val method: HttpMethod) {
     MODIFY_CHANNEL("/channels/%s", HttpMethod.Patch),
     DELETE_CHANNEL("/channels/%s", HttpMethod.Delete),
     GET_CHANNEL_WEBHOOKS("/channels/%s/webhooks", HttpMethod.Get),
-    GET_CHANNEL_MESSAGES("/channel/%s/messages", HttpMethod.Get),
+    GET_CHANNEL_MESSAGES("/channels/%s/messages", HttpMethod.Get),
     GET_CHANNEL_MESSAGE("/channels/%s/messages/%s", HttpMethod.Get),
     CREATE_MESSAGE("/channels/%s/messages", HttpMethod.Post),
     CROSSPOST_MESSAGE("/channels/%s/messages/%s/crosspost", HttpMethod.Post),

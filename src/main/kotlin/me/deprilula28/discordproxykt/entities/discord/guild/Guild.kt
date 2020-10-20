@@ -96,7 +96,8 @@ interface PartialGuild: PartialEntity {
     fun fetchMember(user: Snowflake): PartialMember = object: PartialMember {
         override val guild: PartialGuild = this@PartialGuild
         override val bot: DiscordProxyKt = this@PartialGuild.bot
-        override val user: PartialUser by lazy { bot.fetchUser(user) }
+        override val user: PartialUser
+                get() = bot.fetchUser(user)
         
         override fun upgrade(): IRestAction<Member>
             = RestAction(
@@ -600,14 +601,15 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     /**
      * system channel flags
      */
-    val systemChannelFlags: EnumSet<SystemChannelFlags> by parsing({ asLong().bitSetToEnumSet(
-        SystemChannelFlags.values()) }, "system_channel_flags")
+    val systemChannelFlags: EnumSet<SystemChannelFlags> by parsing({ asLong().bitSetToEnumSet(SystemChannelFlags.values()) }, "system_channel_flags")
     
-    val memberCount: Int by lazy { instantMemberCount ?: approxMemberCount ?: -1 }
-    val iconUrl: String? by lazy {
-        if (icon == null) null
-        else "https://cdn.discordapp.com/icons/${snowflake.id}/$icon.${if (icon!!.startsWith("a_")) "gif" else "png"}"
-    }
+    val memberCount: Int
+        get() = instantMemberCount ?: approxMemberCount ?: -1
+    val iconUrl: String?
+        get() {
+            return if (icon == null) null
+            else "https://cdn.discordapp.com/icons/${snowflake.id}/$icon.${if (icon!!.startsWith("a_")) "gif" else "png"}"
+        }
     
     override val changes: MutableMap<String, JsonElement> by lazy(::mutableMapOf)
     
@@ -690,28 +692,37 @@ open class Guild(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), Entity
     fun retrieveOwner(cache: Boolean) = owner
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("iconSplash"))
-    val splashId: String? by ::iconSplash
+    val splashId: String?
+        get() = iconSplash
     @Deprecated("JDA Compatibility Field", ReplaceWith("icon"))
-    val iconId: String? by ::icon
+    val iconId: String?
+        get() = icon
     @Deprecated("JDA Compatibility Field", ReplaceWith("banner"))
-    val bannerId: String? by ::banner
+    val bannerId: String?
+        get() = banner
     @Deprecated("JDA Compatibility Field", ReplaceWith("unavailable != true"))
-    val available: Boolean by lazy { unavailable != true } // This isn't just !unavailable as it may also be null
+    val available: Boolean
+        get() = unavailable != true // This isn't just !unavailable as it may also be nu
     @Deprecated("JDA Compatibility Field", ReplaceWith("https://cdn.discordapp.com/banners/\${snowflake.id}/\$banner.png"))
     val bannerUrl: String?
         get() = banner?.run { "https://cdn.discordapp.com/banners/${snowflake.id}/$banner.png" }
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("owner.snowflake.id"))
-    val ownerId: String by lazy { owner.user.snowflake.id }
+    val ownerId: String
+        get() = owner.user.snowflake.id
     @Deprecated("JDA Compatibility Field", ReplaceWith("owner.snowflake.idLong"))
-    val ownerIdLong: Long by lazy { owner.user.snowflake.idLong }
+    val ownerIdLong: Long
+        get() = owner.user.snowflake.idLong
     
     @Deprecated("JDA Compatibility Field", ReplaceWith("boostTier.bitrate"))
-    val maxBitrate: Int by boostTier::bitrate
+    val maxBitrate: Int
+        get() = boostTier.bitrate
     @Deprecated("JDA Compatibility Field", ReplaceWith("boostTier.fileSize"))
-    val maxFileSize: Long by boostTier::fileSize
+    val maxFileSize: Long
+        get() = boostTier.fileSize
     @Deprecated("JDA Compatibility Field", ReplaceWith("boostTier.emotes"))
-    val maxEmotes: Int by boostTier::emotes
+    val maxEmotes: Int
+        get() = boostTier.emotes
     
     @Deprecated("JDA Compatibility Function", ReplaceWith("bot.fetchGuild(snowflake).upgrade()"))
     fun retrieveMetaData(): IRestAction<Guild> = bot.fetchGuild(snowflake).upgrade()
