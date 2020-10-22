@@ -45,5 +45,5 @@ class DpkBuilder(
     var defaultExceptionHandler: (Exception) -> Unit = { it.printStackTrace() },
     var deleteQueuesAfter: Boolean = false,
 ) {
-    fun build(): DiscordProxyKt = DiscordProxyKt(group, subgroup, broker, coroutineScope, httpClient, token, cache, defaultExceptionHandler, deleteQueuesAfter)
+    fun build() = SpectaclesAmqpDpk(group, subgroup, broker, coroutineScope, httpClient, token, cache, defaultExceptionHandler, deleteQueuesAfter)
 }

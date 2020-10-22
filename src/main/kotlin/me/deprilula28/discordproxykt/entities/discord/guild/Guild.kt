@@ -3,6 +3,7 @@ package me.deprilula28.discordproxykt.entities.discord.guild
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import me.deprilula28.discordproxykt.DiscordProxyKt
+import me.deprilula28.discordproxykt.SpectaclesAmqpDpk
 import me.deprilula28.discordproxykt.assertPermissions
 import me.deprilula28.discordproxykt.entities.*
 import me.deprilula28.discordproxykt.entities.discord.*
@@ -38,11 +39,10 @@ interface PartialGuild: PartialEntity {
     fun upgrade(): IRestAction<Guild>
     
     val fetchRoles: IRestAction<List<Role>>
-        get() = PaginatedAction(
-            // This isn't actually paginated, but PaginatedAction supports a list format by default
-            bot,
-            RestEndpoint.GET_GUILD_ROLES, snowflake.id,
-        ) { Role(this@PartialGuild, this as JsonObject, bot) }
+        get() = bot.request(
+            RestEndpoint.GET_GUILD_ROLES.path(snowflake.id),
+            { (this as JsonObject).map { Role(this@PartialGuild, it as JsonObject, bot) } },
+        )
     
     fun fetchRole(role: Snowflake): PartialRole = PartialRole.new(this, role)
     
@@ -99,7 +99,10 @@ interface PartialGuild: PartialEntity {
         query: String? = null,
         limit: Int? = null,
         users: List<Snowflake>? = null,
-    ) = bot.requestGuildMembers(listOf(snowflake), presences, query, limit, users)
+    ): IRestAction<List<Member>> {
+        return (bot as? SpectaclesAmqpDpk ?: throw InvalidRequestException("Cannot request using REST only"))
+            .requestGuildMembers(listOf(snowflake), presences, query, limit, users)
+    }
     
     fun fetchMember(user: Snowflake): PartialMember = object: PartialMember {
         override val guild: PartialGuild = this@PartialGuild
