@@ -1,5 +1,6 @@
 package me.deprilula28.discordproxykt.builder
 
+import io.ktor.client.request.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -108,11 +109,11 @@ class EmbedBuilder: MessageConversion {
         val inline: Boolean = false,
     )
     
-    override fun toMessage(): Pair<String, RestEndpoint.BodyType> {
+    override fun toMessage(request: HttpRequestBuilder): Any {
         if (fields.isNotEmpty()) map["fields"] = Json.encodeToJsonElement(fields)
         return Json.encodeToString(mapOf(
             "embed" to map
-        )) to RestEndpoint.BodyType.JSON
+        ))
     }
     
     val element: JsonElement
@@ -120,7 +121,4 @@ class EmbedBuilder: MessageConversion {
             if (fields.isNotEmpty()) map["fields"] = Json.encodeToJsonElement(fields)
             return Json.encodeToJsonElement(map)
         }
-    
-    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
-    fun build() = this
 }

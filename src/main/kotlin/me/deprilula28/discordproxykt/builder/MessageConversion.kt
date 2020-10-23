@@ -1,7 +1,10 @@
 package me.deprilula28.discordproxykt.builder
 
-import me.deprilula28.discordproxykt.rest.RestEndpoint
+import io.ktor.client.request.*
 
 interface MessageConversion {
-    fun toMessage(): Pair<String, RestEndpoint.BodyType>
+    fun toMessage(request: HttpRequestBuilder): Any
+    
+    @Deprecated("JDA Compatibility Function", ReplaceWith(""))
+    fun build() {}
 }

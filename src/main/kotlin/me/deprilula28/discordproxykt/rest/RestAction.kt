@@ -17,8 +17,7 @@ open class RestAction<T: Any>(
     override val bot: DiscordProxyKt,
     private val path: RestEndpoint.Path,
     private val constructor: JsonElement.(DiscordProxyKt) -> T,
-    private val postData: (() -> String)? = null,
-    private val bodyType: RestEndpoint.BodyType = RestEndpoint.BodyType.JSON,
+    private val postData: ((HttpRequestBuilder) -> Any)? = null,
 ): IRestAction<T> {
     companion object {
         const val DISCORD_PATH: String = "https://discord.com/api/v8"
@@ -50,8 +49,8 @@ open class RestAction<T: Any>(
         builder.header("User-Agent", USER_AGENT)
 
         if (postData != null) {
-            builder.header("Content-Type", bodyType.typeStr)
-            builder.body = postData.invoke()
+            builder.body = postData.invoke(builder)
+            if (builder.contentType() == null) builder.contentType(ContentType.Application.Json)
         } else if (path.endpoint.method != HttpMethod.Get) builder.body = "" // TODO Remove when https://github.com/ktorio/ktor/issues/1333
     
         val res = bot.client.request<HttpResponse>(builder)

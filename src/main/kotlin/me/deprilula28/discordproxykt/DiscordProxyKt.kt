@@ -1,6 +1,7 @@
 package me.deprilula28.discordproxykt
 
 import io.ktor.client.*
+import io.ktor.client.request.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -32,12 +33,12 @@ open class DiscordProxyKt internal constructor(
     fun <T: Any> request(
         path: RestEndpoint.Path,
         constructor: JsonElement.(DiscordProxyKt) -> T,
-        postData: (() -> String)? = null
+        postData: ((HttpRequestBuilder) -> Any)? = null
     ) = RestAction(this, path, constructor, postData)
     
     suspend fun <T: Any> coroutineRequest(
         path: RestEndpoint.Path,
         constructor: JsonElement.(DiscordProxyKt) -> T,
-        postData: (() -> String)? = null
+        postData: ((HttpRequestBuilder) -> Any)? = null
     ) = RestAction(this, path, constructor, postData).await()
 }

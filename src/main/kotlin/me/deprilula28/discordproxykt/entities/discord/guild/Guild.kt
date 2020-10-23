@@ -112,8 +112,8 @@ interface PartialGuild: PartialEntity {
         
         override fun upgrade(): IRestAction<Member>
             = RestAction(
-                bot, RestEndpoint.GET_GUILD_MEMBER.path(this@PartialGuild.snowflake.id, user.id),
-                { Member(this@PartialGuild, this as JsonObject, bot) },
+            bot, RestEndpoint.GET_GUILD_MEMBER.path(this@PartialGuild.snowflake.id, user.id),
+            { Member(this@PartialGuild, this as JsonObject, bot) },
             )
     
         override val snowflake: Snowflake

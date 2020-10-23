@@ -72,7 +72,7 @@ interface PartialMessage: PartialEntity {
     
     fun edit(message: MessageConversion): IRestAction<Message>
         = bot.request(RestEndpoint.EDIT_MESSAGE.path(channelRaw.id, snowflake.id), { Message(this as JsonObject, bot) }) {
-            message.toMessage().first
+            message.toMessage(it)
         }
     
     fun delete(): IRestAction<Unit> = bot.request(RestEndpoint.DELETE_MESSAGE.path(channelRaw.id, snowflake.id), { Unit })
@@ -280,7 +280,7 @@ class Message(map: JsonObject, bot: DiscordProxyKt): Entity(map, bot), PartialMe
             = bot.request(RestEndpoint.EDIT_MESSAGE.path(channelRaw.id, snowflake.id), {
         this@Message.apply { map = this@request as JsonObject }
     }) {
-        message.toMessage().first
+        message.toMessage(it)
     }
     
     override fun toString(): String = "Message(${snowflake.id}, channel = $channelRaw)"

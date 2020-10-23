@@ -19,9 +19,7 @@ interface PartialUser: PartialEntity, Message.Mentionable {
                 override val snowflake: Snowflake = id
                 override val bot: DiscordProxyKt = bot
                 override fun upgrade(): IRestAction<User>
-                    = RestAction(
-                        bot, RestEndpoint.GET_USER.path(id.id),
-                        { User(this as JsonObject, bot) }
+                    = RestAction(bot, RestEndpoint.GET_USER.path(id.id), { User(this as JsonObject, bot) }
                     )
                 override fun toString(): String = "User(partial, ${snowflake.id})"
             }

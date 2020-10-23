@@ -1,5 +1,6 @@
 import kotlinx.coroutines.runBlocking
 import me.deprilula28.discordproxykt.DpkBuilder
+import me.deprilula28.discordproxykt.builder.MessageBuilder
 import me.deprilula28.discordproxykt.entities.Snowflake
 import me.deprilula28.discordproxykt.entities.discord.Permissions
 import me.deprilula28.discordproxykt.rest.toBitSet
@@ -84,6 +85,9 @@ import kotlin.test.assertEquals
             assertEquals(channel.fetchPins.await().size, 1)
             assertEquals(channel.fetchMessages.await().size, 2) // The other message is the pin
             assertEquals(channel.fetchWebhooks.await().size, 0)
+            
+            val attachmentMessage = channel.send(MessageBuilder().setFile("lol.txt", "eks d")).await()
+            assertEquals(attachmentMessage.attachments.size, 1)
         
             message.addReaction("🤡").await()
             message.addReaction("😞").await()

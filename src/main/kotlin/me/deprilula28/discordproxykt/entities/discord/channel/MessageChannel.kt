@@ -39,7 +39,7 @@ interface PartialMessageChannel: PartialEntity, Channel {
     
     fun send(message: MessageConversion): IRestAction<Message>
         = bot.request(RestEndpoint.CREATE_MESSAGE.path(snowflake.id), { Message(this as JsonObject, bot) }) {
-            message.toMessage().first
+            message.toMessage(it)
         }
     
     fun send(content: String) = send(MessageBuilder().setContent(content))
