@@ -1,5 +1,7 @@
 package me.deprilula28.discordproxykt
 
+import com.rabbitmq.client.Connection
+import com.rabbitmq.client.ConnectionFactory
 import io.ktor.client.*
 import io.ktor.client.engine.apache.*
 import kotlinx.coroutines.CoroutineScope
@@ -16,8 +18,12 @@ import java.util.concurrent.TimeUnit
  *
  * @param group - AMQP group defined for Spectacles
  * @param subgroup - The unique identifier for this worker, must be different for each instance you run
- * @param broker - URI used to connect to the AMQP broker (RabbitMQ)
  * @param token - The token used in requests to Discord
+ *
+ * # Provide One Of
+ *
+ * @param brokerUri - URI used to connect to the AMQP broker
+ * @param broker - Existing connection to use for the AMQP broker
  *
  * # Optional Parameters
  *
@@ -31,8 +37,9 @@ import java.util.concurrent.TimeUnit
 class DpkBuilder(
     var group: String,
     var subgroup: String,
-    var broker: URI,
-    var token: String?,
+    var token: String,
+    var brokerUri: URI? = null,
+    var broker: Connection? = null,
     var coroutineScope: CoroutineScope = GlobalScope,
     var httpClient: HttpClient = HttpClient(Apache) {
         engine {
@@ -45,5 +52,9 @@ class DpkBuilder(
     var defaultExceptionHandler: (Exception) -> Unit = { it.printStackTrace() },
     var deleteQueuesAfter: Boolean = false,
 ) {
-    fun build() = SpectaclesAmqpDpk(group, subgroup, broker, coroutineScope, httpClient, token, cache, defaultExceptionHandler, deleteQueuesAfter)
+    fun build() = SpectaclesAmqpDpk(group, subgroup, broker ?: run {
+        val factory = ConnectionFactory()
+        factory.setUri(brokerUri ?: throw ExceptionInInitializerError("Connection or broker must be provided"))
+        factory.newConnection()
+    }, coroutineScope, httpClient, token, cache, defaultExceptionHandler, deleteQueuesAfter)
 }

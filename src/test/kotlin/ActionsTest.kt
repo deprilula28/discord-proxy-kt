@@ -18,8 +18,8 @@ import kotlin.test.assertEquals
         val bot = DpkBuilder(
             "stable-gateway",
             "stable",
-            URI.create("amqp://localhost"),
             System.getenv("token"),
+            brokerUri = URI.create("amqp://localhost"),
         ).build()
         
         runBlocking {

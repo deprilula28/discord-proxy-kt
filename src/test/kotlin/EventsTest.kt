@@ -13,8 +13,8 @@ import kotlin.test.Test
         val bot = DpkBuilder(
             "stable-gateway",
             "stable",
-            URI.create("amqp://localhost"),
             System.getenv("token"),
+            brokerUri = URI.create("amqp://localhost"),
         ).build()
         
         bot.on(Events.GUILD_CREATE) { }

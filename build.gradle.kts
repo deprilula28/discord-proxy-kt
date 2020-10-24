@@ -2,6 +2,7 @@
 plugins {
     kotlin("jvm") version "1.4.10"
     kotlin("plugin.serialization") version "1.4.10"
+    maven
 }
 
 group = "me.deprilula28"
@@ -9,6 +10,7 @@ version = "0.1.0"
 
 repositories {
     mavenCentral()
+    mavenLocal()
     maven("https://jitpack.io")
 }
 

@@ -2,26 +2,21 @@ package me.deprilula28.discordproxykt
 
 import com.rabbitmq.client.Channel
 import com.rabbitmq.client.Connection
-import com.rabbitmq.client.ConnectionFactory
 import io.ktor.client.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.encodeToJsonElement
 import me.deprilula28.discordproxykt.cache.DiscordRestCache
 import me.deprilula28.discordproxykt.entities.Snowflake
-import me.deprilula28.discordproxykt.entities.discord.PartialUser
-import me.deprilula28.discordproxykt.entities.discord.User
-import me.deprilula28.discordproxykt.entities.discord.channel.PartialPrivateChannel
 import me.deprilula28.discordproxykt.entities.discord.guild.Member
-import me.deprilula28.discordproxykt.entities.discord.guild.PartialGuild
 import me.deprilula28.discordproxykt.events.Event
 import me.deprilula28.discordproxykt.events.EventConsumer
 import me.deprilula28.discordproxykt.events.Events
 import me.deprilula28.discordproxykt.rest.InvalidRequestException
 import me.deprilula28.discordproxykt.rest.LargeAction
-import me.deprilula28.discordproxykt.rest.RestAction
-import me.deprilula28.discordproxykt.rest.RestEndpoint
-import java.net.URI
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
@@ -32,7 +27,7 @@ import kotlin.concurrent.getOrSet
 open class SpectaclesAmqpDpk internal constructor(
     private val group: String,
     private val subgroup: String,
-    broker: URI,
+    private val conn: Connection,
     scope: CoroutineScope,
     client: HttpClient,
     token: String?,
@@ -40,7 +35,6 @@ open class SpectaclesAmqpDpk internal constructor(
     defaultExceptionHandler: (Exception) -> Unit,
     val deleteQueuesAfter: Boolean,
 ): DiscordProxyKt(scope, client, token, cache, defaultExceptionHandler) {
-    private val conn: Connection
     private val amqpChannels = ThreadLocal<Channel>()
     val pool: ExecutorService = Executors.newWorkStealingPool()
     val handlerSequence = mutableMapOf<Events.Event<*>, AtomicInteger>()
@@ -69,10 +63,6 @@ open class SpectaclesAmqpDpk internal constructor(
     }
     
     init {
-        val factory = ConnectionFactory()
-        factory.setUri(broker)
-        conn = factory.newConnection()
-        
         on(Events.GUILD_MEMBERS_CHUNK) {
             @Suppress("UNCHECKED_CAST")
             val action: LargeAction<Member> = largeRequests[it.nonce] as? LargeAction<Member> ?: return@on
